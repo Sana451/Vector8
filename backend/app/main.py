@@ -30,8 +30,6 @@ app = FastAPI(
     generate_unique_id_function=custom_generate_unique_id,
 )
 
-log.info("fastapi_app_created", project_name=settings.PROJECT_NAME)
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.FRONTEND_HOST],
