@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Vector8 — Logo System</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#171c22; --paper:#ece6d6; --paper-hi:#fbfaf5;
+    --ink:#201c14; --ink-soft:#524a3a;
+    --amber:#d98e2b; --amber-deep:#a9691a;
+    --teal:#3e6e76; --teal-deep:#2b4d54;
+    --line: rgba(32,28,20,0.16);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{ background:var(--bg); font-family:'Space Grotesk',sans-serif; color:var(--paper); -webkit-font-smoothing:antialiased; }
+  .mono{ font-family:'IBM Plex Mono', monospace; }
+  .wrap{ max-width:920px; margin:0 auto; padding:52px 22px 100px; }
+
+  .intro{ margin-bottom:38px; }
+  .intro .kicker{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--amber); margin:0 0 10px; }
+  .intro h1{ font-size:26px; font-weight:600; margin:0 0 10px; max-width:600px; line-height:1.3; }
+  .intro p{ font-size:14px; color:rgba(236,230,214,0.65); max-width:560px; line-height:1.6; margin:0; }
+
+  .block{ margin-bottom:34px; }
+  .block-label{ font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:rgba(236,230,214,0.4); margin:0 0 12px 2px; }
+
+  /* --- icon mark, built as reusable SVG symbol --- */
+  .icon-num{ font-family:'Space Grotesk',sans-serif; font-weight:700; }
+
+  /* --- lockup panels --- */
+  .panel{ border-radius:6px; padding:46px 40px; display:flex; align-items:center; gap:22px; }
+  .panel.dark{ background:var(--ink); }
+  .panel.paper{ background:var(--paper); }
+  .lockup-word{ display:flex; flex-direction:column; }
+  .lockup-word .name{ display:flex; align-items:baseline; font-size:38px; font-weight:700; letter-spacing:-0.01em; line-height:1; }
+  .lockup-word .name .icon-slot{ display:inline-flex; align-items:center; margin-left:2px; }
+  .lockup-word .tag{ font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.02em; margin-top:10px; }
+  .panel.dark .name{ color:var(--paper); }
+  .panel.dark .tag{ color:rgba(236,230,214,0.55); }
+  .panel.paper .name{ color:var(--ink); }
+  .panel.paper .tag{ color:var(--ink-soft); }
+
+  /* --- icon-only tiles --- */
+  .tile-row{ display:flex; gap:16px; align-items:flex-end; flex-wrap:wrap; }
+  .tile{ background:var(--ink); border-radius:22%; display:flex; align-items:center; justify-content:center; flex:none; }
+  .tile.lg{ width:132px; height:132px; border-radius:28px; }
+  .tile.md{ width:72px; height:72px; border-radius:16px; }
+  .tile.sm{ width:40px; height:40px; border-radius:10px; }
+  .tile-cap{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:rgba(236,230,214,0.4); text-align:center; margin-top:8px; }
+  .tile-col{ display:flex; flex-direction:column; align-items:center; }
+
+  /* --- mono / single-color variant --- */
+  .mono-panel{ background:var(--paper); border-radius:6px; padding:40px; display:flex; align-items:center; gap:20px; }
+  .mono-panel .name{ font-size:34px; font-weight:700; color:var(--ink); display:flex; align-items:baseline; }
+
+  /* --- rationale --- */
+  .rationale-grid{ display:grid; grid-template-columns:1fr 1fr; gap:18px 28px; }
+  .rationale-item{ border-top:1px solid rgba(236,230,214,0.16); padding-top:12px; }
+  .rationale-item h4{ font-size:14px; margin:0 0 6px; font-weight:600; color:var(--paper); }
+  .rationale-item p{ font-size:12.5px; color:rgba(236,230,214,0.62); line-height:1.55; margin:0; }
+
+  /* --- taglines --- */
+  .tag-list{ display:flex; flex-direction:column; gap:10px; }
+  .tag-row{ display:flex; justify-content:space-between; align-items:center; padding:16px 18px; border:1px solid rgba(236,230,214,0.14); border-radius:5px; }
+  .tag-row.primary{ border-color:var(--amber); background:rgba(217,142,43,0.08); }
+  .tag-row .t{ font-size:16px; font-weight:600; }
+  .tag-row .ctx{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:rgba(236,230,214,0.45); text-align:right; }
+  .tag-row.primary .ctx{ color:var(--amber); }
+
+  /* --- context mockup: app icon among others --- */
+  .home-row{ background:linear-gradient(180deg,#0e1116,#171c22); border-radius:26px; padding:26px 22px; display:flex; gap:18px; }
+  .app-icon{ width:56px; height:56px; border-radius:14px; flex:none; }
+
+  @media (max-width:640px){
+    .rationale-grid{ grid-template-columns:1fr; }
+    .panel{ flex-direction:column; align-items:flex-start; padding:34px 24px; }
+    .lockup-word .name{ font-size:30px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="intro">
+    <p class="kicker mono">VECTOR8 — LOGO SYSTEM</p>
+    <h1>The 8 does double duty: it reads as a digit, and as Class 8 — the exact truck class the app routes for.</h1>
+    <p>The mark is a bold numeral 8 sliced by a single vector line exiting top-right — a route heading, a trip already in motion. Three short ticks trail the arrow's tail, standing in for speed and for the three roles riding the same route: driver, dispatcher, owner.</p>
+  </div>
+
+  <!-- PRIMARY LOCKUP — DARK -->
+  <div class="block">
+    <p class="block-label">Primary lockup — dark</p>
+    <div class="panel dark">
+      <svg width="70" height="70" viewBox="0 0 100 100">
+        <rect width="100" height="100" rx="24" fill="#d98e2b"/>
+        <text x="50" y="72" text-anchor="middle" font-size="64" class="icon-num" fill="#201c14">8</text>
+        <path d="M18,74 L78,18" stroke="#201c14" stroke-width="5" stroke-linecap="round"/>
+        <path d="M78,18 L60,22 M78,18 L74,36" stroke="#201c14" stroke-width="5" stroke-linecap="round" fill="none"/>
+        <path d="M8,82 L16,74 M2,72 L10,64" stroke="#201c14" stroke-width="3" stroke-linecap="round" opacity="0.55"/>
+      </svg>
+      <div class="lockup-word">
+        <div class="name">VECTOR<span class="icon-slot">
+          <svg width="30" height="38" viewBox="0 0 100 130">
+            <text x="50" y="98" text-anchor="middle" font-size="98" class="icon-num" fill="#d98e2b">8</text>
+            <path d="M14,102 L88,20" stroke="#ece6d6" stroke-width="7" stroke-linecap="round"/>
+            <path d="M88,20 L64,26 M88,20 L82,50" stroke="#ece6d6" stroke-width="7" stroke-linecap="round" fill="none"/>
+          </svg>
+        </span></div>
+        <div class="tag">AI-POWERED FLEET ROUTE &amp; FUEL INTELLIGENCE</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRIMARY LOCKUP — LIGHT -->
+  <div class="block">
+    <p class="block-label">Primary lockup — light</p>
+    <div class="panel paper">
+      <svg width="70" height="70" viewBox="0 0 100 100">
+        <rect width="100" height="100" rx="24" fill="#201c14"/>
+        <text x="50" y="72" text-anchor="middle" font-size="64" class="icon-num" fill="#ece6d6">8</text>
+        <path d="M18,74 L78,18" stroke="#d98e2b" stroke-width="5" stroke-linecap="round"/>
+        <path d="M78,18 L60,22 M78,18 L74,36" stroke="#d98e2b" stroke-width="5" stroke-linecap="round" fill="none"/>
+        <path d="M8,82 L16,74 M2,72 L10,64" stroke="#d98e2b" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+      </svg>
+      <div class="lockup-word">
+        <div class="name">VECTOR<span class="icon-slot">
+          <svg width="30" height="38" viewBox="0 0 100 130">
+            <text x="50" y="98" text-anchor="middle" font-size="98" class="icon-num" fill="#201c14">8</text>
+            <path d="M14,102 L88,20" stroke="#d98e2b" stroke-width="7" stroke-linecap="round"/>
+            <path d="M88,20 L64,26 M88,20 L82,50" stroke="#d98e2b" stroke-width="7" stroke-linecap="round" fill="none"/>
+          </svg>
+        </span></div>
+        <div class="tag">AI-POWERED FLEET ROUTE &amp; FUEL INTELLIGENCE</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ICON SCALE TEST -->
+  <div class="block">
+    <p class="block-label">Icon mark — scale test</p>
+    <div class="tile-row">
+      <div class="tile-col">
+        <div class="tile lg">
+          <svg width="70%" height="70%" viewBox="0 0 100 100">
+            <text x="50" y="72" text-anchor="middle" font-size="64" class="icon-num" fill="#ece6d6">8</text>
+            <path d="M18,74 L78,18" stroke="#d98e2b" stroke-width="6" stroke-linecap="round"/>
+            <path d="M78,18 L58,23 M78,18 L73,38" stroke="#d98e2b" stroke-width="6" stroke-linecap="round" fill="none"/>
+          </svg>
+        </div>
+        <div class="tile-cap">132px</div>
+      </div>
+      <div class="tile-col">
+        <div class="tile md">
+          <svg width="70%" height="70%" viewBox="0 0 100 100">
+            <text x="50" y="72" text-anchor="middle" font-size="64" class="icon-num" fill="#ece6d6">8</text>
+            <path d="M18,74 L78,18" stroke="#d98e2b" stroke-width="7" stroke-linecap="round"/>
+            <path d="M78,18 L58,23 M78,18 L73,38" stroke="#d98e2b" stroke-width="7" stroke-linecap="round" fill="none"/>
+          </svg>
+        </div>
+        <div class="tile-cap">72px</div>
+      </div>
+      <div class="tile-col">
+        <div class="tile sm">
+          <svg width="70%" height="70%" viewBox="0 0 100 100">
+            <text x="50" y="72" text-anchor="middle" font-size="64" class="icon-num" fill="#ece6d6">8</text>
+            <path d="M18,74 L78,18" stroke="#d98e2b" stroke-width="9" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="tile-cap">40px</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ON A PHONE HOME SCREEN -->
+  <div class="block">
+    <p class="block-label">In context — next to what a dispatcher already has installed</p>
+    <div class="home-row">
+      <svg class="app-icon" viewBox="0 0 100 100"><rect width="100" height="100" rx="24" fill="#d98e2b"/>
+        <text x="50" y="72" text-anchor="middle" font-size="64" class="icon-num" fill="#201c14">8</text>
+        <path d="M18,74 L78,18" stroke="#201c14" stroke-width="6" stroke-linecap="round"/>
+        <path d="M78,18 L60,22 M78,18 L74,36" stroke="#201c14" stroke-width="6" stroke-linecap="round" fill="none"/>
+      </svg>
+      <svg class="app-icon" viewBox="0 0 100 100"><rect width="100" height="100" rx="24" fill="#3e6e76"/><circle cx="50" cy="46" r="16" fill="#ece6d6"/><rect x="30" y="66" width="40" height="8" rx="4" fill="#ece6d6"/></svg>
+      <svg class="app-icon" viewBox="0 0 100 100"><rect width="100" height="100" rx="24" fill="#2b4d54"/><path d="M28,60 L50,32 L72,60 Z" fill="#ece6d6"/></svg>
+      <svg class="app-icon" viewBox="0 0 100 100"><rect width="100" height="100" rx="24" fill="#524a3a"/><rect x="28" y="28" width="44" height="44" rx="6" fill="#ece6d6"/></svg>
+    </div>
+  </div>
+
+  <!-- MONOCHROME -->
+  <div class="block">
+    <p class="block-label">Single-color — door decal / etching / embroidery</p>
+    <div class="mono-panel">
+      <svg width="60" height="60" viewBox="0 0 100 100">
+        <rect x="4" y="4" width="92" height="92" rx="22" fill="none" stroke="#201c14" stroke-width="5"/>
+        <text x="50" y="72" text-anchor="middle" font-size="64" class="icon-num" fill="#201c14">8</text>
+        <path d="M18,74 L78,18" stroke="#201c14" stroke-width="5" stroke-linecap="round"/>
+        <path d="M78,18 L60,22 M78,18 L74,36" stroke="#201c14" stroke-width="5" stroke-linecap="round" fill="none"/>
+      </svg>
+      <div class="name">VECTOR8</div>
+    </div>
+  </div>
+
+  <!-- RATIONALE -->
+  <div class="block">
+    <p class="block-label">Why it works</p>
+    <div class="rationale-grid">
+      <div class="rationale-item"><h4>8 = the digit and the truck class</h4><p>No metaphor to explain — a fleet owner reads "8" and thinks Class 8 before they think "logo."</p></div>
+      <div class="rationale-item"><h4>One line, three readings</h4><p>The diagonal stroke is a route heading, a trip in progress, and — because it cuts straight through the numeral — the literal vector the name promises.</p></div>
+      <div class="rationale-item"><h4>Trailing ticks</h4><p>The two short marks at the tail read as motion lines. They're also just enough repetition to hint at three positions on one line — driver, dispatcher, owner — without turning into a diagram.</p></div>
+      <div class="rationale-item"><h4>Legible at 40px</h4><p>A thick numeral plus one diagonal stroke survives being shrunk to an app-tray icon; most route/map iconography doesn't.</p></div>
+    </div>
+  </div>
+
+  <!-- TAGLINES -->
+  <div class="block">
+    <p class="block-label">Tagline options</p>
+    <div class="tag-list">
+      <div class="tag-row primary"><span class="t">Every Mile, AI-Optimized.</span><span class="ctx mono">primary — app store, splash screen</span></div>
+      <div class="tag-row"><span class="t">AI-Powered Routes. Real Fuel Savings.</span><span class="ctx mono">sales one-pager — leads with the money case</span></div>
+      <div class="tag-row"><span class="t">One Route. Every Role. One AI.</span><span class="ctx mono">pitch deck — speaks to driver→dispatcher→owner</span></div>
+      <div class="tag-row"><span class="t">AI-Powered Fleet Route &amp; Fuel Intelligence</span><span class="ctx mono">descriptor line — used under the wordmark itself</span></div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
