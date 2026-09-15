@@ -55,10 +55,6 @@
 
 ![API docs](img/docs.png)
 
-## How to Use It
-
-Click the **Use this template** button at the top of this page to create a new repository.
-
 ## Backend Development
 
 Backend docs: [backend/README.md](./backend/README.md).
