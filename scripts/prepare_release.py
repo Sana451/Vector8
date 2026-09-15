@@ -1,7 +1,7 @@
 """Prepare a release by updating and extracting release notes."""
 
 import re
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -45,7 +45,7 @@ def update_release_notes(
     latest_header = f"{RELEASE_NOTES_HEADER}{LATEST_CHANGES_HEADER}\n"
     if not content.startswith(latest_header):
         raise RuntimeError(f"{release_notes_file} must start with {latest_header!r}")
-    if re.search(rf"^## {re.escape(version)}(?: \([^)]+\))?$", content, re.M):
+    if re.search(rf"^## {re.escape(version)}(?: \([^)]+\))?$", content, re.MULTILINE):
         raise RuntimeError(f"Release notes already contain a section for {version}")
 
     current_version = get_current_version(content, release_notes_file)
@@ -123,9 +123,11 @@ def prepare(
             "--date",
             help="Release date in YYYY-MM-DD format. Defaults to today.",
         ),
-    ] = date.today().isoformat(),
+    ] = datetime.now(timezone.utc).date().isoformat(),
 ) -> None:
-    parsed_release_date = date.fromisoformat(release_date or date.today().isoformat())
+    parsed_release_date = date.fromisoformat(
+        release_date or datetime.now(timezone.utc).date().isoformat()
+    )
     version = prepare_release(bump, parsed_release_date, release_notes_file)
     typer.echo(f"Prepared release {version} ({parsed_release_date.isoformat()})")
 

@@ -1,9 +1,11 @@
 """Structured logging configuration using structlog."""
+
 import logging
-import sys
 from typing import Any
+
 import structlog
-from structlog.typing import EventDict, WrappedLogger
+
+
 def configure_logging(env: str | None = None) -> None:
     """
     Configure structlog for the application.
@@ -33,6 +35,8 @@ def configure_logging(env: str | None = None) -> None:
     # Also configure standard library logging to use structlog
     # This allows libraries that use logging to work seamlessly
     structlog.stdlib.recreate_defaults()
+
+
 def get_logger(name: str | None = None) -> structlog.BoundLogger:
     """
     Get a structlog logger instance.
