@@ -27,6 +27,8 @@ jobs:
           version: "latest-known"
       - run: docker compose down -v --remove-orphans
       - run: docker compose up -d --wait db mailpit
+      - name: Check PostGIS is available
+        run: docker compose exec -T db psql -U postgres -d app -c "SELECT PostGIS_Version();"
       - name: Migrate DB
         run: uv run bash scripts/prestart.sh
         working-directory: backend
