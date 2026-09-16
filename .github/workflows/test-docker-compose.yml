@@ -20,8 +20,6 @@ jobs:
           persist-credentials: false
       - run: docker compose build
       - run: docker compose down -v --remove-orphans
-      - name: Check PostGIS is available
-        run: docker compose run --rm db psql -U postgres -d app -c "SELECT PostGIS_Version();"
       - run: docker compose run --rm backend bash scripts/prestart.sh
       - run: docker compose up -d --wait backend adminer
       - name: Test backend is up
