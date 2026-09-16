@@ -1,0 +1,4 @@
+[default.extend-words]
+# PostgreSQL and PostGIS technical terms
+BRIN = "BRIN"
+brin = "brin"

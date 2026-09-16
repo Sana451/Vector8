@@ -97,7 +97,7 @@ jobs:
         run: exit 1
 
   # https://github.com/marketplace/actions/alls-green#why
-  pre-commit-alls-green:  # This job does nothing and is only used for the branch protection
+  pre-commit-all-green:  # This job does nothing and is only used for the branch protection
     if: always()
     needs:
       - pre-commit

@@ -42,6 +42,79 @@ Mailpit: <http://localhost:8025>
 
 The frontend development server uses the backend at `http://localhost:8000`, as configured in `frontend/.env`.
 
+## PostGIS
+
+This project uses PostGIS for spatial data support. PostGIS is automatically enabled when the database starts.
+
+### Verifying PostGIS Installation
+
+To verify that PostGIS is available in your database, run:
+
+```bash
+docker compose exec db psql -U postgres -d app -c "SELECT PostGIS_Version();"
+```
+
+Expected output:
+
+```
+       postgis_version
+─────────────────────────────────
+ 3.6.0 USE GEOS=3.12.1 CAPI=1.18.0
+(1 row)
+```
+
+### Testing Spatial Functions
+
+Test creating a point with SRID (WGS84):
+
+```bash
+docker compose exec db psql -U postgres -d app -c "
+SELECT ST_AsText(
+    ST_SetSRID(ST_Point(-97.6386, 39.8379), 4326)
+);"
+```
+
+Expected output:
+
+```
+           st_astext
+──────────────────────────────
+ POINT(-97.6386 39.8379)
+(1 row)
+```
+
+Test calculating distance in meters (using geography type):
+
+```bash
+docker compose exec db psql -U postgres -d app -c "
+SELECT ST_Distance(
+    ST_SetSRID(ST_Point(0, 0), 4326)::geography,
+    ST_SetSRID(ST_Point(1, 1), 4326)::geography
+);"
+```
+
+### Using GeoAlchemy2 in Models
+
+Define spatial models with proper SRID and spatial indexing:
+
+```python
+from sqlalchemy import Column
+from geoalchemy2 import Geometry
+from sqlmodel import SQLModel, Field
+
+class Location(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    name: str
+    # Point geometry in WGS84 (EPSG:4326) with GIST spatial index
+    geom: Geometry = Field(
+        sa_column=Column(
+            Geometry("POINT", srid=4326, spatial_index=True)
+        )
+    )
+```
+
+For US applications, always use `srid=4326` (WGS84) and enable `spatial_index=True`.
+
 ### Frontend Served by FastAPI
 
 Build the frontend from the `frontend` directory:
