@@ -1,0 +1,430 @@
+/* Vector8 — component classes
+   Requires tokens.css and fonts.css to be loaded first.
+   Every class here is meant to be used as-is in real markup (or ported
+   to your JSX/styled-components equivalent). */
+
+/* ---------- buttons ---------- */
+.btn {
+  all: unset;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+}
+.btn.lg {
+  font-size: 14px;
+  padding: 12px 22px;
+}
+.btn.md {
+  font-size: 13px;
+  padding: 9px 17px;
+}
+.btn.sm {
+  font-size: 11.5px;
+  padding: 6px 12px;
+}
+
+.btn-primary {
+  background: var(--amber-500);
+  color: var(--ink-900);
+}
+.btn-primary:hover {
+  background: #c47d24;
+}
+
+.btn-dark {
+  background: var(--ink-900);
+  color: var(--paper-100);
+}
+.btn-dark:hover {
+  background: #332a1c;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1.5px solid var(--ink-line);
+  color: var(--ink-900);
+}
+.btn-outline:hover {
+  border-color: var(--ink-900);
+}
+
+.btn-outline-dark {
+  background: transparent;
+  border: 1.5px solid var(--slate-border-2);
+  color: var(--slate-text);
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: #fbfaf5;
+}
+
+.btn.disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+/* ---------- form fields ---------- */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.field label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--ink-600);
+}
+
+.input,
+.select {
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  padding: 10px 12px;
+  border-radius: 5px;
+  border: 1.5px solid var(--ink-line);
+  background: var(--paper-50);
+  color: var(--ink-900);
+}
+.input:focus,
+.select:focus {
+  outline: none;
+  border-color: var(--amber-500);
+  box-shadow: 0 0 0 3px var(--amber-100);
+}
+.input::placeholder {
+  color: rgba(32, 28, 20, 0.4);
+}
+
+.toggle-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+.toggle {
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  background: var(--teal-500);
+  position: relative;
+  flex: none;
+  cursor: pointer;
+}
+.toggle::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: right 0.15s ease;
+}
+.toggle.off {
+  background: var(--ink-line);
+}
+.toggle.off::after {
+  right: 18px;
+}
+
+.check-row,
+.radio-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+}
+.checkbox {
+  width: 17px;
+  height: 17px;
+  border-radius: 4px;
+  border: 1.5px solid var(--ink-line);
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.checkbox.on {
+  background: var(--amber-500);
+  border-color: var(--amber-500);
+  color: var(--ink-900);
+  font-size: 11px;
+  font-weight: 700;
+}
+.radio-dot {
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  border: 1.5px solid var(--ink-line);
+  flex: none;
+}
+.radio-dot.on {
+  border-color: var(--amber-600);
+  background: radial-gradient(var(--amber-600) 0 40%, transparent 42%);
+}
+
+/* ---------- badges / tags ---------- */
+.badge {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.badge-amber {
+  background: var(--amber-500);
+  color: var(--ink-900);
+}
+.badge-teal {
+  background: var(--teal-500);
+  color: #fff;
+}
+.badge-outline {
+  background: transparent;
+  border: 1px solid var(--ink-line);
+  color: var(--ink-600);
+}
+.badge-success {
+  background: var(--success-bg);
+  color: var(--success);
+}
+.badge-warning {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+.badge-danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.badge-dot::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ---------- cards ---------- */
+.stat-card {
+  background: var(--paper-50);
+  border: 1px solid var(--ink-line);
+  border-radius: 6px;
+  padding: 15px 17px;
+  min-width: 150px;
+}
+.stat-card .k {
+  font-size: 11px;
+  color: var(--ink-600);
+  margin-bottom: 6px;
+}
+.stat-card .v {
+  font-family: var(--font-mono);
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--ink-900);
+}
+.stat-card .v.pos {
+  color: var(--teal-700);
+}
+
+.list-card {
+  background: var(--paper-50);
+  border: 1px solid var(--ink-line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.list-card .row-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 15px;
+  border-bottom: 1px solid var(--ink-line);
+  font-size: 13px;
+}
+.list-card .row-item:last-child {
+  border-bottom: none;
+}
+.list-card .row-item .t {
+  font-weight: 600;
+}
+.list-card .row-item .d {
+  font-size: 11px;
+  color: var(--ink-600);
+}
+
+/* ---------- alerts ---------- */
+.alert {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border-radius: 6px;
+  border-left: 3px solid;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.alert .ic {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 13px;
+  flex: none;
+}
+.alert-info {
+  background: var(--info-bg);
+  border-color: var(--info);
+  color: var(--slate-text);
+}
+.alert-success {
+  background: var(--success-bg);
+  border-color: var(--success);
+  color: var(--slate-text);
+}
+.alert-warning {
+  background: var(--warning-bg);
+  border-color: var(--warning);
+  color: var(--slate-text);
+}
+.alert-danger {
+  background: var(--danger-bg);
+  border-color: var(--danger);
+  color: var(--slate-text);
+}
+
+/* ---------- table ---------- */
+table.dtable {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--paper-50);
+  border: 1px solid var(--ink-line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+table.dtable th {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--ink-600);
+  padding: 11px 14px;
+  background: var(--paper-100);
+  font-weight: 600;
+}
+table.dtable td {
+  padding: 11px 14px;
+  font-size: 13px;
+  border-top: 1px solid var(--ink-line);
+  color: var(--ink-900);
+}
+table.dtable td.num {
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
+/* ---------- navigation ---------- */
+.crumb {
+  background: var(--ink-900);
+  color: rgba(236, 230, 214, 0.7);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 9px 15px;
+  border-radius: 5px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--ink-line);
+  padding: 3px;
+  border-radius: 6px;
+  width: max-content;
+}
+.tab {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  padding: 8px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--ink-600);
+}
+.tab.active {
+  background: var(--paper-50);
+  color: var(--ink-900);
+  font-weight: 600;
+}
+
+.steps {
+  display: flex;
+  align-items: center;
+}
+.step-dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.5px solid var(--ink-line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-600);
+}
+.step-dot.active {
+  background: var(--amber-500);
+  border-color: var(--amber-500);
+  color: var(--ink-900);
+  font-weight: 700;
+}
+.step-dot.done {
+  border-color: var(--teal-500);
+  color: var(--teal-500);
+}
+.step-line {
+  width: 28px;
+  height: 1px;
+  background: var(--ink-line);
+}
+.step-line.done {
+  background: var(--teal-500);
+}
+
+/* ---------- typography utility classes (optional) ---------- */
+.t-display {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 34px;
+  letter-spacing: -0.01em;
+}
+.t-h1 {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 26px;
+}
+.t-h2 {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 19px;
+}
+.t-body {
+  font-family: var(--font-ui);
+  font-weight: 400;
+  font-size: 15px;
+}
+.t-small {
+  font-family: var(--font-ui);
+  font-weight: 400;
+  font-size: 12.5px;
+}
+.t-mono {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}

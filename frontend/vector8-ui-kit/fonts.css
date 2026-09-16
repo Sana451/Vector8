@@ -1,0 +1,5 @@
+/* Vector8 — fonts
+   Swap this @import for self-hosted @font-face rules later if you want
+   to drop the Google Fonts network request (better for perf / GDPR-strict setups). */
+
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap");

@@ -1,0 +1,48 @@
+/* Vector8 — design tokens
+   Import this file once (e.g. in your global stylesheet or _app entry).
+   Component classes in components.css depend on these variables. */
+
+:root {
+  /* brand */
+  --amber-600: #a9691a;
+  --amber-500: #d98e2b;
+  --amber-200: rgba(217, 142, 43, 0.16);
+  --amber-100: rgba(217, 142, 43, 0.08);
+
+  --teal-700: #2b4d54;
+  --teal-500: #3e6e76;
+  --teal-200: rgba(62, 110, 118, 0.16);
+  --teal-100: rgba(62, 110, 118, 0.08);
+
+  /* neutrals — slate: cool, for dark app shell / chrome */
+  --slate-900: #10141a;
+  --slate-800: #171c22;
+  --slate-700: #1e252d;
+  --slate-600: #2a323c;
+  --slate-border: rgba(236, 230, 214, 0.14);
+  --slate-border-2: rgba(236, 230, 214, 0.28);
+  --slate-text: #ece6d6;
+  --slate-text-dim: rgba(236, 230, 214, 0.6);
+  --slate-text-faint: rgba(236, 230, 214, 0.4);
+
+  /* neutrals — ink/paper: warm, for text & surfaces on light backgrounds */
+  --ink-900: #201c14;
+  --ink-600: #524a3a;
+  --ink-line: rgba(32, 28, 20, 0.16);
+  --paper-100: #ece6d6;
+  --paper-50: #fbfaf5;
+
+  /* semantic — reserved for system alerts/status, never decorative */
+  --success: var(--teal-700);
+  --success-bg: var(--teal-100);
+  --info: var(--teal-500);
+  --info-bg: var(--teal-100);
+  --warning: #c1602e;
+  --warning-bg: rgba(193, 96, 46, 0.12);
+  --danger: #9c3b2e;
+  --danger-bg: rgba(156, 59, 46, 0.12);
+
+  /* type */
+  --font-ui: "Space Grotesk", sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+}
