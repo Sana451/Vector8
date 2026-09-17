@@ -65,6 +65,13 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
 
+    # Routing configuration
+    ROUTING_PROVIDER: Literal["tomtom"] = "tomtom"
+    TOMTOM_API_KEY: str | None = None
+    TOMTOM_BASE_URL: str = "https://api.tomtom.com"
+    TOMTOM_API_VERSION: str = "3"
+    TOMTOM_TIMEOUT_SECONDS: int = 30
+
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
             message = (
@@ -75,6 +82,21 @@ class Settings(BaseSettings):
                 warnings.warn(message, stacklevel=1)
             else:
                 raise ValueError(message)
+
+    @model_validator(mode="after")
+    def _validate_routing_config(self) -> Self:
+        # In development, allow missing TOMTOM_API_KEY, but warn
+        if self.ROUTING_PROVIDER == "tomtom" and not self.TOMTOM_API_KEY:
+            if self.FASTAPI_ENV == "development":
+                warnings.warn(
+                    "TOMTOM_API_KEY is not set. Routing API will not work until configured.",
+                    stacklevel=1,
+                )
+            else:
+                raise ValueError(
+                    "TOMTOM_API_KEY is required when ROUTING_PROVIDER is set to 'tomtom'"
+                )
+        return self
 
     @model_validator(mode="after")
     def _enforce_non_default_secrets(self) -> Self:

@@ -1,0 +1,83 @@
+{
+  "routes": [
+    {
+      "summary": {
+        "lengthInMeters": 1234,
+        "travelDurationInSeconds": 456,
+        "trafficDelayDurationInSeconds": 30,
+        "trafficLengthInMeters": 100,
+        "departureDateTime": "2024-09-17T10:00:00Z",
+        "arrivalDateTime": "2024-09-17T10:07:36Z",
+        "deviationDistanceInMeters": 10,
+        "deviationDurationInSeconds": 5,
+        "progressPoints": [
+          {
+            "pathIndex": 0,
+            "distanceInMeters": 0,
+            "travelDurationInSeconds": 0
+          },
+          {
+            "pathIndex": 50,
+            "distanceInMeters": 617,
+            "travelDurationInSeconds": 228
+          },
+          {
+            "pathIndex": 100,
+            "distanceInMeters": 1234,
+            "travelDurationInSeconds": 456
+          }
+        ]
+      },
+      "legs": [
+        {
+          "summary": {
+            "lengthInMeters": 1234,
+            "travelDurationInSeconds": 456,
+            "trafficDelayDurationInSeconds": 30,
+            "trafficLengthInMeters": 100,
+            "departureDateTime": "2024-09-17T10:00:00Z",
+            "arrivalDateTime": "2024-09-17T10:07:36Z"
+          },
+          "path": {
+            "type": "LineString",
+            "coordinates": [
+              [-74.006, 40.7128],
+              [-74.005, 40.7135],
+              [-74.004, 40.7142],
+              [-73.9352, 40.7306]
+            ]
+          }
+        }
+      ],
+      "sections": [
+        {
+          "startPathIndex": 0,
+          "endPathIndex": 100,
+          "sectionType": "TRAFFIC",
+          "iconCategory": "congestion",
+          "effectiveSpeedInKilometersPerHour": 45,
+          "delayDurationInSeconds": 30,
+          "delayMagnitude": "moderate"
+        },
+        {
+          "startPathIndex": 0,
+          "endPathIndex": 100,
+          "sectionType": "COUNTRY",
+          "countryCodeIso2": "US"
+        },
+        {
+          "startPathIndex": 0,
+          "endPathIndex": 100,
+          "sectionType": "SPEED_LIMIT",
+          "speedRestrictions": [
+            {
+              "type": "GENERAL",
+              "inKilometersPerHour": 65
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "formatVersion": "0.0.12"
+}
