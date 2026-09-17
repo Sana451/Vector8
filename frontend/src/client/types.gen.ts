@@ -5,6 +5,65 @@ export type ClientOptions = {
 };
 
 /**
+ * ArrivalSidePreference
+ *
+ * Preference for which side of road to arrive on.
+ */
+export type ArrivalSidePreference = 'anySide' | 'curbSide';
+
+/**
+ * AvoidAreaRectangle
+ *
+ * Avoid area rectangle as GeoJSON Feature.
+ *
+ * bbox: [sw_lon, sw_lat, ne_lon, ne_lat]
+ */
+export type AvoidAreaRectangle = {
+    /**
+     * Type
+     */
+    type?: 'Feature';
+    /**
+     * Geometry
+     */
+    geometry?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Bbox
+     *
+     * [sw_lon, sw_lat, ne_lon, ne_lat]
+     */
+    bbox: [
+        number,
+        number,
+        number,
+        number
+    ];
+};
+
+/**
+ * AvoidAreas
+ *
+ * Avoid areas configuration.
+ */
+export type AvoidAreas = {
+    /**
+     * Rectangles
+     *
+     * Maximum 10 avoid area rectangles
+     */
+    rectangles?: Array<AvoidAreaRectangle>;
+};
+
+/**
+ * AvoidType
+ *
+ * Road features to avoid.
+ */
+export type AvoidType = 'tollRoads' | 'motorways' | 'ferries' | 'unpavedRoads' | 'carpools' | 'alreadyUsedRoads' | 'borderCrossings' | 'tunnels' | 'carTrains';
+
+/**
  * Body_login-login_access_token
  */
 export type Body_login_login_access_token = {
@@ -32,6 +91,237 @@ export type Body_login_login_access_token = {
      * Client Secret
      */
     client_secret?: string | null;
+};
+
+/**
+ * CalculateRouteRequest
+ *
+ * Calculate route request.
+ *
+ * Comprehensive request model supporting TomTom Calculate Route API v3 features.
+ */
+export type CalculateRouteRequest = {
+    route_planning_locations: RoutePlanningLocations;
+    /**
+     * Suggested path as LineString
+     */
+    path?: GeoJSONLineString | null;
+    /**
+     * Legs
+     *
+     * Multi-leg route configuration
+     */
+    legs?: Array<RouteLeg> | null;
+    /**
+     * Avoids
+     *
+     * Road features to avoid (non-empty list)
+     */
+    avoids?: Array<AvoidType> | null;
+    /**
+     * Areas to avoid
+     */
+    avoid_areas?: AvoidAreas | null;
+    /**
+     * Route optimization strategy
+     */
+    route_type?: RouteType | null;
+    /**
+     * Traffic mode: live or historical
+     */
+    traffic?: TrafficMode | null;
+    /**
+     * Max Path Alternative Routes
+     *
+     * Maximum number of alternative routes (0-5)
+     */
+    max_path_alternative_routes?: number | null;
+    /**
+     * Travel mode: car or taxi
+     */
+    travel_mode?: TravelMode | null;
+    /**
+     * Preference for arrival side
+     */
+    arrival_side_preference?: ArrivalSidePreference | null;
+    /**
+     * Vehicle Heading In Degrees
+     *
+     * Vehicle heading in degrees (0-359)
+     */
+    vehicle_heading_in_degrees?: number | null;
+    /**
+     * Vehicle Max Speed In Kilometers Per Hour
+     *
+     * Maximum speed in km/h (0-250)
+     */
+    vehicle_max_speed_in_kilometers_per_hour?: number | null;
+    /**
+     * Vehicle Weight In Kilograms
+     *
+     * Vehicle weight in kilograms
+     */
+    vehicle_weight_in_kilograms?: number | null;
+    /**
+     * Vehicle engine type
+     */
+    vehicle_engine_type?: EngineType | null;
+    /**
+     * Electronic toll transponder status
+     */
+    vehicle_has_electronic_toll_collection_transponder?: ElectronicTollTransponder | null;
+    /**
+     * Departure Date Time
+     *
+     * Departure time (RFC3339 or 'now')
+     */
+    departure_date_time?: string | null;
+    /**
+     * Arrival Date Time
+     *
+     * Arrival time (RFC3339)
+     */
+    arrival_date_time?: string | null;
+    /**
+     * Attributes
+     *
+     * Route response attributes (TomTom header)
+     */
+    attributes?: string | null;
+    /**
+     * Attributes Exclude
+     *
+     * Excluded route attributes
+     */
+    attributes_exclude?: string | null;
+    /**
+     * Tracking Id
+     *
+     * Tracking ID for request correlation
+     */
+    tracking_id?: string | null;
+    /**
+     * Accept Language
+     *
+     * Accept-Language header value
+     */
+    accept_language?: string | null;
+};
+
+/**
+ * CalculateRouteResponse
+ *
+ * Calculate route response.
+ *
+ * Contains one or more routes depending on maxPathAlternativeRoutes parameter.
+ */
+export type CalculateRouteResponse = {
+    /**
+     * Routes
+     */
+    routes: Array<Route>;
+    /**
+     * Formatversion
+     */
+    formatVersion?: string | null;
+};
+
+/**
+ * DeviationPoint
+ *
+ * Deviation point information.
+ */
+export type DeviationPoint = {
+    point: GeoJSONPoint;
+    /**
+     * Pathindex
+     */
+    pathIndex: number;
+};
+
+/**
+ * ElectronicTollTransponder
+ *
+ * Electronic toll collection transponder type.
+ */
+export type ElectronicTollTransponder = 'all' | 'none';
+
+/**
+ * EngineType
+ *
+ * Vehicle engine type.
+ */
+export type EngineType = 'combustion' | 'electric';
+
+/**
+ * GeoJSONLineString
+ *
+ * GeoJSON LineString for path specification.
+ *
+ * Minimum 2 coordinates required.
+ */
+export type GeoJSONLineString = {
+    /**
+     * Type
+     */
+    type?: 'LineString';
+    /**
+     * Coordinates
+     *
+     * List of [longitude, latitude] coordinates
+     */
+    coordinates: Array<[
+        number,
+        number
+    ]>;
+};
+
+/**
+ * GeoJSONMultiPoint
+ *
+ * GeoJSON MultiPoint for waypoints.
+ *
+ * Maximum 150 waypoints supported.
+ */
+export type GeoJSONMultiPoint = {
+    /**
+     * Type
+     */
+    type?: 'MultiPoint';
+    /**
+     * Coordinates
+     *
+     * List of [longitude, latitude] coordinates
+     */
+    coordinates: Array<[
+        number,
+        number
+    ]>;
+};
+
+/**
+ * GeoJSONPoint
+ *
+ * GeoJSON Point with validated coordinates.
+ *
+ * Coordinates must be [longitude, latitude] in WGS84.
+ * - longitude: -180 to 180
+ * - latitude: -90 to 90
+ */
+export type GeoJSONPoint = {
+    /**
+     * Type
+     */
+    type?: 'Point';
+    /**
+     * Coordinates
+     *
+     * [longitude, latitude] in WGS84
+     */
+    coordinates: [
+        number,
+        number
+    ];
 };
 
 /**
@@ -113,6 +403,16 @@ export type ItemsPublic = {
 };
 
 /**
+ * Leg
+ *
+ * Route leg (segment between waypoints).
+ */
+export type Leg = {
+    summary: RouteSummary;
+    path?: GeoJSONLineString | null;
+};
+
+/**
  * Message
  */
 export type Message = {
@@ -159,6 +459,186 @@ export type PrivateUserCreate = {
 };
 
 /**
+ * ProgressPoint
+ *
+ * Progress point along route.
+ */
+export type ProgressPoint = {
+    /**
+     * Pathindex
+     *
+     * Index in path coordinates
+     */
+    pathIndex: number;
+    /**
+     * Distanceinmeters
+     */
+    distanceInMeters: number;
+    /**
+     * Traveldurationinseconds
+     */
+    travelDurationInSeconds: number;
+};
+
+/**
+ * Route
+ *
+ * Single calculated route.
+ */
+export type Route = {
+    summary: RouteSummary;
+    /**
+     * Legs
+     */
+    legs?: Array<Leg> | null;
+    /**
+     * Sections
+     */
+    sections?: Array<Section> | null;
+    /**
+     * Guidance
+     */
+    guidance?: {
+        [key: string]: unknown;
+    } | null;
+};
+
+/**
+ * RouteLeg
+ *
+ * Leg configuration for multi-leg routes.
+ */
+export type RouteLeg = {
+    route_type?: RouteType | null;
+    route_stop?: RouteStop | null;
+    path?: GeoJSONLineString | null;
+    /**
+     * Avoids
+     *
+     * Avoid specific road types
+     */
+    avoids?: Array<AvoidType> | null;
+};
+
+/**
+ * RoutePlanningLocations
+ *
+ * Route waypoints and stops.
+ */
+export type RoutePlanningLocations = {
+    /**
+     * Starting point
+     */
+    origin: GeoJSONPoint;
+    /**
+     * Destination point
+     */
+    destination: GeoJSONPoint;
+    /**
+     * Intermediate waypoints
+     */
+    waypoints?: GeoJSONMultiPoint | null;
+};
+
+/**
+ * RouteStop
+ *
+ * Stop information for route legs.
+ */
+export type RouteStop = {
+    /**
+     * Pause Duration In Seconds
+     *
+     * Pause duration in seconds
+     */
+    pause_duration_in_seconds?: number | null;
+    /**
+     * Entry Points
+     *
+     * Possible entry points for this stop
+     */
+    entry_points?: Array<GeoJSONPoint> | null;
+    /**
+     * Preferred Entry Point Index
+     *
+     * Preferred entry point index (requires entry_points)
+     */
+    preferred_entry_point_index?: number | null;
+};
+
+/**
+ * RouteSummary
+ *
+ * Route summary information.
+ */
+export type RouteSummary = {
+    /**
+     * Lengthinmeters
+     */
+    lengthInMeters: number;
+    /**
+     * Traveldurationinseconds
+     */
+    travelDurationInSeconds: number;
+    /**
+     * Trafficdelaydurationinseconds
+     */
+    trafficDelayDurationInSeconds?: number | null;
+    /**
+     * Trafficlengthinmeters
+     */
+    trafficLengthInMeters?: number | null;
+    /**
+     * Departuredatetime
+     */
+    departureDateTime?: string | null;
+    /**
+     * Arrivaldatetime
+     */
+    arrivalDateTime?: string | null;
+    /**
+     * Deviationdistanceinmeters
+     */
+    deviationDistanceInMeters?: number | null;
+    /**
+     * Deviationdurationinseconds
+     */
+    deviationDurationInSeconds?: number | null;
+    deviationPoint?: DeviationPoint | null;
+    /**
+     * Progresspoints
+     */
+    progressPoints?: Array<ProgressPoint> | null;
+};
+
+/**
+ * RouteType
+ *
+ * Route optimization type.
+ */
+export type RouteType = 'fast' | 'short' | 'efficient' | 'thrilling';
+
+/**
+ * Section
+ *
+ * Route section with various characteristics.
+ */
+export type Section = {
+    /**
+     * Startpathindex
+     */
+    startPathIndex: number;
+    /**
+     * Endpathindex
+     */
+    endPathIndex: number;
+    /**
+     * Sectiontype
+     */
+    sectionType?: string | null;
+};
+
+/**
  * Token
  */
 export type Token = {
@@ -171,6 +651,20 @@ export type Token = {
      */
     token_type?: string;
 };
+
+/**
+ * TrafficMode
+ *
+ * Traffic mode for routing.
+ */
+export type TrafficMode = 'live' | 'historical';
+
+/**
+ * TravelMode
+ *
+ * Vehicle travel mode.
+ */
+export type TravelMode = 'car' | 'taxi';
 
 /**
  * UpdatePassword
@@ -920,6 +1414,31 @@ export type itemsUpdateItemResponses = {
 };
 
 export type itemsUpdateItemResponse = itemsUpdateItemResponses[keyof itemsUpdateItemResponses];
+
+export type routingCalculateRouteData = {
+    body: CalculateRouteRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/routing/routes/calculate';
+};
+
+export type routingCalculateRouteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type routingCalculateRouteError = routingCalculateRouteErrors[keyof routingCalculateRouteErrors];
+
+export type routingCalculateRouteResponses = {
+    /**
+     * Successful Response
+     */
+    200: CalculateRouteResponse;
+};
+
+export type routingCalculateRouteResponse = routingCalculateRouteResponses[keyof routingCalculateRouteResponses];
 
 export type privateCreateUserData = {
     body: PrivateUserCreate;

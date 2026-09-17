@@ -2,7 +2,7 @@
 
 import { type Client, type Options as Options2, type TDataShape, urlSearchParamsBodySerializer } from './client';
 import { client } from './client.gen';
-import type { itemsCreateItemData, itemsCreateItemErrors, itemsCreateItemResponses, itemsDeleteItemData, itemsDeleteItemErrors, itemsDeleteItemResponses, itemsReadItemData, itemsReadItemErrors, itemsReadItemResponses, itemsReadItemsData, itemsReadItemsErrors, itemsReadItemsResponses, itemsUpdateItemData, itemsUpdateItemErrors, itemsUpdateItemResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses } from './types.gen';
+import type { itemsCreateItemData, itemsCreateItemErrors, itemsCreateItemResponses, itemsDeleteItemData, itemsDeleteItemErrors, itemsDeleteItemResponses, itemsReadItemData, itemsReadItemErrors, itemsReadItemResponses, itemsReadItemsData, itemsReadItemsErrors, itemsReadItemsResponses, itemsUpdateItemData, itemsUpdateItemErrors, itemsUpdateItemResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, routingCalculateRouteData, routingCalculateRouteErrors, routingCalculateRouteResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -355,6 +355,66 @@ export class ItemsService {
             responseType: 'json',
             security: [{ scheme: 'bearer', type: 'http' }],
             url: '/api/v1/items/{id}',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+}
+
+export class RoutingService {
+    /**
+     * Calculate Route
+     *
+     * Calculate route between locations.
+     *
+     * Calculates an optimized route between origin and destination with support for:
+     * - Multiple waypoints (up to 150)
+     * - Route alternatives
+     * - Traffic-aware routing (live or historical)
+     * - Vehicle-specific parameters (weight, speed, engine type, heading)
+     * - Avoidances (toll roads, motorways, ferries, unpaved roads, carpool lanes, etc.)
+     * - Avoid areas (up to 10 rectangular zones)
+     * - Entry points and route stops
+     * - Departure/arrival time constraints
+     *
+     * Request schema supports:
+     * - routePlanningLocations: origin, destination, and optional waypoints
+     * - routeType: fast, short, efficient, or thrilling
+     * - traffic: live or historical
+     * - Vehicle parameters: weight, speed, engine type, heading, toll transponder
+     * - Various avoidances and constraints
+     *
+     * Returns:
+     * - One or more calculated routes (based on maxPathAlternativeRoutes)
+     * - Route summary with distance, duration, and traffic info
+     * - Detailed legs and sections
+     * - Progress points for navigation
+     * - Traffic sections with incident info
+     * - Country and speed limit sections
+     *
+     * Args:
+     * request: Route calculation request
+     * routing_service: Routing service (injected via DI)
+     *
+     * Returns:
+     * Calculated route response with one or more routes
+     *
+     * Raises:
+     * HTTPException: Various HTTP errors based on routing provider response
+     * - 400: Bad request (invalid parameters, no route found)
+     * - 403: Authentication error (invalid API key)
+     * - 429: Rate limit exceeded
+     * - 408: Request timeout
+     * - 500: Provider error
+     * - 503: Provider unavailable
+     */
+    public static calculateRoute<ThrowOnError extends boolean = true>(options: Options<routingCalculateRouteData, ThrowOnError>) {
+        return (options.client ?? client).post<routingCalculateRouteResponses, routingCalculateRouteErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/api/v1/routing/routes/calculate',
             ...options,
             headers: {
                 'Content-Type': 'application/json',
