@@ -23,4 +23,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  optimizeDeps: {
+    exclude: ["maplibre-gl"],
+  },
 })

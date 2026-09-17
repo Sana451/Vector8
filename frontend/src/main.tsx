@@ -13,6 +13,8 @@ import { ThemeProvider } from "./components/theme-provider"
 import { Toaster } from "./components/ui/sonner"
 import "./index.css"
 import { routeTree } from "./routeTree.gen"
+import "./integrations/tomtom/config"
+import "maplibre-gl/dist/maplibre-gl.css"
 
 client.setConfig({
   baseURL: import.meta.env.VITE_API_URL ?? "",
