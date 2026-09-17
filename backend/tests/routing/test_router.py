@@ -240,3 +240,91 @@ class TestCalculateRouteEndpoint:
                 "/api/v1/routing/routes/calculate", json=request_body
             )
             assert response.status_code != 404
+
+    def test_calculate_route_bad_request_error(self, client):
+        """Test handling of RoutingBadRequestError."""
+        request_body = {
+            "route_planning_locations": {
+                "origin": {
+                    "type": "Point",
+                    "coordinates": [-74.006, 40.7128],
+                },
+                "destination": {
+                    "type": "Point",
+                    "coordinates": [-73.935, 40.7306],
+                },
+            },
+        }
+        with patch(
+            "app.routing.providers.tomtom.TomTomProvider.calculate_route"
+        ) as mock_calculate:
+            from app.routing.exceptions import RoutingBadRequestError
+
+            mock_calculate.side_effect = RoutingBadRequestError(
+                "No route found",
+                provider="tomtom",
+                provider_code="NO_ROUTE_FOUND",
+                status_code=400,
+            )
+            response = client.post(
+                "/api/v1/routing/routes/calculate", json=request_body
+            )
+            assert response.status_code == 400
+
+    def test_calculate_route_authentication_error(self, client):
+        """Test handling of RoutingAuthenticationError."""
+        request_body = {
+            "route_planning_locations": {
+                "origin": {
+                    "type": "Point",
+                    "coordinates": [-74.006, 40.7128],
+                },
+                "destination": {
+                    "type": "Point",
+                    "coordinates": [-73.935, 40.7306],
+                },
+            },
+        }
+        with patch(
+            "app.routing.providers.tomtom.TomTomProvider.calculate_route"
+        ) as mock_calculate:
+            from app.routing.exceptions import RoutingAuthenticationError
+
+            mock_calculate.side_effect = RoutingAuthenticationError(
+                "Invalid API key",
+                provider="tomtom",
+                status_code=403,
+            )
+            response = client.post(
+                "/api/v1/routing/routes/calculate", json=request_body
+            )
+            assert response.status_code == 403
+
+    def test_calculate_route_rate_limit_error(self, client):
+        """Test handling of RoutingRateLimitError."""
+        request_body = {
+            "route_planning_locations": {
+                "origin": {
+                    "type": "Point",
+                    "coordinates": [-74.006, 40.7128],
+                },
+                "destination": {
+                    "type": "Point",
+                    "coordinates": [-73.935, 40.7306],
+                },
+            },
+        }
+        with patch(
+            "app.routing.providers.tomtom.TomTomProvider.calculate_route"
+        ) as mock_calculate:
+            from app.routing.exceptions import RoutingRateLimitError
+
+            mock_calculate.side_effect = RoutingRateLimitError(
+                "Rate limit exceeded",
+                provider="tomtom",
+                status_code=429,
+            )
+            response = client.post(
+                "/api/v1/routing/routes/calculate", json=request_body
+            )
+            assert response.status_code == 429

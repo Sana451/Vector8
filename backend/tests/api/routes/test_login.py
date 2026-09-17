@@ -189,3 +189,103 @@ def test_login_with_argon2_password_keeps_hash(client: TestClient, db: Session) 
 
     assert user.hashed_password == original_hash
     assert user.hashed_password.startswith("$argon2")
+
+
+def test_login_with_inactive_user(client: TestClient, db: Session) -> None:
+    """Test that logging in with an inactive user fails."""
+    email = random_email()
+    password = random_lower_string()
+
+    user_create = UserCreate(
+        email=email,
+        password=password,
+        is_active=False,  # Inactive user
+        is_superuser=False,
+    )
+    create_user(session=db, user_create=user_create)
+
+    login_data = {"username": email, "password": password}
+    r = client.post(f"{settings.API_V1_STR}/login/access-token", data=login_data)
+    assert r.status_code == 400
+    assert "Inactive user" in r.json()["detail"]
+
+
+def test_reset_password_invalid_token_no_email(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """Test reset password with token that doesn't decode to an email."""
+    data = {
+        "new_password": "changethis",
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.invalid.invalid",
+    }
+    r = client.post(
+        f"{settings.API_V1_STR}/reset-password/",
+        headers=superuser_token_headers,
+        json=data,
+    )
+    assert r.status_code == 400
+    assert "Invalid token" in r.json()["detail"]
+
+
+def test_reset_password_user_not_found(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """Test reset password when user doesn't exist in DB."""
+    email = random_email()
+    token = generate_password_reset_token(email=email)
+    data = {"new_password": "changethis", "token": token}
+    r = client.post(
+        f"{settings.API_V1_STR}/reset-password/",
+        headers=superuser_token_headers,
+        json=data,
+    )
+    assert r.status_code == 400
+    # Should return same error as invalid token to prevent email enumeration
+    assert "Invalid token" in r.json()["detail"]
+
+
+def test_reset_password_inactive_user(client: TestClient, db: Session) -> None:
+    """Test reset password when user is inactive."""
+    email = random_email()
+    password = random_lower_string()
+    new_password = random_lower_string()
+
+    user_create = UserCreate(
+        email=email,
+        password=password,
+        is_active=False,  # Inactive user
+        is_superuser=False,
+    )
+    create_user(session=db, user_create=user_create)
+    token = generate_password_reset_token(email=email)
+    data = {"new_password": new_password, "token": token}
+
+    r = client.post(
+        f"{settings.API_V1_STR}/reset-password/",
+        json=data,
+    )
+    assert r.status_code == 400
+    assert "Inactive user" in r.json()["detail"]
+
+
+def test_recover_password_html_content_requires_superuser(client: TestClient) -> None:
+    """Test that password recovery HTML endpoint requires superuser."""
+    email = random_email()
+    r = client.post(
+        f"{settings.API_V1_STR}/password-recovery-html-content/{email}",
+    )
+    # Should require authentication
+    assert r.status_code in [401, 403]
+
+
+def test_recover_password_html_content_user_not_found(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """Test password recovery HTML content when user doesn't exist."""
+    email = random_email()
+    r = client.post(
+        f"{settings.API_V1_STR}/password-recovery-html-content/{email}",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 404
+    assert "does not exist" in r.json()["detail"]
