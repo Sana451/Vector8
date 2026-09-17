@@ -4,13 +4,13 @@ TomTom routing provider implementation.
 Handles integration with TomTom Orbis Maps Routing API v3.
 """
 
-import logging
 from typing import Any, cast
 
 import httpx
 from pydantic import ValidationError
 
 from app.core.config import settings
+from app.core.logging import get_logger
 from app.routing.constants import (
     HEADER_TOMTOM_API_KEY,
     HEADER_TOMTOM_API_VERSION,
@@ -37,7 +37,7 @@ from app.routing.utils import (
     mask_api_key,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class TomTomProvider(RoutingProvider):
@@ -87,11 +87,9 @@ class TomTomProvider(RoutingProvider):
 
         logger.info(
             "Calculating route",
-            extra={
-                "tracking_id": tracking_id,
-                "provider": "tomtom",
-                "api_version": self.api_version,
-            },
+            tracking_id=tracking_id,
+            provider="tomtom",
+            api_version=self.api_version,
         )
 
         # Transform request to TomTom format
@@ -122,11 +120,9 @@ class TomTomProvider(RoutingProvider):
 
             logger.info(
                 "TomTom API response",
-                extra={
-                    "tracking_id": tracking_id,
-                    "status_code": response.status_code,
-                    "provider": "tomtom",
-                },
+                tracking_id=tracking_id,
+                status_code=response.status_code,
+                provider="tomtom",
             )
 
             # Handle HTTP errors
@@ -146,11 +142,9 @@ class TomTomProvider(RoutingProvider):
             except ValidationError as e:
                 logger.error(
                     "Failed to parse TomTom response",
-                    extra={
-                        "tracking_id": tracking_id,
-                        "error": str(e),
-                        "provider": "tomtom",
-                    },
+                    tracking_id=tracking_id,
+                    error=str(e),
+                    provider="tomtom",
                 )
                 raise RoutingProviderError(
                     f"Invalid response format: {str(e)}",
@@ -163,11 +157,9 @@ class TomTomProvider(RoutingProvider):
         except httpx.TimeoutException:
             logger.error(
                 "TomTom request timeout",
-                extra={
-                    "tracking_id": tracking_id,
-                    "timeout_seconds": self.timeout,
-                    "provider": "tomtom",
-                },
+                tracking_id=tracking_id,
+                timeout_seconds=self.timeout,
+                provider="tomtom",
             )
             raise RoutingTimeoutError(
                 f"Request timeout after {self.timeout} seconds",
@@ -176,11 +168,9 @@ class TomTomProvider(RoutingProvider):
         except httpx.HTTPError as e:
             logger.error(
                 "TomTom HTTP error",
-                extra={
-                    "tracking_id": tracking_id,
-                    "error": str(e),
-                    "provider": "tomtom",
-                },
+                tracking_id=tracking_id,
+                error=str(e),
+                provider="tomtom",
             )
             raise RoutingProviderError(
                 str(e),
@@ -401,11 +391,9 @@ class TomTomProvider(RoutingProvider):
 
             logger.warning(
                 "TomTom bad request",
-                extra={
-                    "tracking_id": tracking_id,
-                    "provider_code": provider_code,
-                    "provider": "tomtom",
-                },
+                tracking_id=tracking_id,
+                provider_code=provider_code,
+                provider="tomtom",
             )
 
             # Check for specific error codes
@@ -428,11 +416,9 @@ class TomTomProvider(RoutingProvider):
         elif status_code == 403:
             logger.error(
                 "TomTom authentication error",
-                extra={
-                    "tracking_id": tracking_id,
-                    "provider": "tomtom",
-                    "api_key": mask_api_key(self.api_key or ""),
-                },
+                tracking_id=tracking_id,
+                provider="tomtom",
+                api_key=mask_api_key(self.api_key or ""),
             )
             raise RoutingAuthenticationError(
                 "Authentication failed - check API key",
@@ -443,10 +429,8 @@ class TomTomProvider(RoutingProvider):
         elif status_code == 429:
             logger.warning(
                 "TomTom rate limit exceeded",
-                extra={
-                    "tracking_id": tracking_id,
-                    "provider": "tomtom",
-                },
+                tracking_id=tracking_id,
+                provider="tomtom",
             )
             raise RoutingRateLimitError(
                 "Rate limit exceeded",
@@ -464,11 +448,9 @@ class TomTomProvider(RoutingProvider):
         elif status_code in (502, 503, 504):
             logger.error(
                 "TomTom provider error",
-                extra={
-                    "tracking_id": tracking_id,
-                    "status_code": status_code,
-                    "provider": "tomtom",
-                },
+                tracking_id=tracking_id,
+                status_code=status_code,
+                provider="tomtom",
             )
             raise RoutingUnavailableError(
                 f"TomTom temporarily unavailable (HTTP {status_code})",
@@ -484,12 +466,10 @@ class TomTomProvider(RoutingProvider):
 
             logger.error(
                 "TomTom error",
-                extra={
-                    "tracking_id": tracking_id,
-                    "status_code": status_code,
-                    "error_message": message,
-                    "provider": "tomtom",
-                },
+                tracking_id=tracking_id,
+                status_code=status_code,
+                error_message=message,
+                provider="tomtom",
             )
 
             raise RoutingProviderError(

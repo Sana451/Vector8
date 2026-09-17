@@ -64,6 +64,11 @@ services:
       EMAILS_FROM_EMAIL: ${EMAILS_FROM_EMAIL}
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?Variable not set}@db:5432/app
       SENTRY_DSN: ${SENTRY_DSN:-}
+      ROUTING_PROVIDER: ${ROUTING_PROVIDER:-tomtom}
+      TOMTOM_BASE_URL: ${TOMTOM_BASE_URL:-https://api.tomtom.com}
+      TOMTOM_API_VERSION: ${TOMTOM_API_VERSION:-3}
+      TOMTOM_TIMEOUT_SECONDS: ${TOMTOM_TIMEOUT_SECONDS:-30}
+      TOMTOM_API_KEY: ${TOMTOM_API_KEY:-}
 
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/utils/health-check/"]

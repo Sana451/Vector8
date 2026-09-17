@@ -5,12 +5,11 @@ Application-level service for route calculations.
 Works exclusively through the RoutingProvider abstraction.
 """
 
-import logging
-
+from app.core.logging import get_logger
 from app.routing.providers.base import RoutingProvider
 from app.routing.schemas import CalculateRouteRequest, CalculateRouteResponse
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class RoutingService:
@@ -53,19 +52,15 @@ class RoutingService:
         """
         logger.info(
             "Route calculation requested",
-            extra={
-                "origin": request.route_planning_locations.origin.coordinates,
-                "destination": (
-                    request.route_planning_locations.destination.coordinates
-                ),
-                "waypoints_count": (
-                    len(request.route_planning_locations.waypoints.coordinates)
-                    if request.route_planning_locations.waypoints
-                    else 0
-                ),
-                "route_type": request.route_type,
-                "traffic": request.traffic,
-            },
+            origin=request.route_planning_locations.origin.coordinates,
+            destination=request.route_planning_locations.destination.coordinates,
+            waypoints_count=(
+                len(request.route_planning_locations.waypoints.coordinates)
+                if request.route_planning_locations.waypoints
+                else 0
+            ),
+            route_type=request.route_type,
+            traffic=request.traffic,
         )
 
         return await self.provider.calculate_route(request)

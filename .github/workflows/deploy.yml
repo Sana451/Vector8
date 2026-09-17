@@ -53,3 +53,4 @@ jobs:
         env:
           FASTAPI_CLOUD_TOKEN: ${{ secrets.FASTAPI_CLOUD_TOKEN }}
           FASTAPI_CLOUD_APP_ID: ${{ secrets.FASTAPI_CLOUD_APP_ID }}
+          TOMTOM_API_KEY: ${{ secrets.TOMTOM_API_KEY }}
