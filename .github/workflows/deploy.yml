@@ -34,6 +34,7 @@ jobs:
         env:
           # Override frontend/.env so the deployed frontend uses the same origin as the API
           VITE_API_URL: ""
+          VITE_TOMTOM_API_KEY: ${{ secrets.VITE_TOMTOM_API_KEY }}
       - name: Set up uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
