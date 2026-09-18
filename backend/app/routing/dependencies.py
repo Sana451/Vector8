@@ -8,6 +8,7 @@ from typing import Annotated
 
 from fastapi import Depends
 
+from app.api.deps import SessionDep
 from app.core.config import settings
 from app.routing.providers.base import RoutingProvider
 from app.routing.providers.tomtom import TomTomProvider
@@ -36,17 +37,19 @@ def get_routing_provider() -> RoutingProvider:
 
 
 def get_routing_service(
+    session: SessionDep,
     provider: RoutingProvider = Depends(get_routing_provider),
 ) -> RoutingService:
     """Factory function to get routing service.
 
     Args:
+        session: Database session (injected)
         provider: RoutingProvider instance (injected)
 
     Returns:
-        RoutingService instance
+        RoutingService instance with cache support
     """
-    return RoutingService(provider=provider)
+    return RoutingService(provider=provider, session=session)
 
 
 # Annotated type for dependency injection in route handlers

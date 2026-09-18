@@ -42,6 +42,10 @@ Mailpit: <http://localhost:8025>
 
 The frontend development server uses the backend at `http://localhost:8000`, as configured in `frontend/.env`.
 
+**Note**: In local development mode, Adminer, Traefik, and other services are not running. If you need database administration tools, either:
+- Run the full stack with `docker compose watch` instead, which includes Adminer at <http://localhost:8080>
+- Or add Adminer to your local services: `docker compose up -d db mailpit adminer`
+
 ## PostGIS
 
 This project uses PostGIS for spatial data support. PostGIS is automatically enabled when the database starts.

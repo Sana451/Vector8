@@ -6,7 +6,7 @@ Tests HTTP API endpoints and request/response handling.
 
 import json
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -18,6 +18,27 @@ from app.main import app
 def client():
     """Create test client."""
     return TestClient(app)
+
+
+@pytest.fixture
+def clear_cache():
+    """Clear route calculation cache before each test."""
+    from sqlmodel import Session
+
+    from app.core.db import engine
+    from app.routing.models import RouteCalculation
+
+    # Clear cache
+    with Session(engine) as session:
+        for record in session.query(RouteCalculation).all():
+            session.delete(record)
+        session.commit()
+    yield
+    # Cleanup
+    with Session(engine) as session:
+        for record in session.query(RouteCalculation).all():
+            session.delete(record)
+        session.commit()
 
 
 @pytest.fixture
@@ -241,7 +262,7 @@ class TestCalculateRouteEndpoint:
             )
             assert response.status_code != 404
 
-    def test_calculate_route_bad_request_error(self, client):
+    def test_calculate_route_bad_request_error(self, client, clear_cache):
         """Test handling of RoutingBadRequestError."""
         request_body = {
             "route_planning_locations": {
@@ -256,7 +277,8 @@ class TestCalculateRouteEndpoint:
             },
         }
         with patch(
-            "app.routing.providers.tomtom.TomTomProvider.calculate_route"
+            "app.routing.providers.tomtom.TomTomProvider.calculate_route",
+            new_callable=AsyncMock,
         ) as mock_calculate:
             from app.routing.exceptions import RoutingBadRequestError
 
@@ -271,7 +293,7 @@ class TestCalculateRouteEndpoint:
             )
             assert response.status_code == 400
 
-    def test_calculate_route_authentication_error(self, client):
+    def test_calculate_route_authentication_error(self, client, clear_cache):
         """Test handling of RoutingAuthenticationError."""
         request_body = {
             "route_planning_locations": {
@@ -286,7 +308,8 @@ class TestCalculateRouteEndpoint:
             },
         }
         with patch(
-            "app.routing.providers.tomtom.TomTomProvider.calculate_route"
+            "app.routing.providers.tomtom.TomTomProvider.calculate_route",
+            new_callable=AsyncMock,
         ) as mock_calculate:
             from app.routing.exceptions import RoutingAuthenticationError
 
@@ -300,7 +323,7 @@ class TestCalculateRouteEndpoint:
             )
             assert response.status_code == 403
 
-    def test_calculate_route_rate_limit_error(self, client):
+    def test_calculate_route_rate_limit_error(self, client, clear_cache):
         """Test handling of RoutingRateLimitError."""
         request_body = {
             "route_planning_locations": {
@@ -315,7 +338,8 @@ class TestCalculateRouteEndpoint:
             },
         }
         with patch(
-            "app.routing.providers.tomtom.TomTomProvider.calculate_route"
+            "app.routing.providers.tomtom.TomTomProvider.calculate_route",
+            new_callable=AsyncMock,
         ) as mock_calculate:
             from app.routing.exceptions import RoutingRateLimitError
 

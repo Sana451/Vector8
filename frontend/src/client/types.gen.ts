@@ -1418,7 +1418,14 @@ export type itemsUpdateItemResponse = itemsUpdateItemResponses[keyof itemsUpdate
 export type routingCalculateRouteData = {
     body: CalculateRouteRequest;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * Force Refresh
+         *
+         * Force refresh from provider, skip cache
+         */
+        force_refresh?: boolean;
+    };
     url: '/api/v1/routing/routes/calculate';
 };
 
