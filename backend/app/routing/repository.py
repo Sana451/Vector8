@@ -14,6 +14,11 @@ from app.routing.models import RouteCalculation
 logger = get_logger(__name__)
 
 
+def get_datetime_utc() -> datetime:
+    """Get current datetime in UTC with timezone awareness."""
+    return datetime.now(UTC)
+
+
 class RouteCalculationRepository:
     """Repository for RouteCalculation entities."""
 
@@ -64,8 +69,9 @@ class RouteCalculationRepository:
         if not calculation:
             return None
 
-        # Check if expired
-        if calculation.expires_at < datetime.now(UTC):
+        # Check if expired - compare timezone-aware datetimes
+        now = datetime.now(UTC)
+        if calculation.expires_at < now:
             logger.info(
                 "Route calculation cache expired",
                 provider=provider,
@@ -112,6 +118,7 @@ class RouteCalculationRepository:
         try:
             existing = self.get_by_provider_and_hash(provider, request_hash)
 
+            # Use timezone-aware UTC datetime for storage and comparison
             now = datetime.now(UTC)
             expires_at = now + timedelta(seconds=ttl_seconds)
 
