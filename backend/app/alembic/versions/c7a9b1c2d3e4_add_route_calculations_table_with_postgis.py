@@ -29,8 +29,8 @@ def upgrade():
         sa.Column('duration_seconds', sa.Integer(), nullable=False),
         sa.Column('request_data', sa.JSON(), nullable=True),
         sa.Column('provider_response', sa.JSON(), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=False),
-        sa.Column('expires_at', sa.DateTime(), nullable=False),
+        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+        sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint('id'),
         sa.UniqueConstraint('provider', 'request_hash', name='uq_route_calc_provider_hash')
     )

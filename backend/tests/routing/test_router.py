@@ -352,3 +352,147 @@ class TestCalculateRouteEndpoint:
                 "/api/v1/routing/routes/calculate", json=request_body
             )
             assert response.status_code == 429
+
+
+class TestDatetimeHandling:
+    """Test timezone-aware datetime handling in route calculations."""
+
+    def test_created_at_is_timezone_aware(
+        self, client, clear_cache, tomtom_success_response
+    ):
+        """Test that created_at is stored as timezone-aware datetime."""
+
+        request_body = {
+            "route_planning_locations": {
+                "origin": {
+                    "type": "Point",
+                    "coordinates": [-74.006, 40.7128],
+                },
+                "destination": {
+                    "type": "Point",
+                    "coordinates": [-73.935, 40.7306],
+                },
+            },
+        }
+
+        with patch(
+            "app.routing.providers.tomtom.TomTomProvider.calculate_route"
+        ) as mock_calculate:
+            from sqlmodel import Session
+
+            from app.core.db import engine
+            from app.routing.models import RouteCalculation
+            from app.routing.schemas import CalculateRouteResponse
+
+            mock_response = CalculateRouteResponse.model_validate(
+                tomtom_success_response
+            )
+            mock_calculate.return_value = mock_response
+
+            response = client.post(
+                "/api/v1/routing/routes/calculate", json=request_body
+            )
+            assert response.status_code == 200
+
+            # Verify stored record has timezone-aware datetime
+            with Session(engine) as session:
+                records = session.query(RouteCalculation).all()
+                assert len(records) > 0
+                record = records[0]
+                # Check that created_at has timezone info
+                assert record.created_at.tzinfo is not None, (
+                    "created_at must be timezone-aware"
+                )
+                assert record.expires_at.tzinfo is not None, (
+                    "expires_at must be timezone-aware"
+                )
+
+    def test_cache_hit_on_second_request(
+        self, client, clear_cache, tomtom_success_response
+    ):
+        """Test that second identical request uses cache (doesn't call provider again)."""
+        request_body = {
+            "route_planning_locations": {
+                "origin": {
+                    "type": "Point",
+                    "coordinates": [-74.006, 40.7128],
+                },
+                "destination": {
+                    "type": "Point",
+                    "coordinates": [-73.935, 40.7306],
+                },
+            },
+        }
+
+        with patch(
+            "app.routing.providers.tomtom.TomTomProvider.calculate_route"
+        ) as mock_calculate:
+            from app.routing.schemas import CalculateRouteResponse
+
+            mock_response = CalculateRouteResponse.model_validate(
+                tomtom_success_response
+            )
+            mock_calculate.return_value = mock_response
+
+            # First request - should call provider
+            response1 = client.post(
+                "/api/v1/routing/routes/calculate", json=request_body
+            )
+            assert response1.status_code == 200
+            assert mock_calculate.call_count == 1
+
+            # Second request - should use cache (not call provider)
+            response2 = client.post(
+                "/api/v1/routing/routes/calculate", json=request_body
+            )
+            assert response2.status_code == 200
+            # Should still be 1 call (not incremented)
+            assert mock_calculate.call_count == 1, (
+                "Provider should not be called again for cached request"
+            )
+
+            # Responses should be identical
+            assert response1.json() == response2.json()
+
+    def test_force_refresh_bypasses_cache(
+        self, client, clear_cache, tomtom_success_response
+    ):
+        """Test that force_refresh=true bypasses cache and calls provider."""
+        request_body = {
+            "route_planning_locations": {
+                "origin": {
+                    "type": "Point",
+                    "coordinates": [-74.006, 40.7128],
+                },
+                "destination": {
+                    "type": "Point",
+                    "coordinates": [-73.935, 40.7306],
+                },
+            },
+        }
+
+        with patch(
+            "app.routing.providers.tomtom.TomTomProvider.calculate_route"
+        ) as mock_calculate:
+            from app.routing.schemas import CalculateRouteResponse
+
+            mock_response = CalculateRouteResponse.model_validate(
+                tomtom_success_response
+            )
+            mock_calculate.return_value = mock_response
+
+            # First request - calls provider
+            response1 = client.post(
+                "/api/v1/routing/routes/calculate", json=request_body
+            )
+            assert response1.status_code == 200
+            assert mock_calculate.call_count == 1
+
+            # Second request with force_refresh=true - should call provider again
+            response2 = client.post(
+                "/api/v1/routing/routes/calculate?force_refresh=true", json=request_body
+            )
+            assert response2.status_code == 200
+            assert mock_calculate.call_count == 2, (
+                "Provider should be called again with force_refresh=true"
+            )

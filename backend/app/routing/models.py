@@ -9,8 +9,13 @@ from datetime import UTC, datetime
 from typing import Any
 
 from geoalchemy2 import Geography
-from sqlalchemy import JSON
+from sqlalchemy import JSON, DateTime
 from sqlmodel import Column, Field, SQLModel
+
+
+def get_datetime_utc() -> datetime:
+    """Get current datetime in UTC with timezone awareness."""
+    return datetime.now(UTC)
 
 
 class RouteCalculation(SQLModel, table=True):
@@ -63,9 +68,12 @@ class RouteCalculation(SQLModel, table=True):
     request_data: dict[str, Any] = Field(sa_column=Column(JSON))
     provider_response: dict[str, Any] = Field(sa_column=Column(JSON))
     created_at: datetime = Field(
-        default_factory=lambda: datetime.now(UTC).replace(tzinfo=None)
+        default_factory=get_datetime_utc,
+        sa_column=Column(DateTime(timezone=True), nullable=False),
     )
-    expires_at: datetime
+    expires_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
 
     class Config:
         """SQLModel config."""
