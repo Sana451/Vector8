@@ -65,7 +65,15 @@ class RouteCalculationRepository:
             return None
 
         # Check if expired
-        if calculation.expires_at < datetime.now(UTC):
+        # Use naive datetime comparison: ensure both are naive by stripping timezone info
+        now = datetime.now(UTC).replace(tzinfo=None)
+        expires_at = calculation.expires_at
+
+        # If expires_at has timezone info, strip it for comparison
+        if expires_at.tzinfo is not None:
+            expires_at = expires_at.replace(tzinfo=None)
+
+        if expires_at < now:
             logger.info(
                 "Route calculation cache expired",
                 provider=provider,
@@ -112,7 +120,8 @@ class RouteCalculationRepository:
         try:
             existing = self.get_by_provider_and_hash(provider, request_hash)
 
-            now = datetime.now(UTC)
+            # Use naive UTC datetime for consistency with database
+            now = datetime.now(UTC).replace(tzinfo=None)
             expires_at = now + timedelta(seconds=ttl_seconds)
 
             if existing:

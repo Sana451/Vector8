@@ -62,7 +62,9 @@ class RouteCalculation(SQLModel, table=True):
     duration_seconds: int
     request_data: dict[str, Any] = Field(sa_column=Column(JSON))
     provider_response: dict[str, Any] = Field(sa_column=Column(JSON))
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC).replace(tzinfo=None)
+    )
     expires_at: datetime
 
     class Config:
