@@ -72,6 +72,9 @@ class Settings(BaseSettings):
     TOMTOM_API_VERSION: str = "3"
     TOMTOM_TIMEOUT_SECONDS: int = 30
 
+    # Route calculation caching
+    ROUTE_CALCULATION_CACHE_TTL_SECONDS: int = 3600  # 1 hour
+
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
             message = (

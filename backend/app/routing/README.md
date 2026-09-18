@@ -124,6 +124,30 @@ Calculate a route between locations with optional parameters.
   "route_planning_locations": {
     "origin": {
       "type": "Point",
+      "coordinates": [-87.6298, 41.8781]
+    },
+    "destination": {
+      "type": "Point",
+      "coordinates": [-87.3464, 41.5934]
+    },
+    "waypoints": {
+      "type": "MultiPoint",
+      "coordinates": []
+    }
+  },
+  "route_type": "fast",
+  "traffic": "live",
+  "travel_mode": "car",
+  "departure_date_time": "2026-09-17T10:00:00Z",
+  "max_path_alternative_routes": 0
+}
+```
+
+```json
+{
+  "route_planning_locations": {
+    "origin": {
+      "type": "Point",
       "coordinates": [-74.006, 40.7128]
     },
     "destination": {
@@ -330,18 +354,77 @@ Sensitive data (API keys, coordinates) is masked in logs.
 - Timeouts prevent indefinite hanging
 - Request validation prevents invalid coordinates
 
+## Persistent Route Caching
+
+This module implements **cache-first strategy** with PostgreSQL/PostGIS for route calculations.
+
+### Cache Features
+
+- ✅ **Cache-first**: Always checks database before calling provider API
+- ✅ **Force refresh**: Query parameter `?force_refresh=true` to bypass cache
+- ✅ **PostGIS storage**: Geographic data stored with spatial indexes
+- ✅ **TTL support**: Configurable cache expiration time
+- ✅ **Deterministic hashing**: SHA-256 for consistent cache keys
+
+### Quick Example
+
+```bash
+# First call (API) → ~1 second
+curl -X POST http://localhost:8000/api/v1/routing/routes/calculate \
+  -d '{"route_planning_locations": {...}}'
+
+# Second call (cache) → ~0.01 seconds
+curl -X POST http://localhost:8000/api/v1/routing/routes/calculate \
+  -d '{"route_planning_locations": {...}}'
+
+# Force refresh (API)
+curl -X POST "http://localhost:8000/api/v1/routing/routes/calculate?force_refresh=true" \
+  -d '{"route_planning_locations": {...}}'
+```
+
+### Database
+
+- **Table**: `route_calculations`
+- **Storage**: GeoJSON coordinates as GEOGRAPHY(POINT) and GEOGRAPHY(LINESTRING)
+- **Indexes**: GiST indexes for spatial queries
+- **TTL**: Automatic cache expiration via `expires_at` timestamp
+
+### Configuration
+
+```python
+# backend/app/core/config.py
+ROUTE_CALCULATION_CACHE_TTL_SECONDS = 3600  # 1 hour default
+```
+
+### Documentation
+
+📚 **Full documentation on caching**:
+- [**CACHING.md**](./CACHING.md) - Complete documentation (30 min read)
+
+### Performance
+
+| Operation | Time | Notes |
+|-----------|------|-------|
+| Cache hit | 10-50 ms | From database |
+| Cache miss | 500-2000 ms | From TomTom API |
+| Force refresh | 500-2000 ms | Always calls API |
+
+---
+
 ## Future Enhancements
 
 The architecture naturally supports:
 
 - Multiple provider implementations
 - Provider failover/fallback
-- Provider-specific caching
+- ~~Provider-specific caching~~ ✅ **Implemented**
 - Geocoding (forward/reverse)
 - Place search
 - Traffic incident APIs
 - Map matching
 - Route matrix calculations
 - Fuel/cost optimization
+- Redis cache layer
+- Async cache cleanup
 - IFTA calculations
 - EV charging station routing

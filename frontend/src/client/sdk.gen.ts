@@ -387,6 +387,9 @@ export class RoutingService {
      * - Vehicle parameters: weight, speed, engine type, heading, toll transponder
      * - Various avoidances and constraints
      *
+     * Query parameters:
+     * - force_refresh: Skip cached result and refresh from provider (default: false)
+     *
      * Returns:
      * - One or more calculated routes (based on maxPathAlternativeRoutes)
      * - Route summary with distance, duration, and traffic info
@@ -398,6 +401,7 @@ export class RoutingService {
      * Args:
      * request: Route calculation request
      * routing_service: Routing service (injected via DI)
+     * force_refresh: Force refresh from provider, skip cache
      *
      * Returns:
      * Calculated route response with one or more routes

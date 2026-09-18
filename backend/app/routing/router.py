@@ -1,10 +1,10 @@
 """
-Routing API routes.
+Routing API endpoints.
 
-HTTP endpoints for routing operations.
+Provides FastAPI routes for route calculation and management.
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from app.routing.dependencies import RoutingServiceDep
 from app.routing.exceptions import RoutingError
@@ -20,6 +20,9 @@ router = APIRouter(
 async def calculate_route(
     request: CalculateRouteRequest,
     routing_service: RoutingServiceDep,
+    force_refresh: bool = Query(
+        False, description="Force refresh from provider, skip cache"
+    ),
 ) -> CalculateRouteResponse:
     """Calculate route between locations.
 
@@ -40,6 +43,9 @@ async def calculate_route(
     - Vehicle parameters: weight, speed, engine type, heading, toll transponder
     - Various avoidances and constraints
 
+    Query parameters:
+    - force_refresh: Skip cached result and refresh from provider (default: false)
+
     Returns:
     - One or more calculated routes (based on maxPathAlternativeRoutes)
     - Route summary with distance, duration, and traffic info
@@ -51,6 +57,7 @@ async def calculate_route(
     Args:
         request: Route calculation request
         routing_service: Routing service (injected via DI)
+        force_refresh: Force refresh from provider, skip cache
 
     Returns:
         Calculated route response with one or more routes
@@ -65,16 +72,12 @@ async def calculate_route(
         - 503: Provider unavailable
     """
     try:
-        return await routing_service.calculate_route(request)
-    except RoutingError as e:
-        # Map routing errors to HTTP exceptions
-        # Status code from provider error takes precedence
-        status_code = e.status_code or 500
-        raise HTTPException(
-            status_code=status_code,
-            detail={
-                "message": e.message,
-                "provider": e.provider,
-                "provider_code": e.provider_code,
-            },
+        return await routing_service.calculate_route(
+            request=request,
+            force_refresh=force_refresh,
         )
+    except RoutingError as e:
+        status_code = e.status_code or 500
+        raise HTTPException(status_code=status_code, detail=e.message) from e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error") from e
