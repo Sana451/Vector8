@@ -2,6 +2,14 @@
 
 Routing module provides route calculation functionality through a pluggable provider architecture.
 
+> **Note**
+> `POST /api/v1/routing/routes/calculate` is **deprecated**. Use
+> [`POST /api/v1/map/route-overview`](../map/README.md) instead - it returns the
+> same route plus traffic, fuel stations and truck restriction layers.
+>
+> Provider adapters moved to `app/providers/`. See
+> [Map Layers Architecture](../map/README.md) for the multi-provider design.
+
 ## Architecture
 
 The module is designed with clean separation of concerns:
@@ -11,11 +19,17 @@ HTTP API (router.py)
     ↓
 Application Service (service.py)
     ↓
-Provider Interface (providers/base.py)
+Provider Protocol (app/providers/base.py)
     ↑
-TomTom Adapter (providers/tomtom.py)
+TomTom Adapter (app/providers/tomtom/routing.py)
     ↓
 TomTom HTTP API
+```
+
+Provider selection goes through the shared registry:
+
+```python
+registry.get("routing", settings.ROUTING_PROVIDER)
 ```
 
 ### Key principles:

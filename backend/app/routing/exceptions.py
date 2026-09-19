@@ -1,76 +1,62 @@
 """
 Routing module exceptions.
 
-Custom exceptions for routing provider errors with support for provider-specific
-error codes and context preservation.
+Routing-specific exceptions built on top of the shared provider hierarchy in
+:mod:`app.providers.exceptions`.
+
+Every ``Routing*Error`` is both a ``RoutingError`` (preserving existing
+``except`` clauses) and the matching generic ``Provider*Error``, so the map
+orchestrator can treat all layers uniformly.
 """
 
+from app.providers.exceptions import (
+    ProviderAuthenticationError,
+    ProviderBadRequestError,
+    ProviderError,
+    ProviderRateLimitError,
+    ProviderRequestError,
+    ProviderTimeoutError,
+    ProviderUnavailableError,
+)
 
-class RoutingError(Exception):
+
+class RoutingError(ProviderError):
     """Base exception for routing module."""
 
-    def __init__(
-        self,
-        message: str,
-        provider: str | None = None,
-        provider_code: str | None = None,
-        status_code: int | None = None,
-    ):
-        """Initialize routing error.
-
-        Args:
-            message: Error message
-            provider: Provider name (e.g., 'tomtom')
-            provider_code: Provider-specific error code
-            status_code: HTTP status code
-        """
-        self.message = message
-        self.provider = provider
-        self.provider_code = provider_code
-        self.status_code = status_code
-        super().__init__(message)
-
-    def __repr__(self) -> str:
-        return (
-            f"{self.__class__.__name__}("
-            f"message={self.message!r}, "
-            f"provider={self.provider!r}, "
-            f"provider_code={self.provider_code!r}, "
-            f"status_code={self.status_code!r})"
-        )
+    pass
 
 
-class RoutingProviderError(RoutingError):
+class RoutingProviderError(RoutingError, ProviderRequestError):
     """Generic provider error (500, 502, 503, 504)."""
 
     pass
 
 
-class RoutingBadRequestError(RoutingError):
+class RoutingBadRequestError(RoutingError, ProviderBadRequestError):
     """Bad request error (400)."""
 
     pass
 
 
-class RoutingAuthenticationError(RoutingError):
+class RoutingAuthenticationError(RoutingError, ProviderAuthenticationError):
     """Authentication error (403)."""
 
     pass
 
 
-class RoutingRateLimitError(RoutingError):
+class RoutingRateLimitError(RoutingError, ProviderRateLimitError):
     """Rate limit exceeded (429)."""
 
     pass
 
 
-class RoutingTimeoutError(RoutingError):
+class RoutingTimeoutError(RoutingError, ProviderTimeoutError):
     """Request timeout."""
 
     pass
 
 
-class RoutingUnavailableError(RoutingError):
+class RoutingUnavailableError(RoutingError, ProviderUnavailableError):
     """Provider temporarily unavailable."""
 
     pass

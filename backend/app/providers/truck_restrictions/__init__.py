@@ -1,0 +1,3 @@
+"""
+Truck restriction adapters.
+"""

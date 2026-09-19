@@ -65,15 +65,37 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
 
-    # Routing configuration
+    # Map layer providers (one vendor may serve several domains)
     ROUTING_PROVIDER: Literal["tomtom"] = "tomtom"
+    TRAFFIC_PROVIDER: Literal["tomtom"] = "tomtom"
+    FUEL_PROVIDER: Literal["internal"] = "internal"
+    TRUCK_RESTRICTION_PROVIDER: Literal["internal"] = "internal"
+
+    # TomTom configuration (routing + traffic)
     TOMTOM_API_KEY: str | None = None
     TOMTOM_BASE_URL: str = "https://api.tomtom.com"
     TOMTOM_API_VERSION: str = "3"
     TOMTOM_TIMEOUT_SECONDS: int = 30
 
-    # Route calculation caching
+    # Internal fuel station API
+    FUEL_API_BASE_URL: str | None = None
+    FUEL_API_KEY: str | None = None
+    FUEL_API_TIMEOUT_SECONDS: int = 15
+
+    # Internal truck restriction API
+    TRUCK_RESTRICTION_API_BASE_URL: str | None = None
+    TRUCK_RESTRICTION_API_KEY: str | None = None
+    TRUCK_RESTRICTION_API_TIMEOUT_SECONDS: int = 15
+
+    # Per-domain cache TTLs (lazy invalidation on read)
     ROUTE_CALCULATION_CACHE_TTL_SECONDS: int = 3600  # 1 hour
+    TRAFFIC_CACHE_TTL_SECONDS: int = 120  # 2 minutes
+    FUEL_CACHE_TTL_SECONDS: int = 86400  # 1 day
+    TRUCK_RESTRICTION_CACHE_TTL_SECONDS: int = 604800  # 1 week
+
+    # Map overview defaults
+    MAP_LAYER_RADIUS_METERS: int = 5000
+    MAP_LAYER_RESULT_LIMIT: int = 200
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":

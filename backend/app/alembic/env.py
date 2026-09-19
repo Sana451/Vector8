@@ -22,6 +22,11 @@ fileConfig(config.config_file_name)
 from app.models import SQLModel  # noqa
 from app.core.config import settings  # noqa
 from app.routing.models import RouteCalculation  # noqa
+from app.map.models import (  # noqa
+    FuelStation,
+    TrafficSnapshot,
+    TruckRestriction,
+)
 
 target_metadata = SQLModel.metadata
 
