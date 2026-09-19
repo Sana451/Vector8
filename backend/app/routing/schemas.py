@@ -17,86 +17,15 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-# ============================================================================
-# GeoJSON Models
-# ============================================================================
-
-
-class GeoJSONPoint(BaseModel):
-    """GeoJSON Point with validated coordinates.
-
-    Coordinates must be [longitude, latitude] in WGS84.
-    - longitude: -180 to 180
-    - latitude: -90 to 90
-    """
-
-    type: Literal["Point"] = "Point"
-    coordinates: tuple[float, float] = Field(
-        description="[longitude, latitude] in WGS84"
-    )
-
-    @field_validator("coordinates")
-    @classmethod
-    def validate_coordinates(cls, v: tuple[float, float]) -> tuple[float, float]:
-        """Validate longitude and latitude ranges."""
-        lon, lat = v
-        if not (-180 <= lon <= 180):
-            raise ValueError(f"Longitude must be between -180 and 180, got {lon}")
-        if not (-90 <= lat <= 90):
-            raise ValueError(f"Latitude must be between -90 and 90, got {lat}")
-        return v
-
-
-class GeoJSONMultiPoint(BaseModel):
-    """GeoJSON MultiPoint for waypoints.
-
-    Maximum 150 waypoints supported.
-    """
-
-    type: Literal["MultiPoint"] = "MultiPoint"
-    coordinates: list[tuple[float, float]] = Field(
-        max_length=150,
-        description="List of [longitude, latitude] coordinates",
-    )
-
-    @field_validator("coordinates")
-    @classmethod
-    def validate_all_coordinates(
-        cls, v: list[tuple[float, float]]
-    ) -> list[tuple[float, float]]:
-        """Validate all coordinate pairs."""
-        for lon, lat in v:
-            if not (-180 <= lon <= 180):
-                raise ValueError(f"Longitude must be between -180 and 180, got {lon}")
-            if not (-90 <= lat <= 90):
-                raise ValueError(f"Latitude must be between -90 and 90, got {lat}")
-        return v
-
-
-class GeoJSONLineString(BaseModel):
-    """GeoJSON LineString for path specification.
-
-    Minimum 2 coordinates required.
-    """
-
-    type: Literal["LineString"] = "LineString"
-    coordinates: list[tuple[float, float]] = Field(
-        min_length=2,
-        description="List of [longitude, latitude] coordinates",
-    )
-
-    @field_validator("coordinates")
-    @classmethod
-    def validate_all_coordinates(
-        cls, v: list[tuple[float, float]]
-    ) -> list[tuple[float, float]]:
-        """Validate all coordinate pairs."""
-        for lon, lat in v:
-            if not (-180 <= lon <= 180):
-                raise ValueError(f"Longitude must be between -180 and 180, got {lon}")
-            if not (-90 <= lat <= 90):
-                raise ValueError(f"Latitude must be between -90 and 90, got {lat}")
-        return v
+# GeoJSON models are shared across all map layer domains and live in
+# app.providers.geo. They are imported here so that existing
+# `from app.routing.schemas import GeoJSONPoint` imports keep working.
+from app.providers.geo import (  # noqa: F401
+    Coordinate,
+    GeoJSONLineString,
+    GeoJSONMultiPoint,
+    GeoJSONPoint,
+)
 
 
 class AvoidAreaRectangle(BaseModel):

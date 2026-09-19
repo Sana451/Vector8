@@ -1,8 +1,19 @@
 import { useMutation } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useRef, useState } from "react"
-import { calculateRoute } from "@/api/routing"
-import { RouteLayer } from "@/components/Map/RouteLayer"
+import { getRouteOverview } from "@/api/map"
+import type {
+  FuelStationData,
+  LayerError,
+  TrafficLayerData,
+  TruckRestrictionData,
+} from "@/client"
+import {
+  FuelLayer,
+  RouteLayer,
+  TrafficLayer,
+  TruckRestrictionLayer,
+} from "@/components/Map/layers"
 import TomTomMap, { type TomTomMapHandle } from "@/components/Map/TomTomMap"
 import { Button } from "@/components/ui/button"
 import {
@@ -14,16 +25,18 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import useCustomToast from "@/hooks/useCustomToast"
-import {
-  type Coordinate,
-  calculateBoundingBox,
-  extractRouteCoordinates,
-} from "@/lib/routing"
+import { extractOverviewCoordinates } from "@/lib/mapLayers"
+import { type Coordinate, calculateBoundingBox } from "@/lib/routing"
 import { handleError } from "@/utils"
 
 export const Route = createFileRoute("/map")({
   component: MapPage,
 })
+
+interface RouteInfo {
+  distance: string
+  duration: string
+}
 
 function MapPage() {
   const mapRef = useRef<TomTomMapHandle>(null)
@@ -35,52 +48,68 @@ function MapPage() {
   const [destLon, setDestLon] = useState("-73.9855")
   const [destLat, setDestLat] = useState("40.758")
 
-  // Route state
+  // Layer state - each layer is stored and rendered independently
   const [routeCoordinates, setRouteCoordinates] = useState<Coordinate[] | null>(
     null,
   )
-  const [routeInfo, setRouteInfo] = useState<{
-    distance: string
-    duration: string
-  } | null>(null)
+  const [traffic, setTraffic] = useState<TrafficLayerData | null>(null)
+  const [fuelStations, setFuelStations] = useState<Array<FuelStationData>>([])
+  const [truckRestrictions, setTruckRestrictions] = useState<
+    Array<TruckRestrictionData>
+  >([])
+  const [layerErrors, setLayerErrors] = useState<Array<LayerError>>([])
+  const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
+
+  const resetLayers = () => {
+    setRouteCoordinates(null)
+    setTraffic(null)
+    setFuelStations([])
+    setTruckRestrictions([])
+    setRouteInfo(null)
+  }
 
   const mutation = useMutation({
     mutationFn: async (forceRefresh: boolean) => {
       const request = {
-        route_planning_locations: {
-          origin: {
-            type: "Point" as const,
-            coordinates: [parseFloat(originLon), parseFloat(originLat)] as [
-              number,
-              number,
-            ],
-          },
-          destination: {
-            type: "Point" as const,
-            coordinates: [parseFloat(destLon), parseFloat(destLat)] as [
-              number,
-              number,
-            ],
+        route: {
+          route_planning_locations: {
+            origin: {
+              type: "Point" as const,
+              coordinates: [
+                Number.parseFloat(originLon),
+                Number.parseFloat(originLat),
+              ] as [number, number],
+            },
+            destination: {
+              type: "Point" as const,
+              coordinates: [
+                Number.parseFloat(destLon),
+                Number.parseFloat(destLat),
+              ] as [number, number],
+            },
           },
         },
       }
 
-      return await calculateRoute(request, forceRefresh)
+      return await getRouteOverview(request, forceRefresh)
     },
     onSuccess: (data) => {
-      const coordinates = extractRouteCoordinates(data)
-      if (!coordinates || coordinates.length < 2) {
-        setRouteCoordinates(null)
-        setRouteInfo(null)
+      setLayerErrors(data.errors ?? [])
+
+      const coordinates = extractOverviewCoordinates(data)
+      if (!coordinates) {
+        resetLayers()
         showErrorToast("Route could not be calculated or has invalid geometry")
         return
       }
 
       setRouteCoordinates(coordinates)
+      setTraffic(data.traffic ?? null)
+      setFuelStations(data.fuel_stations ?? [])
+      setTruckRestrictions(data.truck_restrictions ?? [])
 
-      // Extract summary info from first route
-      if (data.routes && data.routes.length > 0) {
-        const summary = data.routes[0].summary
+      const summary = data.route?.routes?.[0]?.summary
+      if (summary) {
         const distanceKm = (summary.lengthInMeters / 1000).toFixed(1)
         const durationMin = Math.round(summary.travelDurationInSeconds / 60)
         setRouteInfo({
@@ -89,9 +118,7 @@ function MapPage() {
         })
       }
 
-      // Fit map bounds to route
-      const bbox = calculateBoundingBox(coordinates)
-      mapRef.current?.fitBounds(bbox)
+      mapRef.current?.fitBounds(calculateBoundingBox(coordinates))
 
       showSuccessToast("Route calculated successfully")
     },
@@ -206,23 +233,40 @@ function MapPage() {
 
         <Card className="flex-1 min-w-[300px]">
           <CardHeader className="pb-3">
-            <CardTitle>Instructions</CardTitle>
+            <CardTitle>Layers</CardTitle>
+            <CardDescription>
+              Each layer is resolved independently by its provider
+            </CardDescription>
           </CardHeader>
           <CardContent className="text-sm text-gray-600 space-y-2">
             <p>
-              1. Enter origin longitude and latitude (format: decimal degrees)
+              <span className="font-medium">Traffic:</span>{" "}
+              {traffic ? `${traffic.incidents?.length ?? 0} incidents` : "—"}
             </p>
-            <p>2. Enter destination longitude and latitude</p>
-            <p>3. Click "Calculate Route" to compute the route</p>
-            <p>4. The route will be displayed on the map as a blue line</p>
-            <p>5. Use "Refresh" to bypass cache and recalculate</p>
-            <p className="text-xs text-gray-500 mt-4">
-              Example: New York to Times Square
-              <br />
-              Origin: [-74.006, 40.7128]
-              <br />
-              Destination: [-73.9855, 40.758]
+            <p>
+              <span className="font-medium">Fuel stations:</span>{" "}
+              {fuelStations.length}
             </p>
+            <p>
+              <span className="font-medium">Truck restrictions:</span>{" "}
+              {truckRestrictions.length}
+            </p>
+
+            {layerErrors.length > 0 && (
+              <div className="mt-4 p-3 bg-amber-50 rounded text-amber-800 space-y-1">
+                <p className="font-medium">Some layers are unavailable:</p>
+                {layerErrors.map((error) => (
+                  <p
+                    key={`${error.layer}-${error.message}`}
+                    className="text-xs"
+                  >
+                    {error.layer}
+                    {error.provider ? ` (${error.provider})` : ""}:{" "}
+                    {error.message}
+                  </p>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -230,6 +274,12 @@ function MapPage() {
       <div className="flex-1 min-h-0">
         <TomTomMap ref={mapRef} />
         <RouteLayer mapInstance={mapInstance} coordinates={routeCoordinates} />
+        <TrafficLayer mapInstance={mapInstance} traffic={traffic} />
+        <FuelLayer mapInstance={mapInstance} stations={fuelStations} />
+        <TruckRestrictionLayer
+          mapInstance={mapInstance}
+          restrictions={truckRestrictions}
+        />
       </div>
     </div>
   )

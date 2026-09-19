@@ -1,37 +1,10 @@
 """
-Routing provider abstraction.
-
-Base interface for routing providers.
+Routing provider abstraction (compatibility shim).
+The canonical protocol now lives in :mod:`app.providers.base` alongside the
+other map layer domains. This module re-exports it so that existing imports
+keep working.
 """
 
-from abc import ABC, abstractmethod
+from app.providers.base import RoutingProvider
 
-from app.routing.schemas import CalculateRouteRequest, CalculateRouteResponse
-
-
-class RoutingProvider(ABC):
-    """Abstract base class for routing providers.
-
-    Defines the interface that all routing providers must implement.
-    Providers handle the actual HTTP communication with external routing APIs
-    and translate between application schemas and provider-specific formats.
-    """
-
-    @abstractmethod
-    async def calculate_route(
-        self,
-        request: CalculateRouteRequest,
-    ) -> CalculateRouteResponse:
-        """Calculate route for given request.
-
-        Args:
-            request: Route calculation request with locations, options, and vehicle
-            params
-
-        Returns:
-            Route calculation response with one or more routes
-
-        Raises:
-            RoutingError: If the request fails or no route can be calculated
-        """
-        ...
+__all__ = ["RoutingProvider"]

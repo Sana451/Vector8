@@ -16,7 +16,11 @@ router = APIRouter(
 )
 
 
-@router.post("/routes/calculate", response_model=CalculateRouteResponse)
+@router.post(
+    "/routes/calculate",
+    response_model=CalculateRouteResponse,
+    deprecated=True,
+)
 async def calculate_route(
     request: CalculateRouteRequest,
     routing_service: RoutingServiceDep,
@@ -25,6 +29,10 @@ async def calculate_route(
     ),
 ) -> CalculateRouteResponse:
     """Calculate route between locations.
+
+    .. deprecated::
+        Use ``POST /api/v1/map/route-overview`` instead. It returns the same
+        route plus traffic, fuel stations and truck restriction layers.
 
     Calculates an optimized route between origin and destination with support for:
     - Multiple waypoints (up to 150)

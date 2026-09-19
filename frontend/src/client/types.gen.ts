@@ -254,6 +254,47 @@ export type ElectronicTollTransponder = 'all' | 'none';
 export type EngineType = 'combustion' | 'electric';
 
 /**
+ * FuelStationData
+ *
+ * Fuel station along the route.
+ */
+export type FuelStationData = {
+    /**
+     * External Id
+     *
+     * Stable provider identifier
+     */
+    external_id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Brand
+     */
+    brand?: string | null;
+    /**
+     * Address
+     */
+    address?: string | null;
+    location: GeoJSONPoint;
+    /**
+     * Diesel Price
+     */
+    diesel_price?: number | null;
+    /**
+     * Truck Accessible
+     */
+    truck_accessible?: boolean;
+    /**
+     * Raw
+     */
+    raw?: {
+        [key: string]: unknown;
+    } | null;
+};
+
+/**
  * GeoJSONLineString
  *
  * GeoJSON LineString for path specification.
@@ -403,6 +444,23 @@ export type ItemsPublic = {
 };
 
 /**
+ * LayerError
+ *
+ * Non-fatal failure of a single layer.
+ */
+export type LayerError = {
+    layer: MapLayer;
+    /**
+     * Provider
+     */
+    provider?: string | null;
+    /**
+     * Message
+     */
+    message: string;
+};
+
+/**
  * Leg
  *
  * Route leg (segment between waypoints).
@@ -410,6 +468,68 @@ export type ItemsPublic = {
 export type Leg = {
     summary: RouteSummary;
     path?: GeoJSONLineString | null;
+};
+
+/**
+ * MapLayer
+ *
+ * Identifiers of the map layers.
+ */
+export type MapLayer = 'route' | 'traffic' | 'fuel' | 'truck_restrictions';
+
+/**
+ * MapOverviewRequest
+ *
+ * Aggregated map overview request.
+ */
+export type MapOverviewRequest = {
+    /**
+     * Route calculation request
+     */
+    route: CalculateRouteRequest;
+    /**
+     * Radius Meters
+     *
+     * Corridor radius for point layers (defaults to settings)
+     */
+    radius_meters?: number | null;
+    /**
+     * Limit
+     *
+     * Maximum features per point layer (defaults to settings)
+     */
+    limit?: number | null;
+    /**
+     * Layers
+     *
+     * Subset of layers to resolve; all layers when omitted
+     */
+    layers?: Array<MapLayer> | null;
+};
+
+/**
+ * MapOverviewResponse
+ *
+ * Aggregated map overview response.
+ *
+ * ``route`` is mandatory: if routing fails the endpoint returns 502. Every
+ * other layer degrades gracefully.
+ */
+export type MapOverviewResponse = {
+    route?: RouteLayerData | null;
+    traffic?: TrafficLayerData | null;
+    /**
+     * Fuel Stations
+     */
+    fuel_stations?: Array<FuelStationData>;
+    /**
+     * Truck Restrictions
+     */
+    truck_restrictions?: Array<TruckRestrictionData>;
+    /**
+     * Errors
+     */
+    errors?: Array<LayerError>;
 };
 
 /**
@@ -481,6 +601,13 @@ export type ProgressPoint = {
 };
 
 /**
+ * RestrictionType
+ *
+ * Normalized truck restriction type.
+ */
+export type RestrictionType = 'bridge_height' | 'weight_limit' | 'width_limit' | 'length_limit' | 'hazmat' | 'no_trucks' | 'other';
+
+/**
  * Route
  *
  * Single calculated route.
@@ -501,6 +628,22 @@ export type Route = {
     guidance?: {
         [key: string]: unknown;
     } | null;
+};
+
+/**
+ * RouteLayerData
+ *
+ * Route layer payload.
+ */
+export type RouteLayerData = {
+    /**
+     * Provider
+     */
+    provider: string;
+    /**
+     * Routes
+     */
+    routes: Array<Route>;
 };
 
 /**
@@ -653,6 +796,80 @@ export type Token = {
 };
 
 /**
+ * TrafficIncident
+ *
+ * Single traffic incident along the route.
+ */
+export type TrafficIncident = {
+    /**
+     * External Id
+     *
+     * Provider incident id
+     */
+    external_id?: string | null;
+    severity?: TrafficSeverity;
+    /**
+     * Category
+     *
+     * Incident category
+     */
+    category?: string | null;
+    /**
+     * Description
+     */
+    description?: string | null;
+    location?: GeoJSONPoint | null;
+    /**
+     * Delay Seconds
+     */
+    delay_seconds?: number | null;
+    /**
+     * Length Meters
+     */
+    length_meters?: number | null;
+    /**
+     * Start Time
+     */
+    start_time?: string | null;
+    /**
+     * End Time
+     */
+    end_time?: string | null;
+};
+
+/**
+ * TrafficLayerData
+ *
+ * Traffic layer payload.
+ */
+export type TrafficLayerData = {
+    /**
+     * Provider
+     */
+    provider: string;
+    /**
+     * Incidents
+     */
+    incidents?: Array<TrafficIncident>;
+    /**
+     * Total Delay Seconds
+     */
+    total_delay_seconds?: number;
+    /**
+     * Observed At
+     */
+    observed_at?: string | null;
+    /**
+     * Raw
+     *
+     * Provider payload for debugging
+     */
+    raw?: {
+        [key: string]: unknown;
+    } | null;
+};
+
+/**
  * TrafficMode
  *
  * Traffic mode for routing.
@@ -660,11 +877,60 @@ export type Token = {
 export type TrafficMode = 'live' | 'historical';
 
 /**
+ * TrafficSeverity
+ *
+ * Normalized traffic incident severity.
+ */
+export type TrafficSeverity = 'unknown' | 'minor' | 'moderate' | 'major' | 'severe';
+
+/**
  * TravelMode
  *
  * Vehicle travel mode.
  */
 export type TravelMode = 'car' | 'taxi';
+
+/**
+ * TruckRestrictionData
+ *
+ * Truck restriction along the route.
+ */
+export type TruckRestrictionData = {
+    /**
+     * External Id
+     *
+     * Stable provider identifier
+     */
+    external_id: string;
+    restriction_type?: RestrictionType;
+    /**
+     * Description
+     */
+    description?: string | null;
+    location: GeoJSONPoint;
+    /**
+     * Max Height Cm
+     */
+    max_height_cm?: number | null;
+    /**
+     * Max Weight Kg
+     */
+    max_weight_kg?: number | null;
+    /**
+     * Max Width Cm
+     */
+    max_width_cm?: number | null;
+    /**
+     * Max Length Cm
+     */
+    max_length_cm?: number | null;
+    /**
+     * Raw
+     */
+    raw?: {
+        [key: string]: unknown;
+    } | null;
+};
 
 /**
  * UpdatePassword
@@ -1446,6 +1712,38 @@ export type routingCalculateRouteResponses = {
 };
 
 export type routingCalculateRouteResponse = routingCalculateRouteResponses[keyof routingCalculateRouteResponses];
+
+export type mapRouteOverviewData = {
+    body: MapOverviewRequest;
+    path?: never;
+    query?: {
+        /**
+         * Force Refresh
+         *
+         * Force refresh from providers, skip caches
+         */
+        force_refresh?: boolean;
+    };
+    url: '/api/v1/map/route-overview';
+};
+
+export type mapRouteOverviewErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type mapRouteOverviewError = mapRouteOverviewErrors[keyof mapRouteOverviewErrors];
+
+export type mapRouteOverviewResponses = {
+    /**
+     * Successful Response
+     */
+    200: MapOverviewResponse;
+};
+
+export type mapRouteOverviewResponse = mapRouteOverviewResponses[keyof mapRouteOverviewResponses];
 
 export type privateCreateUserData = {
     body: PrivateUserCreate;

@@ -1,18 +1,17 @@
 """
 Routing module.
-
-Provides routing functionality with pluggable provider architecture.
-
+Provides route calculation on top of the shared provider layer.
 Architecture:
 - router.py: HTTP API endpoints
 - service.py: Business logic (provider-agnostic)
-- providers/: Provider implementations (TomTom, etc.)
 - schemas.py: Pydantic request/response models
 - exceptions.py: Routing-specific exceptions
 - dependencies.py: Dependency injection
+Provider adapters live in :mod:`app.providers`.
 """
 
-from app.routing.router import router
+from typing import Any
+
 from app.routing.schemas import (
     CalculateRouteRequest,
     CalculateRouteResponse,
@@ -25,3 +24,12 @@ __all__ = [
     "CalculateRouteResponse",
     "RoutePlanningLocations",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    """Lazily expose the APIRouter to keep module import side effects minimal."""
+    if name == "router":
+        from app.routing.router import router
+
+        return router
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

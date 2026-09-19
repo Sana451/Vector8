@@ -10,30 +10,24 @@ from fastapi import Depends
 
 from app.api.deps import SessionDep
 from app.core.config import settings
-from app.routing.providers.base import RoutingProvider
-from app.routing.providers.tomtom import TomTomProvider
+from app.providers.base import RoutingProvider
+from app.providers.registry import registry
 from app.routing.service import RoutingService
 
 
 def get_routing_provider() -> RoutingProvider:
     """Factory function to get configured routing provider.
 
-    Provider selection is based on ROUTING_PROVIDER setting.
-    Currently supports: tomtom
+    Provider selection is based on the ROUTING_PROVIDER setting and resolved
+    through the shared provider registry.
 
     Returns:
         Configured RoutingProvider instance
 
     Raises:
-        ValueError: If provider is not supported
+        ProviderNotRegisteredError: If the provider is not registered
     """
-    if settings.ROUTING_PROVIDER == "tomtom":
-        return TomTomProvider()
-    else:
-        raise ValueError(
-            f"Unsupported routing provider: {settings.ROUTING_PROVIDER}. "
-            f"Supported: tomtom"
-        )
+    return registry.get("routing", settings.ROUTING_PROVIDER)
 
 
 def get_routing_service(

@@ -2,7 +2,7 @@
 
 import { type Client, type Options as Options2, type TDataShape, urlSearchParamsBodySerializer } from './client';
 import { client } from './client.gen';
-import type { itemsCreateItemData, itemsCreateItemErrors, itemsCreateItemResponses, itemsDeleteItemData, itemsDeleteItemErrors, itemsDeleteItemResponses, itemsReadItemData, itemsReadItemErrors, itemsReadItemResponses, itemsReadItemsData, itemsReadItemsErrors, itemsReadItemsResponses, itemsUpdateItemData, itemsUpdateItemErrors, itemsUpdateItemResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, routingCalculateRouteData, routingCalculateRouteErrors, routingCalculateRouteResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses } from './types.gen';
+import type { itemsCreateItemData, itemsCreateItemErrors, itemsCreateItemResponses, itemsDeleteItemData, itemsDeleteItemErrors, itemsDeleteItemResponses, itemsReadItemData, itemsReadItemErrors, itemsReadItemResponses, itemsReadItemsData, itemsReadItemsErrors, itemsReadItemsResponses, itemsUpdateItemData, itemsUpdateItemErrors, itemsUpdateItemResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, mapRouteOverviewData, mapRouteOverviewErrors, mapRouteOverviewResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, routingCalculateRouteData, routingCalculateRouteErrors, routingCalculateRouteResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -370,6 +370,10 @@ export class RoutingService {
      *
      * Calculate route between locations.
      *
+     * .. deprecated::
+     * Use ``POST /api/v1/map/route-overview`` instead. It returns the same
+     * route plus traffic, fuel stations and truck restriction layers.
+     *
      * Calculates an optimized route between origin and destination with support for:
      * - Multiple waypoints (up to 150)
      * - Route alternatives
@@ -414,11 +418,55 @@ export class RoutingService {
      * - 408: Request timeout
      * - 500: Provider error
      * - 503: Provider unavailable
+     *
+     * @deprecated
      */
     public static calculateRoute<ThrowOnError extends boolean = true>(options: Options<routingCalculateRouteData, ThrowOnError>) {
         return (options.client ?? client).post<routingCalculateRouteResponses, routingCalculateRouteErrors, ThrowOnError>({
             responseType: 'json',
             url: '/api/v1/routing/routes/calculate',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+}
+
+export class MapService {
+    /**
+     * Route Overview
+     *
+     * Build an aggregated map overview for a route.
+     *
+     * Resolves the route first and then fetches every other layer concurrently
+     * along the resulting corridor.
+     *
+     * Layer behaviour:
+     * - **route**: mandatory. A routing failure returns 502.
+     * - **traffic**, **fuel_stations**, **truck_restrictions**: optional. On
+     * failure the layer is empty and the reason is reported in `errors`.
+     *
+     * Query parameters:
+     * - force_refresh: Skip all caches and refresh from providers.
+     *
+     * Args:
+     * request: Aggregated map request with the route definition.
+     * map_service: Map layer orchestrator (injected via DI).
+     * force_refresh: Force refresh from providers.
+     *
+     * Returns:
+     * Aggregated map overview with per-layer errors.
+     *
+     * Raises:
+     * HTTPException: 502 when the mandatory route layer fails,
+     * 500 on unexpected errors.
+     */
+    public static routeOverview<ThrowOnError extends boolean = true>(options: Options<mapRouteOverviewData, ThrowOnError>) {
+        return (options.client ?? client).post<mapRouteOverviewResponses, mapRouteOverviewErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/api/v1/map/route-overview',
             ...options,
             headers: {
                 'Content-Type': 'application/json',
