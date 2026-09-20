@@ -7,11 +7,11 @@ test.use({ storageState: { cookies: [], origins: [] } })
 
 const resetPath = "/reset-password?token="
 
-test("Password Recovery title is visible", async ({ page }) => {
+test("Recover password page title is visible", async ({ page }) => {
   await page.goto("/recover-password")
 
   await expect(
-    page.getByRole("heading", { name: "Password Recovery" }),
+    page.getByRole("heading", { name: "Reset access credentials" }),
   ).toBeVisible()
 })
 
