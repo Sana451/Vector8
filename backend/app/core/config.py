@@ -66,6 +66,7 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER_PASSWORD: str
 
     # Map layer providers (one vendor may serve several domains)
+    GEOCODING_PROVIDER: Literal["tomtom"] = "tomtom"
     ROUTING_PROVIDER: Literal["tomtom"] = "tomtom"
     TRAFFIC_PROVIDER: Literal["tomtom"] = "tomtom"
     FUEL_PROVIDER: Literal["internal"] = "internal"
@@ -88,6 +89,7 @@ class Settings(BaseSettings):
     TRUCK_RESTRICTION_API_TIMEOUT_SECONDS: int = 15
 
     # Per-domain cache TTLs (lazy invalidation on read)
+    GEOCODING_CACHE_TTL_SECONDS: int = 2_592_000  # 30 days
     ROUTE_CALCULATION_CACHE_TTL_SECONDS: int = 3600  # 1 hour
     TRAFFIC_CACHE_TTL_SECONDS: int = 120  # 2 minutes
     FUEL_CACHE_TTL_SECONDS: int = 86400  # 1 day
@@ -111,15 +113,23 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _validate_routing_config(self) -> Self:
         # In development, allow missing TOMTOM_API_KEY, but warn
-        if self.ROUTING_PROVIDER == "tomtom" and not self.TOMTOM_API_KEY:
+        uses_tomtom = any(
+            provider == "tomtom"
+            for provider in (
+                self.GEOCODING_PROVIDER,
+                self.ROUTING_PROVIDER,
+                self.TRAFFIC_PROVIDER,
+            )
+        )
+        if uses_tomtom and not self.TOMTOM_API_KEY:
             if self.FASTAPI_ENV == "development":
                 warnings.warn(
-                    "TOMTOM_API_KEY is not set. Routing API will not work until configured.",
+                    "TOMTOM_API_KEY is not set. TomTom-backed geocoding/routing APIs will not work until configured.",
                     stacklevel=1,
                 )
             else:
                 raise ValueError(
-                    "TOMTOM_API_KEY is required when ROUTING_PROVIDER is set to 'tomtom'"
+                    "TOMTOM_API_KEY is required when a TomTom-backed provider is enabled"
                 )
         return self
 

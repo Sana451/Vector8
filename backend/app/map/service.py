@@ -11,6 +11,7 @@ import asyncio
 
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.geocoding.service import GeocodingService
 from app.map.schemas import (
     LayerError,
     MapLayer,
@@ -27,7 +28,11 @@ from app.providers.schemas import (
     TrafficLayerData,
     TruckRestrictionData,
 )
-from app.routing.schemas import CalculateRouteResponse
+from app.routing.schemas import (
+    CalculateRouteRequest,
+    CalculateRouteResponse,
+    RoutePlanningLocations,
+)
 from app.routing.service import RoutingService
 
 logger = get_logger(__name__)
@@ -38,6 +43,7 @@ class MapLayerService:
 
     def __init__(
         self,
+        geocoding_service: GeocodingService,
         routing_service: RoutingService,
         traffic_service: TrafficService,
         fuel_service: FuelService,
@@ -46,11 +52,13 @@ class MapLayerService:
         """Initialize the orchestrator.
 
         Args:
+            geocoding_service: Address normalization service.
             routing_service: Route layer service.
             traffic_service: Traffic layer service.
             fuel_service: Fuel layer service.
             truck_restriction_service: Truck restriction layer service.
         """
+        self.geocoding_service = geocoding_service
         self.routing_service = routing_service
         self.traffic_service = traffic_service
         self.fuel_service = fuel_service
@@ -80,8 +88,13 @@ class MapLayerService:
         requested = set(request.layers or list(MapLayer))
         errors: list[LayerError] = []
 
+        route_request = await self._build_route_request(
+            request,
+            force_refresh=force_refresh,
+        )
+
         route_response = await self.routing_service.calculate_route(
-            request=request.route,
+            request=route_request,
             force_refresh=force_refresh,
         )
         route_layer = RouteLayerData(
@@ -144,6 +157,37 @@ class MapLayerService:
             fuel_stations=fuel_stations,
             truck_restrictions=truck_restrictions,
             errors=errors,
+        )
+
+    async def _build_route_request(
+        self,
+        request: MapOverviewRequest,
+        *,
+        force_refresh: bool,
+    ) -> CalculateRouteRequest:
+        """Normalize map request into the canonical routing request."""
+        if request.route is not None:
+            return request.route
+
+        assert request.pickup is not None
+        assert request.delivery is not None
+
+        pickup, delivery = await asyncio.gather(
+            self.geocoding_service.normalize_point(
+                request.pickup,
+                force_refresh=force_refresh,
+            ),
+            self.geocoding_service.normalize_point(
+                request.delivery,
+                force_refresh=force_refresh,
+            ),
+        )
+
+        return CalculateRouteRequest(
+            route_planning_locations=RoutePlanningLocations(
+                origin=pickup,
+                destination=delivery,
+            )
         )
 
     @staticmethod

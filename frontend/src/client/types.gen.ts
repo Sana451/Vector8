@@ -366,6 +366,33 @@ export type GeoJSONPoint = {
 };
 
 /**
+ * GeocodingSearchRequest
+ *
+ * Public geocoding search request.
+ */
+export type GeocodingSearchRequest = {
+    /**
+     * Query
+     *
+     * Free-form address query
+     */
+    query: string;
+};
+
+/**
+ * GeocodingSearchResponse
+ *
+ * Public geocoding search response.
+ */
+export type GeocodingSearchResponse = {
+    /**
+     * Formatted Address
+     */
+    formatted_address: string;
+    location: GeoJSONPoint;
+};
+
+/**
  * HTTPValidationError
  */
 export type HTTPValidationError = {
@@ -481,12 +508,24 @@ export type MapLayer = 'route' | 'traffic' | 'fuel' | 'truck_restrictions';
  * MapOverviewRequest
  *
  * Aggregated map overview request.
+ *
+ * Supports two request shapes:
+ * - new format: ``pickup`` / ``delivery`` with either address or coordinates;
+ * - legacy format: ``route`` with a full ``CalculateRouteRequest``.
  */
 export type MapOverviewRequest = {
     /**
-     * Route calculation request
+     * Pickup point, either by address or GeoJSON coordinates
      */
-    route: CalculateRouteRequest;
+    pickup?: MapPointInput | null;
+    /**
+     * Delivery point, either by address or GeoJSON coordinates
+     */
+    delivery?: MapPointInput | null;
+    /**
+     * Legacy route calculation request kept for backward compatibility
+     */
+    route?: CalculateRouteRequest | null;
     /**
      * Radius Meters
      *
@@ -530,6 +569,24 @@ export type MapOverviewResponse = {
      * Errors
      */
     errors?: Array<LayerError>;
+};
+
+/**
+ * MapPointInput
+ *
+ * User-facing point input supporting either address or coordinates.
+ */
+export type MapPointInput = {
+    /**
+     * Address
+     *
+     * Free-form postal address
+     */
+    address?: string | null;
+    /**
+     * GeoJSON Point coordinates
+     */
+    location?: GeoJSONPoint | null;
 };
 
 /**
@@ -1680,6 +1737,38 @@ export type itemsUpdateItemResponses = {
 };
 
 export type itemsUpdateItemResponse = itemsUpdateItemResponses[keyof itemsUpdateItemResponses];
+
+export type geocodingSearchData = {
+    body: GeocodingSearchRequest;
+    path?: never;
+    query?: {
+        /**
+         * Force Refresh
+         *
+         * Force refresh from provider, skip geocoding cache
+         */
+        force_refresh?: boolean;
+    };
+    url: '/api/v1/geocoding/search';
+};
+
+export type geocodingSearchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type geocodingSearchError = geocodingSearchErrors[keyof geocodingSearchErrors];
+
+export type geocodingSearchResponses = {
+    /**
+     * Successful Response
+     */
+    200: GeocodingSearchResponse;
+};
+
+export type geocodingSearchResponse = geocodingSearchResponses[keyof geocodingSearchResponses];
 
 export type routingCalculateRouteData = {
     body: CalculateRouteRequest;

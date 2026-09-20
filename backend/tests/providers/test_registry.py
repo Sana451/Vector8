@@ -75,6 +75,7 @@ class TestDefaultRegistrations:
     @pytest.mark.parametrize(
         ("domain", "provider"),
         [
+            ("geocoding", "tomtom"),
             ("routing", "tomtom"),
             ("traffic", "tomtom"),
             ("fuel", "internal"),
@@ -90,6 +91,12 @@ class TestDefaultRegistrations:
         provider = registry.get("routing", "tomtom")
 
         assert hasattr(provider, "calculate_route")
+
+    def test_geocoding_default_implements_protocol(self):
+        """The default geocoding adapter satisfies the GeocodingProvider protocol."""
+        provider = registry.get("geocoding", "tomtom")
+
+        assert hasattr(provider, "search")
 
     def test_traffic_default_implements_protocol(self):
         """The default traffic adapter satisfies the TrafficProvider protocol."""

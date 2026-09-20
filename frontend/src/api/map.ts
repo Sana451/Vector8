@@ -6,6 +6,8 @@
  */
 
 import {
+  type GeocodingSearchResponse,
+  GeocodingService,
   type MapOverviewRequest,
   type MapOverviewResponse,
   MapService,
@@ -34,4 +36,18 @@ export async function getRouteOverview(
   })
 
   return response.data as MapOverviewResponse
+}
+
+export async function searchAddress(
+  query: string,
+  forceRefresh: boolean = false,
+): Promise<GeocodingSearchResponse> {
+  const response = await GeocodingService.search({
+    body: { query },
+    query: {
+      force_refresh: forceRefresh,
+    },
+  })
+
+  return response.data as GeocodingSearchResponse
 }

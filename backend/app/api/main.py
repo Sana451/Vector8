@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.routes import items, login, private, users, utils
 from app.core.config import settings
+from app.geocoding.router import router as geocoding_router
 from app.map.router import router as map_router
 from app.routing.router import router as routing_router
 
@@ -10,6 +11,7 @@ api_router.include_router(login.router)
 api_router.include_router(users.router)
 api_router.include_router(utils.router)
 api_router.include_router(items.router)
+api_router.include_router(geocoding_router)
 api_router.include_router(routing_router)
 api_router.include_router(map_router)
 

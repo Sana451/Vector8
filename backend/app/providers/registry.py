@@ -15,7 +15,7 @@ from typing import Any, Literal
 
 from app.providers.exceptions import ProviderNotRegisteredError
 
-Domain = Literal["routing", "traffic", "fuel", "truck_restrictions"]
+Domain = Literal["geocoding", "routing", "traffic", "fuel", "truck_restrictions"]
 
 ProviderFactory = Callable[[], Any]
 
@@ -88,6 +88,7 @@ def _register_defaults() -> None:
     Imports are local to keep module import order free of cycles: adapters
     import schemas from :mod:`app.providers`, which must be fully initialized.
     """
+    from app.geocoding.providers.tomtom import TomTomGeocodingProvider
     from app.providers.fuel.internal import InternalFuelStationProvider
     from app.providers.tomtom.routing import TomTomRoutingProvider
     from app.providers.tomtom.traffic import TomTomTrafficProvider
@@ -95,6 +96,7 @@ def _register_defaults() -> None:
         InternalTruckRestrictionProvider,
     )
 
+    registry.register("geocoding", "tomtom", TomTomGeocodingProvider)
     registry.register("routing", "tomtom", TomTomRoutingProvider)
     registry.register("traffic", "tomtom", TomTomTrafficProvider)
     registry.register("fuel", "internal", InternalFuelStationProvider)

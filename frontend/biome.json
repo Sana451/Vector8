@@ -9,7 +9,9 @@
       "!**/src/routeTree.gen.ts",
       "!**/src/client/**/*",
       "!**/src/components/ui/**/*",
+      "!**/blob-report/**/*",
       "!**/playwright-report",
+      "!**/test-results/**/*",
       "!**/playwright.config.ts",
       "!**/logo-presentation/vector8-logo.html"
     ]
