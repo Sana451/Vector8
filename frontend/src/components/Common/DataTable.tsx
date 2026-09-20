@@ -46,7 +46,7 @@ export function DataTable<TData, TValue>({
   })
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="vector8-surface flex flex-col gap-4 p-4 sm:p-5">
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -91,7 +91,7 @@ export function DataTable<TData, TValue>({
       </Table>
 
       {table.getPageCount() > 1 && (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 border-t bg-muted/20">
+        <div className="flex flex-col items-start justify-between gap-4 border-t border-border/80 pt-4 sm:flex-row sm:items-center">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="text-sm text-muted-foreground">
               Showing{" "}
@@ -109,14 +109,16 @@ export function DataTable<TData, TValue>({
               entries
             </div>
             <div className="flex items-center gap-x-2">
-              <p className="text-sm text-muted-foreground">Rows per page</p>
+              <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                Rows per page
+              </p>
               <Select
                 value={`${table.getState().pagination.pageSize}`}
                 onValueChange={(value) => {
                   table.setPageSize(Number(value))
                 }}
               >
-                <SelectTrigger className="h-8 w-[70px]">
+                <SelectTrigger className="h-8 w-[78px] rounded-md border-border/80 bg-background">
                   <SelectValue
                     placeholder={table.getState().pagination.pageSize}
                   />

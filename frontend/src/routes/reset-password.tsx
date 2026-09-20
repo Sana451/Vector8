@@ -60,7 +60,7 @@ export const Route = createFileRoute("/reset-password")({
   head: () => ({
     meta: [
       {
-        title: "Reset Password - FastAPI Template",
+        title: "Reset Password - Vector8",
       },
     ],
   }),
@@ -103,8 +103,14 @@ function ResetPassword() {
           onSubmit={form.handleSubmit(onSubmit)}
           className="flex flex-col gap-6"
         >
-          <div className="flex flex-col items-center gap-2 text-center">
-            <h1 className="text-2xl font-bold">Reset Password</h1>
+          <div className="space-y-3 text-center sm:text-left">
+            <p className="vector8-kicker">New credentials</p>
+            <h1 className="text-3xl font-semibold tracking-tight">
+              Create a new password
+            </h1>
+            <p className="text-sm leading-6 text-muted-foreground">
+              Choose a strong password to secure your Vector8 workspace.
+            </p>
           </div>
 
           <div className="grid gap-4">
@@ -146,6 +152,7 @@ function ResetPassword() {
 
             <LoadingButton
               type="submit"
+              size="lg"
               className="w-full"
               loading={mutation.isPending}
             >
@@ -153,9 +160,12 @@ function ResetPassword() {
             </LoadingButton>
           </div>
 
-          <div className="text-center text-sm">
+          <div className="text-center text-sm text-muted-foreground">
             Remember your password?{" "}
-            <RouterLink to="/login" className="underline underline-offset-4">
+            <RouterLink
+              to="/login"
+              className="font-medium text-[var(--teal-700)] underline underline-offset-4"
+            >
               Log in
             </RouterLink>
           </div>

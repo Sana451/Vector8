@@ -25,14 +25,24 @@ export function AppSidebar() {
     : baseItems
 
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader className="px-4 py-6 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:items-center">
-        <Logo variant="responsive" />
+    <Sidebar collapsible="icon" variant="inset" className="border-r-0">
+      <SidebarHeader className="px-3 py-4 group-data-[collapsible=icon]:px-2">
+        <div className="rounded-2xl border border-[var(--slate-border)] bg-[linear-gradient(180deg,rgba(236,230,214,0.06),rgba(236,230,214,0.02))] p-4 group-data-[collapsible=icon]:p-2">
+          <Logo variant="responsive" />
+          <div className="mt-4 space-y-1 group-data-[collapsible=icon]:hidden">
+            <p className="vector8-kicker text-[var(--slate-text-faint)]">
+              Dispatch shell
+            </p>
+            <p className="text-sm leading-6 text-[var(--slate-text-dim)]">
+              Routes, items and admin tools arranged for daily operations.
+            </p>
+          </div>
+        </div>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="px-1">
         <Main items={items} />
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="gap-3 px-3 pb-4">
         <SidebarAppearance />
         <User user={currentUser} />
       </SidebarFooter>
