@@ -42,7 +42,7 @@ export const Route = createFileRoute("/recover-password")({
   head: () => ({
     meta: [
       {
-        title: "Recover Password - FastAPI Template",
+        title: "Recover Password - Vector8",
       },
     ],
   }),
@@ -84,8 +84,15 @@ function RecoverPassword() {
           onSubmit={form.handleSubmit(onSubmit)}
           className="flex flex-col gap-6"
         >
-          <div className="flex flex-col items-center gap-2 text-center">
-            <h1 className="text-2xl font-bold">Password Recovery</h1>
+          <div className="space-y-3 text-center sm:text-left">
+            <p className="vector8-kicker">Account recovery</p>
+            <h1 className="text-3xl font-semibold tracking-tight">
+              Reset access credentials
+            </h1>
+            <p className="text-sm leading-6 text-muted-foreground">
+              We&apos;ll send a secure recovery link to the email connected with
+              your Vector8 account.
+            </p>
           </div>
 
           <div className="grid gap-4">
@@ -110,6 +117,7 @@ function RecoverPassword() {
 
             <LoadingButton
               type="submit"
+              size="lg"
               className="w-full"
               loading={mutation.isPending}
             >
@@ -117,9 +125,12 @@ function RecoverPassword() {
             </LoadingButton>
           </div>
 
-          <div className="text-center text-sm">
+          <div className="text-center text-sm text-muted-foreground">
             Remember your password?{" "}
-            <RouterLink to="/login" className="underline underline-offset-4">
+            <RouterLink
+              to="/login"
+              className="font-medium text-[var(--teal-700)] underline underline-offset-4"
+            >
               Log in
             </RouterLink>
           </div>

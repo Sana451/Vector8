@@ -44,7 +44,7 @@ export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
       {
-        title: "Log In - FastAPI Template",
+        title: "Log In - Vector8",
       },
     ],
   }),
@@ -74,8 +74,14 @@ function Login() {
           onSubmit={form.handleSubmit(onSubmit)}
           className="flex flex-col gap-6"
         >
-          <div className="flex flex-col items-center gap-2 text-center">
-            <h1 className="text-2xl font-bold">Login to your account</h1>
+          <div className="space-y-3 text-center sm:text-left">
+            <p className="vector8-kicker">Secure access</p>
+            <h1 className="text-3xl font-semibold tracking-tight">
+              Sign in to Vector8
+            </h1>
+            <p className="text-sm leading-6 text-muted-foreground">
+              Access your routing, fleet and operations workspace.
+            </p>
           </div>
 
           <div className="grid gap-4">
@@ -107,7 +113,7 @@ function Login() {
                     <FormLabel>Password</FormLabel>
                     <RouterLink
                       to="/recover-password"
-                      className="ml-auto text-sm underline-offset-4 hover:underline"
+                      className="ml-auto text-sm text-[var(--teal-700)] underline-offset-4 hover:underline"
                     >
                       Forgot your password?
                     </RouterLink>
@@ -124,14 +130,22 @@ function Login() {
               )}
             />
 
-            <LoadingButton type="submit" loading={loginMutation.isPending}>
+            <LoadingButton
+              type="submit"
+              size="lg"
+              className="w-full justify-center"
+              loading={loginMutation.isPending}
+            >
               Log In
             </LoadingButton>
           </div>
 
-          <div className="text-center text-sm">
+          <div className="text-center text-sm text-muted-foreground">
             Don't have an account yet?{" "}
-            <RouterLink to="/signup" className="underline underline-offset-4">
+            <RouterLink
+              to="/signup"
+              className="font-medium text-[var(--teal-700)] underline underline-offset-4"
+            >
               Sign up
             </RouterLink>
           </div>

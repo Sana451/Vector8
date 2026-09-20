@@ -1,10 +1,10 @@
 # PostGIS Integration Guide
 
-This document describes the PostGIS setup in this FastAPI Full Stack Template.
+This document describes the PostGIS setup in Vector8.
 
 ## Overview
 
-PostGIS is a PostgreSQL extension that adds support for geographic objects and spatial queries. This template includes PostGIS 3.6 with PostgreSQL 18.
+PostGIS is a PostgreSQL extension that adds support for geographic objects and spatial queries. Vector8 includes PostGIS 3.6 with PostgreSQL 18.
 
 ## Architecture
 

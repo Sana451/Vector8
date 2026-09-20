@@ -24,7 +24,7 @@ Set the application domain, project name, and first superuser email:
 
 ```bash
 export DOMAIN=fastapi-project.example.com
-export PROJECT_NAME="Full Stack FastAPI Project"
+export PROJECT_NAME="Vector8"
 export FIRST_SUPERUSER=admin@example.com
 ```
 

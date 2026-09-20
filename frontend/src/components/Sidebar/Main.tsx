@@ -4,6 +4,7 @@ import type { LucideIcon } from "lucide-react"
 import {
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -32,7 +33,10 @@ export function Main({ items }: MainProps) {
   }
 
   return (
-    <SidebarGroup>
+    <SidebarGroup className="gap-3 px-3">
+      <SidebarGroupLabel className="px-2 font-mono text-[10.5px] uppercase tracking-[0.16em] text-sidebar-foreground/55">
+        Workspace
+      </SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
           {items.map((item) => {
@@ -43,6 +47,7 @@ export function Main({ items }: MainProps) {
                 <SidebarMenuButton
                   tooltip={item.title}
                   isActive={isActive}
+                  size="lg"
                   asChild
                 >
                   <RouterLink to={item.path} onClick={handleMenuClick}>

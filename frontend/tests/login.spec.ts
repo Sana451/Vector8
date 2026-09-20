@@ -46,7 +46,9 @@ test("Log in with valid email and password ", async ({ page }) => {
   await page.waitForURL("/")
 
   await expect(
-    page.getByText("Welcome back, nice to see you again!"),
+    page.getByText(
+      "Your Vector8 workspace is ready for routing, fleet operations and",
+    ),
   ).toBeVisible()
 })
 
@@ -78,11 +80,13 @@ test("Successful log out", async ({ page }) => {
   await page.waitForURL("/")
 
   await expect(
-    page.getByText("Welcome back, nice to see you again!"),
+    page.getByText(
+      "Your Vector8 workspace is ready for routing, fleet operations and",
+    ),
   ).toBeVisible()
 
   await page.getByTestId("user-menu").click()
-  await page.getByRole("menuitem", { name: "Log out" }).click()
+  await page.getByRole("menuitem", { name: "Log Out" }).click()
   await page.waitForURL("/login")
 })
 
@@ -95,11 +99,13 @@ test("Logged-out user cannot access protected routes", async ({ page }) => {
   await page.waitForURL("/")
 
   await expect(
-    page.getByText("Welcome back, nice to see you again!"),
+    page.getByText(
+      "Your Vector8 workspace is ready for routing, fleet operations and",
+    ),
   ).toBeVisible()
 
   await page.getByTestId("user-menu").click()
-  await page.getByRole("menuitem", { name: "Log out" }).click()
+  await page.getByRole("menuitem", { name: "Log Out" }).click()
   await page.waitForURL("/login")
 
   await page.goto("/settings")

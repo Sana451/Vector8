@@ -51,7 +51,7 @@ export const Route = createFileRoute("/signup")({
   head: () => ({
     meta: [
       {
-        title: "Sign Up - FastAPI Template",
+        title: "Sign Up - Vector8",
       },
     ],
   }),
@@ -86,8 +86,15 @@ function SignUp() {
           onSubmit={form.handleSubmit(onSubmit)}
           className="flex flex-col gap-6"
         >
-          <div className="flex flex-col items-center gap-2 text-center">
-            <h1 className="text-2xl font-bold">Create an account</h1>
+          <div className="space-y-3 text-center sm:text-left">
+            <p className="vector8-kicker">New workspace</p>
+            <h1 className="text-3xl font-semibold tracking-tight">
+              Create your Vector8 account
+            </h1>
+            <p className="text-sm leading-6 text-muted-foreground">
+              Set up your access to routing tools, item management and admin
+              workflows.
+            </p>
           </div>
 
           <div className="grid gap-4">
@@ -167,6 +174,7 @@ function SignUp() {
 
             <LoadingButton
               type="submit"
+              size="lg"
               className="w-full"
               loading={signUpMutation.isPending}
             >
@@ -174,9 +182,12 @@ function SignUp() {
             </LoadingButton>
           </div>
 
-          <div className="text-center text-sm">
+          <div className="text-center text-sm text-muted-foreground">
             Already have an account?{" "}
-            <RouterLink to="/login" className="underline underline-offset-4">
+            <RouterLink
+              to="/login"
+              className="font-medium text-[var(--teal-700)] underline underline-offset-4"
+            >
               Log in
             </RouterLink>
           </div>

@@ -1,4 +1,4 @@
-# Full Stack FastAPI Template
+# Vector8
 
 [![Test Docker Compose](../../actions/workflows/test-docker-compose.yml/badge.svg)](../../actions/workflows/test-docker-compose.yml)
 [![Test Backend](../../actions/workflows/test-backend.yml/badge.svg)](../../actions/workflows/test-backend.yml)
@@ -81,4 +81,4 @@ Check the file [release-notes.md](./release-notes.md).
 
 ## License
 
-The Full Stack FastAPI Template is licensed under the terms of the MIT license.
+Vector8 is licensed under the terms of the MIT license.

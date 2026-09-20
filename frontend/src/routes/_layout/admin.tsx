@@ -30,7 +30,7 @@ export const Route = createFileRoute("/_layout/admin")({
   head: () => ({
     meta: [
       {
-        title: "Admin - FastAPI Template",
+        title: "Admin - Vector8",
       },
     ],
   }),
@@ -59,11 +59,13 @@ function UsersTable() {
 function Admin() {
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Users</h1>
+      <div className="vector8-page-header flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="space-y-2">
+          <p className="vector8-kicker">Access control</p>
+          <h1 className="text-3xl font-semibold tracking-tight">Users</h1>
           <p className="text-muted-foreground">
-            Manage user accounts and permissions
+            Manage user accounts, roles and permissions for the Vector8
+            workspace.
           </p>
         </div>
         <AddUser />

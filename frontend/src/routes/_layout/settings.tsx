@@ -17,7 +17,7 @@ export const Route = createFileRoute("/_layout/settings")({
   head: () => ({
     meta: [
       {
-        title: "Settings - FastAPI Template",
+        title: "Settings - Vector8",
       },
     ],
   }),
@@ -35,10 +35,11 @@ function UserSettings() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">User Settings</h1>
+      <div className="vector8-page-header space-y-2">
+        <p className="vector8-kicker">Preferences</p>
+        <h1 className="text-3xl font-semibold tracking-tight">User Settings</h1>
         <p className="text-muted-foreground">
-          Manage your account settings and preferences
+          Manage your account preferences, password and safety controls.
         </p>
       </div>
 
