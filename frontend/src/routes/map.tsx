@@ -1,9 +1,10 @@
 import { useMutation } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { useRef, useState } from "react"
-import { getRouteOverview } from "@/api/map"
+import { useEffect, useRef, useState } from "react"
+import { getRouteOverview, searchAddress } from "@/api/map"
 import type {
   FuelStationData,
+  GeocodingSearchResponse,
   LayerError,
   TrafficLayerData,
   TruckRestrictionData,
@@ -26,6 +27,12 @@ import {
 import { Input } from "@/components/ui/input"
 import useCustomToast from "@/hooks/useCustomToast"
 import { extractOverviewCoordinates } from "@/lib/mapLayers"
+import {
+  type AddressSelection,
+  buildMapPointFromAddress,
+  buildRouteOverviewRequest,
+  createAddressSelection,
+} from "@/lib/mapRequest"
 import { type Coordinate, calculateBoundingBox } from "@/lib/routing"
 import { handleError } from "@/utils"
 
@@ -43,10 +50,22 @@ function MapPage() {
   const { showSuccessToast, showErrorToast } = useCustomToast()
 
   // Form state
-  const [originLon, setOriginLon] = useState("-74.006")
-  const [originLat, setOriginLat] = useState("40.7128")
-  const [destLon, setDestLon] = useState("-73.9855")
-  const [destLat, setDestLat] = useState("40.758")
+  const [pickupAddress, setPickupAddress] = useState(
+    "1521 Hickory Trail Allen TX 75002",
+  )
+  const [deliveryAddress, setDeliveryAddress] = useState(
+    "3660 Gateway Street Springfield OR 97477",
+  )
+  const [pickupSuggestion, setPickupSuggestion] =
+    useState<GeocodingSearchResponse | null>(null)
+  const [deliverySuggestion, setDeliverySuggestion] =
+    useState<GeocodingSearchResponse | null>(null)
+  const [pickupSelection, setPickupSelection] =
+    useState<AddressSelection | null>(null)
+  const [deliverySelection, setDeliverySelection] =
+    useState<AddressSelection | null>(null)
+  const [isPickupSearching, setIsPickupSearching] = useState(false)
+  const [isDeliverySearching, setIsDeliverySearching] = useState(false)
 
   // Layer state - each layer is stored and rendered independently
   const [routeCoordinates, setRouteCoordinates] = useState<Coordinate[] | null>(
@@ -68,28 +87,86 @@ function MapPage() {
     setRouteInfo(null)
   }
 
+  useEffect(() => {
+    let cancelled = false
+    const query = pickupAddress.trim()
+    const selectedAddress = pickupSelection?.formatted_address
+
+    if (query.length < 3 || query === selectedAddress) {
+      setPickupSuggestion(null)
+      setIsPickupSearching(false)
+      return
+    }
+
+    setIsPickupSearching(true)
+    const timer = window.setTimeout(async () => {
+      try {
+        const result = await searchAddress(query)
+        if (!cancelled) {
+          setPickupSuggestion(result)
+        }
+      } catch {
+        if (!cancelled) {
+          setPickupSuggestion(null)
+        }
+      } finally {
+        if (!cancelled) {
+          setIsPickupSearching(false)
+        }
+      }
+    }, 300)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [pickupAddress, pickupSelection])
+
+  useEffect(() => {
+    let cancelled = false
+    const query = deliveryAddress.trim()
+    const selectedAddress = deliverySelection?.formatted_address
+
+    if (query.length < 3 || query === selectedAddress) {
+      setDeliverySuggestion(null)
+      setIsDeliverySearching(false)
+      return
+    }
+
+    setIsDeliverySearching(true)
+    const timer = window.setTimeout(async () => {
+      try {
+        const result = await searchAddress(query)
+        if (!cancelled) {
+          setDeliverySuggestion(result)
+        }
+      } catch {
+        if (!cancelled) {
+          setDeliverySuggestion(null)
+        }
+      } finally {
+        if (!cancelled) {
+          setIsDeliverySearching(false)
+        }
+      }
+    }, 300)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [deliveryAddress, deliverySelection])
+
   const mutation = useMutation({
     mutationFn: async (forceRefresh: boolean) => {
-      const request = {
-        route: {
-          route_planning_locations: {
-            origin: {
-              type: "Point" as const,
-              coordinates: [
-                Number.parseFloat(originLon),
-                Number.parseFloat(originLat),
-              ] as [number, number],
-            },
-            destination: {
-              type: "Point" as const,
-              coordinates: [
-                Number.parseFloat(destLon),
-                Number.parseFloat(destLat),
-              ] as [number, number],
-            },
-          },
-        },
-      }
+      const request = buildRouteOverviewRequest({
+        pickup: buildMapPointFromAddress(
+          pickupSelection?.formatted_address ?? pickupAddress.trim(),
+        ),
+        delivery: buildMapPointFromAddress(
+          deliverySelection?.formatted_address ?? deliveryAddress.trim(),
+        ),
+      })
 
       return await getRouteOverview(request, forceRefresh)
     },
@@ -133,6 +210,29 @@ function MapPage() {
     mutation.mutate(true)
   }
 
+  const canSubmit =
+    pickupAddress.trim().length > 0 && deliveryAddress.trim().length > 0
+
+  const applySuggestion = (
+    field: "pickup" | "delivery",
+    suggestion: GeocodingSearchResponse,
+  ) => {
+    if (field === "pickup") {
+      setPickupSelection(
+        createAddressSelection(pickupAddress.trim(), suggestion),
+      )
+      setPickupAddress(suggestion.formatted_address)
+      setPickupSuggestion(null)
+      return
+    }
+
+    setDeliverySelection(
+      createAddressSelection(deliveryAddress.trim(), suggestion),
+    )
+    setDeliveryAddress(suggestion.formatted_address)
+    setDeliverySuggestion(null)
+  }
+
   const mapInstance = mapRef.current?.getMapInstance() || null
 
   return (
@@ -142,67 +242,85 @@ function MapPage() {
           <CardHeader className="pb-3">
             <CardTitle>Route Calculator</CardTitle>
             <CardDescription>
-              Enter origin and destination coordinates
+              Enter pickup and delivery addresses
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="origin-lon" className="text-sm font-medium">
-                Origin
+              <label htmlFor="pickup-address" className="text-sm font-medium">
+                Pickup address
               </label>
-              <div className="flex gap-2">
-                <Input
-                  id="origin-lon"
-                  type="number"
-                  placeholder="Longitude"
-                  value={originLon}
-                  onChange={(e) => setOriginLon(e.target.value)}
-                  step="0.0001"
-                />
-                <Input
-                  type="number"
-                  placeholder="Latitude"
-                  value={originLat}
-                  onChange={(e) => setOriginLat(e.target.value)}
-                  step="0.0001"
-                />
-              </div>
+              <Input
+                id="pickup-address"
+                placeholder="1521 Hickory Trail Allen TX 75002"
+                value={pickupAddress}
+                onChange={(e) => {
+                  setPickupAddress(e.target.value)
+                  if (e.target.value !== pickupSelection?.formatted_address) {
+                    setPickupSelection(null)
+                  }
+                }}
+              />
+              {isPickupSearching && (
+                <p className="text-xs text-gray-500">Searching address…</p>
+              )}
+              {pickupSuggestion &&
+                pickupSuggestion.formatted_address !==
+                  pickupSelection?.formatted_address && (
+                  <button
+                    type="button"
+                    className="w-full rounded-md border px-3 py-2 text-left text-sm hover:bg-muted"
+                    onClick={() => applySuggestion("pickup", pickupSuggestion)}
+                  >
+                    {pickupSuggestion.formatted_address}
+                  </button>
+                )}
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="dest-lon" className="text-sm font-medium">
-                Destination
+              <label htmlFor="delivery-address" className="text-sm font-medium">
+                Delivery address
               </label>
-              <div className="flex gap-2">
-                <Input
-                  id="dest-lon"
-                  type="number"
-                  placeholder="Longitude"
-                  value={destLon}
-                  onChange={(e) => setDestLon(e.target.value)}
-                  step="0.0001"
-                />
-                <Input
-                  type="number"
-                  placeholder="Latitude"
-                  value={destLat}
-                  onChange={(e) => setDestLat(e.target.value)}
-                  step="0.0001"
-                />
-              </div>
+              <Input
+                id="delivery-address"
+                placeholder="3660 Gateway Street Springfield OR 97477"
+                value={deliveryAddress}
+                onChange={(e) => {
+                  setDeliveryAddress(e.target.value)
+                  if (e.target.value !== deliverySelection?.formatted_address) {
+                    setDeliverySelection(null)
+                  }
+                }}
+              />
+              {isDeliverySearching && (
+                <p className="text-xs text-gray-500">Searching address…</p>
+              )}
+              {deliverySuggestion &&
+                deliverySuggestion.formatted_address !==
+                  deliverySelection?.formatted_address && (
+                  <button
+                    type="button"
+                    className="w-full rounded-md border px-3 py-2 text-left text-sm hover:bg-muted"
+                    onClick={() =>
+                      applySuggestion("delivery", deliverySuggestion)
+                    }
+                  >
+                    {deliverySuggestion.formatted_address}
+                  </button>
+                )}
             </div>
 
             <div className="flex gap-2">
               <Button
                 onClick={handleCalculateRoute}
-                disabled={mutation.isPending}
+                disabled={mutation.isPending || !canSubmit}
                 className="flex-1"
               >
                 {mutation.isPending ? "Calculating..." : "Calculate Route"}
               </Button>
               <Button
                 onClick={handleForceRefresh}
-                disabled={mutation.isPending}
+                disabled={mutation.isPending || !canSubmit}
                 variant="outline"
                 className="flex-1"
               >
@@ -225,7 +343,7 @@ function MapPage() {
 
             {mutation.isError && (
               <div className="mt-4 p-3 bg-red-50 rounded text-sm text-red-700">
-                Error calculating route. Try different coordinates.
+                Error calculating route. Try different addresses.
               </div>
             )}
           </CardContent>

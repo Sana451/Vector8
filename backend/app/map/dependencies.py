@@ -10,6 +10,8 @@ from fastapi import Depends
 
 from app.api.deps import SessionDep
 from app.core.config import settings
+from app.geocoding.dependencies import get_geocoding_service
+from app.geocoding.service import GeocodingService
 from app.map.service import MapLayerService
 from app.map.services import FuelService, TrafficService, TruckRestrictionService
 from app.providers.base import (
@@ -62,6 +64,7 @@ def get_truck_restriction_service(
 
 
 def get_map_layer_service(
+    geocoding_service: GeocodingService = Depends(get_geocoding_service),
     routing_service: RoutingService = Depends(get_routing_service),
     traffic_service: TrafficService = Depends(get_traffic_service),
     fuel_service: FuelService = Depends(get_fuel_service),
@@ -71,10 +74,11 @@ def get_map_layer_service(
 ) -> MapLayerService:
     """Build the map layer orchestrator."""
     return MapLayerService(
-        routing_service=routing_service,
-        traffic_service=traffic_service,
-        fuel_service=fuel_service,
-        truck_restriction_service=truck_restriction_service,
+        geocoding_service,
+        routing_service,
+        traffic_service,
+        fuel_service,
+        truck_restriction_service,
     )
 
 

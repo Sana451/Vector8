@@ -8,8 +8,9 @@ entry in ``errors`` instead of failing the whole request.
 
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
+from app.geocoding.schemas import MapPointInput
 from app.providers.schemas import (
     FuelStationData,
     TrafficLayerData,
@@ -43,9 +44,25 @@ class RouteLayerData(BaseModel):
 
 
 class MapOverviewRequest(BaseModel):
-    """Aggregated map overview request."""
+    """Aggregated map overview request.
 
-    route: CalculateRouteRequest = Field(description="Route calculation request")
+    Supports two request shapes:
+    - new format: ``pickup`` / ``delivery`` with either address or coordinates;
+    - legacy format: ``route`` with a full ``CalculateRouteRequest``.
+    """
+
+    pickup: MapPointInput | None = Field(
+        default=None,
+        description="Pickup point, either by address or GeoJSON coordinates",
+    )
+    delivery: MapPointInput | None = Field(
+        default=None,
+        description="Delivery point, either by address or GeoJSON coordinates",
+    )
+    route: CalculateRouteRequest | None = Field(
+        default=None,
+        description="Legacy route calculation request kept for backward compatibility",
+    )
     radius_meters: int | None = Field(
         default=None,
         ge=1,
@@ -62,6 +79,26 @@ class MapOverviewRequest(BaseModel):
         default=None,
         description="Subset of layers to resolve; all layers when omitted",
     )
+
+    @model_validator(mode="after")
+    def validate_route_shape(self) -> MapOverviewRequest:
+        has_legacy_route = self.route is not None
+        has_modern_points = self.pickup is not None or self.delivery is not None
+
+        if has_legacy_route and has_modern_points:
+            raise ValueError(
+                "Provide either legacy route or pickup/delivery, not both."
+            )
+
+        if has_legacy_route:
+            return self
+
+        if self.pickup is None or self.delivery is None:
+            raise ValueError(
+                "Either legacy route or both pickup and delivery must be provided."
+            )
+
+        return self
 
 
 class MapOverviewResponse(BaseModel):

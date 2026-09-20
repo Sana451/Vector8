@@ -7,16 +7,22 @@ failures and propagation of mandatory route failures.
 
 import pytest
 
+from app.geocoding.schemas import MapPointInput
 from app.map.schemas import MapLayer, MapOverviewRequest
 from app.map.service import MapLayerService
 from app.providers.exceptions import ProviderUnavailableError
+from app.providers.geo import GeoJSONPoint
 from app.providers.schemas import (
     FuelStationData,
     TrafficLayerData,
     TruckRestrictionData,
 )
 from app.routing.exceptions import RoutingNoRouteFoundError
-from app.routing.schemas import CalculateRouteResponse
+from app.routing.schemas import (
+    CalculateRouteRequest,
+    CalculateRouteResponse,
+    RoutePlanningLocations,
+)
 
 ROUTE_RESPONSE = {
     "routes": [
@@ -42,12 +48,12 @@ ROUTE_RESPONSE = {
 def build_request() -> MapOverviewRequest:
     """Build a minimal map overview request."""
     return MapOverviewRequest(
-        route={
-            "route_planning_locations": {
-                "origin": {"type": "Point", "coordinates": [-74.006, 40.7128]},
-                "destination": {"type": "Point", "coordinates": [-73.9855, 40.758]},
-            }
-        }
+        route=CalculateRouteRequest(
+            route_planning_locations=RoutePlanningLocations(
+                origin=GeoJSONPoint(coordinates=(-74.006, 40.7128)),
+                destination=GeoJSONPoint(coordinates=(-73.9855, 40.758)),
+            )
+        )
     )
 
 
@@ -57,12 +63,31 @@ class FakeRoutingService:
     def __init__(self, response=None, error=None):
         self.response = response
         self.error = error
+        self.calls: list[dict] = []
 
     async def calculate_route(self, request, *, force_refresh=False):
         """Return a canned response or raise the configured error."""
+        self.calls.append({"request": request, "force_refresh": force_refresh})
         if self.error is not None:
             raise self.error
         return CalculateRouteResponse.model_validate(self.response)
+
+
+class FakeGeocodingService:
+    """Geocoding service stub."""
+
+    def __init__(self, mapping: dict[str, GeoJSONPoint] | None = None):
+        self.mapping = mapping or {}
+        self.calls: list[dict] = []
+
+    async def normalize_point(
+        self, point: MapPointInput, *, force_refresh: bool = False
+    ):
+        self.calls.append({"point": point, "force_refresh": force_refresh})
+        if point.location is not None:
+            return point.location
+        assert point.address is not None
+        return self.mapping[point.address]
 
 
 class FakeTrafficService:
@@ -71,9 +96,11 @@ class FakeTrafficService:
     def __init__(self, data=None, error=None):
         self.data = data
         self.error = error
+        self.calls: list[bool] = []
 
     async def get_traffic(self, query, *, force_refresh=False):
         """Return canned traffic data or raise."""
+        self.calls.append(force_refresh)
         if self.error is not None:
             raise self.error
         return self.data
@@ -85,9 +112,11 @@ class FakeFuelService:
     def __init__(self, data=None, error=None):
         self.data = data or []
         self.error = error
+        self.calls: list[bool] = []
 
     async def find_stations(self, query, *, force_refresh=False):
         """Return canned stations or raise."""
+        self.calls.append(force_refresh)
         if self.error is not None:
             raise self.error
         return self.data
@@ -99,15 +128,18 @@ class FakeTruckService:
     def __init__(self, data=None, error=None):
         self.data = data or []
         self.error = error
+        self.calls: list[bool] = []
 
     async def find_restrictions(self, query, *, force_refresh=False):
         """Return canned restrictions or raise."""
+        self.calls.append(force_refresh)
         if self.error is not None:
             raise self.error
         return self.data
 
 
 def build_service(
+    geocoding=None,
     routing=None,
     traffic=None,
     fuel=None,
@@ -115,11 +147,13 @@ def build_service(
 ) -> MapLayerService:
     """Assemble a MapLayerService from stubs."""
     return MapLayerService(
-        routing_service=routing or FakeRoutingService(response=ROUTE_RESPONSE),
-        traffic_service=traffic
-        or FakeTrafficService(data=TrafficLayerData(provider="tomtom")),
-        fuel_service=fuel or FakeFuelService(),
-        truck_restriction_service=truck or FakeTruckService(),
+        geocoding_service=(geocoding or FakeGeocodingService()),  # type: ignore[arg-type]
+        routing_service=(routing or FakeRoutingService(response=ROUTE_RESPONSE)),  # type: ignore[arg-type]
+        traffic_service=(
+            traffic or FakeTrafficService(data=TrafficLayerData(provider="tomtom"))
+        ),  # type: ignore[arg-type]
+        fuel_service=(fuel or FakeFuelService()),  # type: ignore[arg-type]
+        truck_restriction_service=(truck or FakeTruckService()),  # type: ignore[arg-type]
     )
 
 
@@ -132,11 +166,11 @@ class TestMapLayerServiceSuccess:
         station = FuelStationData(
             external_id="s1",
             name="Pilot",
-            location={"type": "Point", "coordinates": [-74.0, 40.72]},
+            location=GeoJSONPoint(coordinates=(-74.0, 40.72)),
         )
         restriction = TruckRestrictionData(
             external_id="r1",
-            location={"type": "Point", "coordinates": [-74.0, 40.73]},
+            location=GeoJSONPoint(coordinates=(-74.0, 40.73)),
         )
         service = build_service(
             fuel=FakeFuelService(data=[station]),
@@ -166,6 +200,95 @@ class TestMapLayerServiceSuccess:
 
         assert result.traffic is None
         assert result.errors == []
+
+    @pytest.mark.asyncio
+    async def test_route_overview_accepts_addresses(self):
+        """Address inputs are normalized before routing."""
+        geocoding = FakeGeocodingService(
+            mapping={
+                "pickup address": GeoJSONPoint(coordinates=(-96.6705, 33.1032)),
+                "delivery address": GeoJSONPoint(coordinates=(-123.0463, 44.0860)),
+            }
+        )
+        routing = FakeRoutingService(response=ROUTE_RESPONSE)
+        service = build_service(geocoding=geocoding, routing=routing)
+
+        result = await service.get_overview(
+            MapOverviewRequest(
+                pickup=MapPointInput(address="pickup address"),
+                delivery=MapPointInput(address="delivery address"),
+            )
+        )
+
+        assert result.route is not None
+        assert len(geocoding.calls) == 2
+        normalized_request = routing.calls[0]["request"]
+        assert normalized_request.route_planning_locations.origin.coordinates == (
+            -96.6705,
+            33.1032,
+        )
+        assert normalized_request.route_planning_locations.destination.coordinates == (
+            -123.0463,
+            44.0860,
+        )
+
+    @pytest.mark.asyncio
+    async def test_route_overview_accepts_mixed_inputs(self):
+        """Address + coordinate input is supported."""
+        geocoding = FakeGeocodingService(
+            mapping={
+                "pickup address": GeoJSONPoint(coordinates=(-96.6705, 33.1032)),
+            }
+        )
+        routing = FakeRoutingService(response=ROUTE_RESPONSE)
+        service = build_service(geocoding=geocoding, routing=routing)
+
+        await service.get_overview(
+            MapOverviewRequest(
+                pickup=MapPointInput(address="pickup address"),
+                delivery=MapPointInput(
+                    location=GeoJSONPoint(coordinates=(-123.0463, 44.086))
+                ),
+            )
+        )
+
+        assert len(geocoding.calls) == 2
+        assert geocoding.calls[1]["point"].location is not None
+
+    @pytest.mark.asyncio
+    async def test_force_refresh_propagates_to_all_services(self):
+        """force_refresh bypasses geocoding and downstream caches."""
+        geocoding = FakeGeocodingService(
+            mapping={
+                "pickup address": GeoJSONPoint(coordinates=(-96.6705, 33.1032)),
+                "delivery address": GeoJSONPoint(coordinates=(-123.0463, 44.0860)),
+            }
+        )
+        routing = FakeRoutingService(response=ROUTE_RESPONSE)
+        traffic = FakeTrafficService(data=TrafficLayerData(provider="tomtom"))
+        fuel = FakeFuelService()
+        truck = FakeTruckService()
+        service = build_service(
+            geocoding=geocoding,
+            routing=routing,
+            traffic=traffic,
+            fuel=fuel,
+            truck=truck,
+        )
+
+        await service.get_overview(
+            MapOverviewRequest(
+                pickup=MapPointInput(address="pickup address"),
+                delivery=MapPointInput(address="delivery address"),
+            ),
+            force_refresh=True,
+        )
+
+        assert all(call["force_refresh"] for call in geocoding.calls)
+        assert routing.calls[0]["force_refresh"] is True
+        assert traffic.calls == [True]
+        assert fuel.calls == [True]
+        assert truck.calls == [True]
 
 
 class TestMapLayerServiceDegradation:

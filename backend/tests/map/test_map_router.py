@@ -10,7 +10,9 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
+from app.geocoding.providers.tomtom import TomTomGeocodingProvider
 from app.routing.exceptions import RoutingNoRouteFoundError
+from app.routing.providers.tomtom import TomTomProvider
 
 OVERVIEW_URL = "/api/v1/map/route-overview"
 
@@ -58,9 +60,7 @@ class TestRouteOverviewEndpoint:
         self, client: TestClient, overview_payload: dict
     ):
         """Route succeeds while unconfigured layers degrade into errors."""
-        with patch(
-            "app.routing.providers.tomtom.TomTomProvider.calculate_route"
-        ) as mock_route:
+        with patch.object(TomTomProvider, "calculate_route") as mock_route:
             from app.routing.schemas import CalculateRouteResponse
 
             mock_route.return_value = CalculateRouteResponse.model_validate(
@@ -89,9 +89,7 @@ class TestRouteOverviewEndpoint:
         """Requesting a subset skips the remaining layers."""
         overview_payload["layers"] = ["route", "fuel"]
 
-        with patch(
-            "app.routing.providers.tomtom.TomTomProvider.calculate_route"
-        ) as mock_route:
+        with patch.object(TomTomProvider, "calculate_route") as mock_route:
             from app.routing.schemas import CalculateRouteResponse
 
             mock_route.return_value = CalculateRouteResponse.model_validate(
@@ -115,9 +113,7 @@ class TestRouteOverviewEndpoint:
         ``force_refresh`` bypasses the persistent route cache so the mocked
         provider is guaranteed to be called.
         """
-        with patch(
-            "app.routing.providers.tomtom.TomTomProvider.calculate_route"
-        ) as mock_route:
+        with patch.object(TomTomProvider, "calculate_route") as mock_route:
             mock_route.side_effect = RoutingNoRouteFoundError(
                 "No route found",
                 provider="tomtom",
@@ -153,3 +149,80 @@ class TestRouteOverviewEndpoint:
         )
 
         assert response.status_code == 422
+
+    def test_accepts_address_payload(self, client: TestClient):
+        """Modern request format supports free-form addresses."""
+        payload = {
+            "pickup": {"address": "1521 Hickory Trail Allen TX 75002"},
+            "delivery": {"address": "3660 Gateway Street Springfield OR 97477"},
+        }
+
+        with (
+            patch.object(TomTomGeocodingProvider, "search") as mock_geocode,
+            patch.object(TomTomProvider, "calculate_route") as mock_route,
+        ):
+            from app.geocoding.schemas import GeocodingResult
+            from app.providers.geo import GeoJSONPoint
+            from app.routing.schemas import CalculateRouteResponse
+
+            mock_geocode.side_effect = [
+                GeocodingResult(
+                    formatted_address="1521 Hickory Trail, Allen, TX 75002",
+                    location=GeoJSONPoint(coordinates=(-96.6705, 33.1032)),
+                ),
+                GeocodingResult(
+                    formatted_address="3660 Gateway Street, Springfield, OR 97477",
+                    location=GeoJSONPoint(coordinates=(-123.0463, 44.0860)),
+                ),
+            ]
+            mock_route.return_value = CalculateRouteResponse.model_validate(
+                TOMTOM_ROUTE_RESPONSE
+            )
+
+            response = client.post(
+                OVERVIEW_URL,
+                json=payload,
+                params={"force_refresh": "true"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["route"] is not None
+        assert mock_geocode.call_count == 2
+
+    def test_accepts_mixed_payload(self, client: TestClient):
+        """Modern request format supports address + coordinate pairs."""
+        payload = {
+            "pickup": {"address": "1521 Hickory Trail Allen TX 75002"},
+            "delivery": {
+                "location": {
+                    "type": "Point",
+                    "coordinates": [-123.0463, 44.0860],
+                }
+            },
+        }
+
+        with (
+            patch.object(TomTomGeocodingProvider, "search") as mock_geocode,
+            patch.object(TomTomProvider, "calculate_route") as mock_route,
+        ):
+            from app.geocoding.schemas import GeocodingResult
+            from app.providers.geo import GeoJSONPoint
+            from app.routing.schemas import CalculateRouteResponse
+
+            mock_geocode.return_value = GeocodingResult(
+                formatted_address="1521 Hickory Trail, Allen, TX 75002",
+                location=GeoJSONPoint(coordinates=(-96.6705, 33.1032)),
+            )
+            mock_route.return_value = CalculateRouteResponse.model_validate(
+                TOMTOM_ROUTE_RESPONSE
+            )
+
+            response = client.post(
+                OVERVIEW_URL,
+                json=payload,
+                params={"force_refresh": "true"},
+            )
+
+        assert response.status_code == 200
+        assert mock_geocode.call_count == 1
