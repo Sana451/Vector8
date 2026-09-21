@@ -3,6 +3,9 @@ import type { Map as MapLibreMap } from "maplibre-gl"
 import { forwardRef, useEffect, useRef } from "react"
 import "./TomTomMap.css"
 
+const DEFAULT_US_MAP_CENTER: [number, number] = [-98.5795, 39.8283]
+const DEFAULT_US_MAP_ZOOM = 3.5
+
 export interface TomTomMapHandle {
   getMapInstance: () => MapLibreMap | null
   fitBounds: (bbox: [number, number, number, number], padding?: number) => void
@@ -25,8 +28,8 @@ const TomTomMap = forwardRef<TomTomMapHandle>((_props, ref) => {
       style: "standardLight",
       mapLibre: {
         container: mapRef.current,
-        center: [4.8156, 52.4414],
-        zoom: 8,
+        center: DEFAULT_US_MAP_CENTER,
+        zoom: DEFAULT_US_MAP_ZOOM,
       },
     })
 
