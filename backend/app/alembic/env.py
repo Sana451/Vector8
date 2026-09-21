@@ -1,4 +1,3 @@
-import os
 from logging.config import fileConfig
 
 from alembic import context
@@ -24,6 +23,7 @@ from app.core.config import settings  # noqa
 from app.routing.models import RouteCalculation  # noqa
 from app.map.models import (  # noqa
     FuelStation,
+    MapRestAreasCache,
     TrafficSnapshot,
     TruckRestriction,
 )

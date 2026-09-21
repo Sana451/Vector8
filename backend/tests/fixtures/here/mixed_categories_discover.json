@@ -1,0 +1,55 @@
+{
+  "items": [
+    {
+      "title": "O'Hare Oasis Travel Plaza",
+      "id": "here:pds:place:840dr5ru-456",
+      "resultType": "place",
+      "ontologyId": "here:cm:ontology:rest_area",
+      "address": {
+        "label": "I-294 Milepost 38, Schiller Park, IL 60176, United States",
+        "countryCode": "USA",
+        "state": "Illinois",
+        "city": "Schiller Park",
+        "postalCode": "60176"
+      },
+      "position": {
+        "lat": 41.95012,
+        "lng": -87.87654
+      },
+      "access": [
+        {
+          "lat": 41.95022,
+          "lng": -87.87611
+        }
+      ],
+      "distance": 22550,
+      "categories": [
+        {
+          "id": "400-4300-0199",
+          "name": "Complete Rest Area",
+          "primary": true
+        }
+      ],
+      "chains": [],
+      "references": [],
+      "contacts": [],
+      "openingHours": []
+    },
+    {
+      "title": "Truck & Trailer Parking on 401 N Cicero Ave",
+      "id": "here:pds:place:840dr5ru-123",
+      "resultType": "place",
+      "position": {
+        "lat": 41.88978,
+        "lng": -87.74529
+      },
+      "categories": [
+        {
+          "id": "700-7900-0131",
+          "name": "Truck Parking",
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

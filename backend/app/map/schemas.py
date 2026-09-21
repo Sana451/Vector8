@@ -11,8 +11,10 @@ from enum import StrEnum
 from pydantic import BaseModel, Field, model_validator
 
 from app.geocoding.schemas import MapPointInput
+from app.providers.geo import GeoJSONPoint
 from app.providers.schemas import (
     FuelStationData,
+    RestAreaData,
     TrafficLayerData,
     TruckRestrictionData,
 )
@@ -26,6 +28,7 @@ class MapLayer(StrEnum):
     TRAFFIC = "traffic"
     FUEL = "fuel"
     TRUCK_RESTRICTIONS = "truck_restrictions"
+    REST_AREAS = "rest_areas"
 
 
 class LayerError(BaseModel):
@@ -41,6 +44,77 @@ class RouteLayerData(BaseModel):
 
     provider: str
     routes: list[Route]
+
+
+class RestAreaFeatureProperties(BaseModel):
+    """Properties attached to each rest area GeoJSON feature."""
+
+    provider: str
+    provider_place_id: str
+    title: str
+    result_type: str | None = None
+    categories: list[dict] = Field(default_factory=list)
+    distance_meters: float | None = None
+    address: dict | None = None
+    access_points: list[dict] = Field(default_factory=list)
+    opening_hours: list[dict] = Field(default_factory=list)
+    contacts: list[dict] = Field(default_factory=list)
+    chains: list[dict] = Field(default_factory=list)
+    references: list[dict] = Field(default_factory=list)
+    metadata: dict | None = None
+
+
+class RestAreaFeature(BaseModel):
+    """GeoJSON point feature for a rest area."""
+
+    type: str = "Feature"
+    id: str
+    properties: RestAreaFeatureProperties
+    geometry: GeoJSONPoint
+
+
+class RestAreaFeatureCollection(BaseModel):
+    """GeoJSON feature collection for the rest_areas layer."""
+
+    type: str = "FeatureCollection"
+    features: list[RestAreaFeature] = Field(default_factory=list)
+
+
+def build_rest_area_feature_collection(
+    rest_areas: list[RestAreaData],
+) -> RestAreaFeatureCollection:
+    """Convert normalized rest areas into frontend-facing GeoJSON."""
+    features = [
+        RestAreaFeature(
+            id=item.provider_place_id,
+            properties=RestAreaFeatureProperties(
+                provider=item.provider,
+                provider_place_id=item.provider_place_id,
+                title=item.title,
+                result_type=item.result_type,
+                categories=[cat.model_dump(mode="json") for cat in item.categories],
+                distance_meters=item.distance_meters,
+                address=(
+                    item.address.model_dump(mode="json")
+                    if item.address is not None
+                    else None
+                ),
+                access_points=[p.model_dump(mode="json") for p in item.access_points],
+                opening_hours=item.opening_hours,
+                contacts=item.contacts,
+                chains=[chain.model_dump(mode="json") for chain in item.chains],
+                references=[ref.model_dump(mode="json") for ref in item.references],
+                metadata={
+                    **({"ontologyId": item.ontology_id} if item.ontology_id else {}),
+                    **(item.metadata or {}),
+                }
+                or None,
+            ),
+            geometry=item.position,
+        )
+        for item in rest_areas
+    ]
+    return RestAreaFeatureCollection(features=features)
 
 
 class MapOverviewRequest(BaseModel):
@@ -112,4 +186,7 @@ class MapOverviewResponse(BaseModel):
     traffic: TrafficLayerData | None = None
     fuel_stations: list[FuelStationData] = Field(default_factory=list)
     truck_restrictions: list[TruckRestrictionData] = Field(default_factory=list)
+    rest_areas: RestAreaFeatureCollection = Field(
+        default_factory=RestAreaFeatureCollection
+    )
     errors: list[LayerError] = Field(default_factory=list)

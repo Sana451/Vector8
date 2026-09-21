@@ -128,3 +128,61 @@ class TruckRestriction(SQLModel, table=True):
     expires_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), nullable=False),
     )
+
+
+class MapRestAreasCache(SQLModel, table=True):
+    """Route-specific cache rows for HERE rest areas."""
+
+    __tablename__ = "map_rest_areas_cache"
+    __table_args__ = (
+        UniqueConstraint(
+            "provider",
+            "request_hash",
+            "provider_place_id",
+            name="uq_map_rest_areas_provider_request_place",
+        ),
+    )
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    provider: str = Field(index=True)
+    request_hash: str = Field(index=True)
+    route_hash: str = Field(index=True)
+    categories_hash: str = Field(index=True)
+    corridor_width_meters: int
+    provider_place_id: str = Field(index=True, max_length=255)
+    title: str = Field(max_length=255)
+    position: str = Field(
+        sa_column=Column(
+            Geography(geometry_type="POINT", srid=4326),
+            nullable=False,
+        )
+    )
+    access: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    address: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
+    categories: list[dict[str, Any]] = Field(
+        default_factory=list, sa_column=Column(JSON)
+    )
+    distance_meters: float | None = Field(default=None)
+    result_type: str | None = Field(default=None, max_length=64)
+    ontology_id: str | None = Field(default=None, max_length=255)
+    opening_hours: list[dict[str, Any]] = Field(
+        default_factory=list,
+        sa_column=Column(JSON),
+    )
+    contacts: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    chains: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    references: list[dict[str, Any]] = Field(
+        default_factory=list, sa_column=Column(JSON)
+    )
+    metadata_payload: dict[str, Any] | None = Field(
+        default=None,
+        sa_column=Column("metadata", JSON),
+    )
+    payload: dict[str, Any] = Field(sa_column=Column(JSON))
+    fetched_at: datetime = Field(
+        default_factory=get_datetime_utc,
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+    expires_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )

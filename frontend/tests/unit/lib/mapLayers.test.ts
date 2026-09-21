@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest"
-import type { MapOverviewResponse } from "@/client"
+import type { MapOverviewResponse } from "@/client/types.gen"
 import {
   buildFuelFeatures,
+  buildRestAreaFeatures,
   buildRouteFeature,
   buildTrafficFeatures,
   buildTruckRestrictionFeatures,
@@ -89,6 +90,129 @@ describe("buildTruckRestrictionFeatures", () => {
   })
 })
 
+describe("buildRestAreaFeatures", () => {
+  it("should build a FeatureCollection with popup-friendly properties", () => {
+    const result = buildRestAreaFeatures({
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          id: "here:pds:place:840dr5ru-456",
+          geometry: {
+            type: "Point",
+            coordinates: [-87.87654, 41.95012],
+          },
+          properties: {
+            provider: "here",
+            provider_place_id: "here:pds:place:840dr5ru-456",
+            title: "O'Hare Oasis Travel Plaza",
+            categories: [
+              { id: "700-7900-0131", name: "Truck Parking", primary: true },
+              { id: "400-4300-0199", name: "Complete Rest Area" },
+            ],
+            distance_meters: 22550,
+            address: {
+              label:
+                "I-294 Milepost 38, Schiller Park, IL 60176, United States",
+            },
+            access_points: [
+              { type: "Point", coordinates: [-87.87611, 41.95022] },
+            ],
+            opening_hours: [{ text: ["Mon-Sun: 00:00 - 23:59"] }],
+            contacts: [{ phone: [{ value: "+13125550123" }] }],
+            chains: [],
+            references: [],
+            metadata: { ontologyId: "here:cm:ontology:rest_area" },
+          },
+        },
+      ],
+    })
+
+    expect(result?.type).toBe("FeatureCollection")
+    expect(result?.features).toHaveLength(1)
+    expect(result?.features[0].properties?.primaryCategoryId).toBe(
+      "700-7900-0131",
+    )
+    expect(result?.features[0].properties?.addressLabel).toContain(
+      "Schiller Park",
+    )
+    expect(result?.features[0].properties?.contactsSummary).toContain(
+      "+13125550123",
+    )
+    expect(result?.features[0].properties?.categoryLabels).toBe(
+      "Truck Parking, Complete Rest Area",
+    )
+    expect(result?.features[0].properties?.categoryIds).toBe(
+      "700-7900-0131,400-4300-0199",
+    )
+
+    for (const value of Object.values(result?.features[0].properties ?? {})) {
+      expect(Array.isArray(value)).toBe(false)
+      expect(typeof value === "object" && value !== null).toBe(false)
+    }
+  })
+
+  it("should return null for an empty FeatureCollection", () => {
+    expect(
+      buildRestAreaFeatures({ type: "FeatureCollection", features: [] }),
+    ).toBeNull()
+  })
+
+  it("should skip malformed rest area features and keep valid ones", () => {
+    const malformedPayload: unknown = {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          id: "invalid-coordinates",
+          geometry: {
+            type: "Point",
+            coordinates: [Number.NaN, 41.95],
+          },
+          properties: {
+            provider: "here",
+            provider_place_id: "invalid-coordinates",
+            title: "Broken coordinates",
+          },
+        },
+        {
+          type: "Feature",
+          id: "invalid-properties",
+          geometry: {
+            type: "Point",
+            coordinates: [-87.8, 41.95],
+          },
+          properties: {
+            provider: "here",
+            provider_place_id: 42 as unknown as string,
+            title: "Broken properties",
+          },
+        },
+        {
+          type: "Feature",
+          id: "valid",
+          geometry: {
+            type: "Point",
+            coordinates: [-87.87654, 41.95012],
+          },
+          properties: {
+            provider: "here",
+            provider_place_id: "valid",
+            title: "Valid rest area",
+            categories: [{ id: "700-7900-0131", name: "Truck Parking" }],
+          },
+        },
+      ],
+    }
+
+    const result = buildRestAreaFeatures(malformedPayload as never)
+
+    expect(result?.features).toHaveLength(1)
+    expect(result?.features[0].id).toBe("valid")
+    expect(result?.features[0].properties?.providerPlaceId).toBe("valid")
+  })
+})
+
 describe("buildTrafficFeatures", () => {
   it("should build a FeatureCollection from incidents with location", () => {
     const result = buildTrafficFeatures({
@@ -160,6 +284,7 @@ describe("extractOverviewCoordinates", () => {
           },
         ],
       },
+      rest_areas: { type: "FeatureCollection", features: [] },
     }
 
     expect(extractOverviewCoordinates(response)).toEqual([
@@ -184,6 +309,7 @@ describe("extractOverviewCoordinates", () => {
           },
         ],
       },
+      rest_areas: { type: "FeatureCollection", features: [] },
     }
 
     expect(extractOverviewCoordinates(response)).toBeNull()

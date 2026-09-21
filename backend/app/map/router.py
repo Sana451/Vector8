@@ -1,8 +1,8 @@
 """
 Map API endpoints.
 
-Aggregated map overview combining routing, traffic, fuel stations and truck
-restrictions into a single response.
+Aggregated map overview combining routing, traffic, fuel stations, truck
+restrictions and HERE rest areas into a single response.
 """
 
 from fastapi import APIRouter, HTTPException, Query
@@ -32,8 +32,9 @@ async def route_overview(
 
     Layer behaviour:
     - **route**: mandatory. A routing failure returns 502.
-    - **traffic**, **fuel_stations**, **truck_restrictions**: optional. On
-      failure the layer is empty and the reason is reported in `errors`.
+    - **traffic**, **fuel_stations**, **truck_restrictions**, **rest_areas**:
+      optional. On failure the layer is empty and the reason is reported in
+      `errors`.
 
     Query parameters:
     - force_refresh: Skip all caches and refresh from providers.

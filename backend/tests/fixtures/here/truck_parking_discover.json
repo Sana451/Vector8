@@ -1,0 +1,72 @@
+{
+  "items": [
+    {
+      "title": "Truck & Trailer Parking on 401 N Cicero Ave",
+      "id": "here:pds:place:840dr5ru-123",
+      "resultType": "place",
+      "ontologyId": "here:cm:ontology:truck_parking",
+      "address": {
+        "label": "401 N Cicero Ave, Chicago, IL 60644, United States",
+        "countryCode": "USA",
+        "state": "Illinois",
+        "city": "Chicago",
+        "postalCode": "60644",
+        "street": "N Cicero Ave",
+        "houseNumber": "401"
+      },
+      "position": {
+        "lat": 41.88978,
+        "lng": -87.74529
+      },
+      "access": [
+        {
+          "lat": 41.88978,
+          "lng": -87.74509
+        },
+        {
+          "lat": 41.88991,
+          "lng": -87.74482
+        }
+      ],
+      "distance": 9649,
+      "categories": [
+        {
+          "id": "700-7900-0131",
+          "name": "Truck Parking",
+          "primary": true
+        }
+      ],
+      "chains": [
+        {
+          "id": "303349",
+          "name": "TRUCK PARKING CLUB"
+        }
+      ],
+      "references": [
+        {
+          "supplier": {
+            "id": "truckParkingClub"
+          },
+          "id": "840123"
+        }
+      ],
+      "contacts": [
+        {
+          "phone": [
+            {
+              "value": "+13125550123"
+            }
+          ]
+        }
+      ],
+      "openingHours": [
+        {
+          "text": [
+            "Mon-Sun: 00:00 - 23:59"
+          ],
+          "isOpen": true
+        }
+      ]
+    }
+  ]
+}

@@ -13,9 +13,15 @@ from app.core.config import settings
 from app.geocoding.dependencies import get_geocoding_service
 from app.geocoding.service import GeocodingService
 from app.map.service import MapLayerService
-from app.map.services import FuelService, TrafficService, TruckRestrictionService
+from app.map.services import (
+    FuelService,
+    HerePoiService,
+    TrafficService,
+    TruckRestrictionService,
+)
 from app.providers.base import (
     FuelStationProvider,
+    RestAreaProvider,
     TrafficProvider,
     TruckRestrictionProvider,
 )
@@ -37,6 +43,11 @@ def get_fuel_provider() -> FuelStationProvider:
 def get_truck_restriction_provider() -> TruckRestrictionProvider:
     """Resolve the configured truck restriction provider."""
     return registry.get("truck_restrictions", settings.TRUCK_RESTRICTION_PROVIDER)
+
+
+def get_rest_area_provider() -> RestAreaProvider:
+    """Resolve the configured rest area provider."""
+    return registry.get("rest_areas", settings.REST_AREAS_PROVIDER)
 
 
 def get_traffic_service(
@@ -63,6 +74,14 @@ def get_truck_restriction_service(
     return TruckRestrictionService(provider=provider, session=session)
 
 
+def get_rest_area_service(
+    session: SessionDep,
+    provider: RestAreaProvider = Depends(get_rest_area_provider),
+) -> HerePoiService:
+    """Build the rest area layer service."""
+    return HerePoiService(provider=provider, session=session)
+
+
 def get_map_layer_service(
     geocoding_service: GeocodingService = Depends(get_geocoding_service),
     routing_service: RoutingService = Depends(get_routing_service),
@@ -71,6 +90,7 @@ def get_map_layer_service(
     truck_restriction_service: TruckRestrictionService = Depends(
         get_truck_restriction_service
     ),
+    rest_area_service: HerePoiService = Depends(get_rest_area_service),
 ) -> MapLayerService:
     """Build the map layer orchestrator."""
     return MapLayerService(
@@ -79,6 +99,7 @@ def get_map_layer_service(
         traffic_service,
         fuel_service,
         truck_restriction_service,
+        rest_area_service,
     )
 
 

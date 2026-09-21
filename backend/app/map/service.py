@@ -18,13 +18,20 @@ from app.map.schemas import (
     MapOverviewRequest,
     MapOverviewResponse,
     RouteLayerData,
+    build_rest_area_feature_collection,
 )
-from app.map.services import FuelService, TrafficService, TruckRestrictionService
+from app.map.services import (
+    FuelService,
+    HerePoiService,
+    TrafficService,
+    TruckRestrictionService,
+)
 from app.providers.exceptions import ProviderError
 from app.providers.geo import GeoJSONLineString
 from app.providers.schemas import (
     FuelStationData,
     LayerQuery,
+    RestAreaData,
     TrafficLayerData,
     TruckRestrictionData,
 )
@@ -48,6 +55,7 @@ class MapLayerService:
         traffic_service: TrafficService,
         fuel_service: FuelService,
         truck_restriction_service: TruckRestrictionService,
+        rest_area_service: HerePoiService,
     ):
         """Initialize the orchestrator.
 
@@ -57,12 +65,14 @@ class MapLayerService:
             traffic_service: Traffic layer service.
             fuel_service: Fuel layer service.
             truck_restriction_service: Truck restriction layer service.
+            rest_area_service: Rest area / HERE POI layer service.
         """
         self.geocoding_service = geocoding_service
         self.routing_service = routing_service
         self.traffic_service = traffic_service
         self.fuel_service = fuel_service
         self.truck_restriction_service = truck_restriction_service
+        self.rest_area_service = rest_area_service
 
     async def get_overview(
         self,
@@ -129,6 +139,13 @@ class MapLayerService:
                     query, force_refresh=force_refresh
                 )
             )
+        if MapLayer.REST_AREAS in requested:
+            tasks[MapLayer.REST_AREAS] = asyncio.ensure_future(
+                self.rest_area_service.find_rest_areas(
+                    query,
+                    force_refresh=force_refresh,
+                )
+            )
 
         if not tasks:
             return MapOverviewResponse(route=route_layer, errors=errors)
@@ -138,6 +155,7 @@ class MapLayerService:
         traffic: TrafficLayerData | None = None
         fuel_stations: list[FuelStationData] = []
         truck_restrictions: list[TruckRestrictionData] = []
+        rest_areas: list[RestAreaData] = []
 
         for layer, result in zip(tasks.keys(), results, strict=True):
             if isinstance(result, BaseException):
@@ -150,12 +168,15 @@ class MapLayerService:
                 fuel_stations = result
             elif layer is MapLayer.TRUCK_RESTRICTIONS:
                 truck_restrictions = result
+            elif layer is MapLayer.REST_AREAS:
+                rest_areas = result
 
         return MapOverviewResponse(
             route=route_layer,
             traffic=traffic,
             fuel_stations=fuel_stations,
             truck_restrictions=truck_restrictions,
+            rest_areas=build_rest_area_feature_collection(rest_areas),
             errors=errors,
         )
 

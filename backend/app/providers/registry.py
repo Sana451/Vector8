@@ -15,7 +15,14 @@ from typing import Any, Literal
 
 from app.providers.exceptions import ProviderNotRegisteredError
 
-Domain = Literal["geocoding", "routing", "traffic", "fuel", "truck_restrictions"]
+Domain = Literal[
+    "geocoding",
+    "routing",
+    "traffic",
+    "fuel",
+    "truck_restrictions",
+    "rest_areas",
+]
 
 ProviderFactory = Callable[[], Any]
 
@@ -90,6 +97,7 @@ def _register_defaults() -> None:
     """
     from app.geocoding.providers.tomtom import TomTomGeocodingProvider
     from app.providers.fuel.internal import InternalFuelStationProvider
+    from app.providers.here.poi import HerePoiProvider
     from app.providers.tomtom.routing import TomTomRoutingProvider
     from app.providers.tomtom.traffic import TomTomTrafficProvider
     from app.providers.truck_restrictions.internal import (
@@ -103,6 +111,7 @@ def _register_defaults() -> None:
     registry.register(
         "truck_restrictions", "internal", InternalTruckRestrictionProvider
     )
+    registry.register("rest_areas", "here", HerePoiProvider)
 
 
 _register_defaults()

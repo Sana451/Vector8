@@ -14,6 +14,8 @@ from app.providers.exceptions import ProviderUnavailableError
 from app.providers.geo import GeoJSONPoint
 from app.providers.schemas import (
     FuelStationData,
+    RestAreaCategory,
+    RestAreaData,
     TrafficLayerData,
     TruckRestrictionData,
 )
@@ -138,22 +140,40 @@ class FakeTruckService:
         return self.data
 
 
+class FakeRestAreaService:
+    """Rest area service stub."""
+
+    def __init__(self, data=None, error=None):
+        self.data = data or []
+        self.error = error
+        self.calls: list[bool] = []
+
+    async def find_rest_areas(self, query, *, force_refresh=False):
+        """Return canned rest areas or raise."""
+        self.calls.append(force_refresh)
+        if self.error is not None:
+            raise self.error
+        return self.data
+
+
 def build_service(
     geocoding=None,
     routing=None,
     traffic=None,
     fuel=None,
     truck=None,
+    rest_areas=None,
 ) -> MapLayerService:
     """Assemble a MapLayerService from stubs."""
-    return MapLayerService(
+    return MapLayerService(  # type: ignore[arg-type]
         geocoding_service=(geocoding or FakeGeocodingService()),  # type: ignore[arg-type]
         routing_service=(routing or FakeRoutingService(response=ROUTE_RESPONSE)),  # type: ignore[arg-type]
         traffic_service=(
             traffic or FakeTrafficService(data=TrafficLayerData(provider="tomtom"))
-        ),  # type: ignore[arg-type]
+        ),
         fuel_service=(fuel or FakeFuelService()),  # type: ignore[arg-type]
         truck_restriction_service=(truck or FakeTruckService()),  # type: ignore[arg-type]
+        rest_area_service=(rest_areas or FakeRestAreaService()),  # type: ignore[arg-type]
     )
 
 
@@ -172,9 +192,23 @@ class TestMapLayerServiceSuccess:
             external_id="r1",
             location=GeoJSONPoint(coordinates=(-74.0, 40.73)),
         )
+        rest_area = RestAreaData(
+            provider="here",
+            provider_place_id="here:pds:place:r1",
+            title="O'Hare Oasis Travel Plaza",
+            position=GeoJSONPoint(coordinates=(-74.0, 40.731)),
+            categories=[
+                RestAreaCategory(
+                    id="700-7900-0131",
+                    name="Truck Parking",
+                    primary=True,
+                )
+            ],
+        )
         service = build_service(
             fuel=FakeFuelService(data=[station]),
             truck=FakeTruckService(data=[restriction]),
+            rest_areas=FakeRestAreaService(data=[rest_area]),
         )
 
         result = await service.get_overview(build_request())
@@ -185,6 +219,11 @@ class TestMapLayerServiceSuccess:
         assert result.traffic is not None
         assert [s.external_id for s in result.fuel_stations] == ["s1"]
         assert [r.external_id for r in result.truck_restrictions] == ["r1"]
+        assert len(result.rest_areas.features) == 1
+        assert (
+            result.rest_areas.features[0].properties.provider_place_id
+            == "here:pds:place:r1"
+        )
         assert result.errors == []
 
     @pytest.mark.asyncio
@@ -268,12 +307,14 @@ class TestMapLayerServiceSuccess:
         traffic = FakeTrafficService(data=TrafficLayerData(provider="tomtom"))
         fuel = FakeFuelService()
         truck = FakeTruckService()
+        rest_areas = FakeRestAreaService()
         service = build_service(
             geocoding=geocoding,
             routing=routing,
             traffic=traffic,
             fuel=fuel,
             truck=truck,
+            rest_areas=rest_areas,
         )
 
         await service.get_overview(
@@ -289,6 +330,7 @@ class TestMapLayerServiceSuccess:
         assert traffic.calls == [True]
         assert fuel.calls == [True]
         assert truck.calls == [True]
+        assert rest_areas.calls == [True]
 
 
 class TestMapLayerServiceDegradation:
@@ -307,6 +349,7 @@ class TestMapLayerServiceDegradation:
 
         assert result.route is not None
         assert result.traffic is None
+        assert result.rest_areas.features == []
         assert len(result.errors) == 1
         assert result.errors[0].layer == MapLayer.TRAFFIC
         assert result.errors[0].provider == "tomtom"
@@ -322,14 +365,22 @@ class TestMapLayerServiceDegradation:
             truck=FakeTruckService(
                 error=ProviderUnavailableError("no truck api", provider="internal")
             ),
+            rest_areas=FakeRestAreaService(
+                error=ProviderUnavailableError("no here api", provider="here")
+            ),
         )
 
         result = await service.get_overview(build_request())
 
         failed = {error.layer for error in result.errors}
-        assert failed == {MapLayer.FUEL, MapLayer.TRUCK_RESTRICTIONS}
+        assert failed == {
+            MapLayer.FUEL,
+            MapLayer.TRUCK_RESTRICTIONS,
+            MapLayer.REST_AREAS,
+        }
         assert result.fuel_stations == []
         assert result.truck_restrictions == []
+        assert result.rest_areas.features == []
         assert result.traffic is not None
 
     @pytest.mark.asyncio
@@ -383,4 +434,5 @@ class TestMapLayerServiceRouteFailure:
         assert result.route is not None
         assert result.traffic is None
         assert result.fuel_stations == []
+        assert result.rest_areas.features == []
         assert result.errors == []

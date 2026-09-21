@@ -6,6 +6,7 @@
  */
 
 export { FuelLayer } from "./FuelLayer"
+export { RestAreaLayer } from "./RestAreaLayer"
 export { RouteLayer } from "./RouteLayer"
 export { TrafficLayer } from "./TrafficLayer"
 export { TruckRestrictionLayer } from "./TruckRestrictionLayer"

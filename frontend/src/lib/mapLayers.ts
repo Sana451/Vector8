@@ -10,10 +10,35 @@ import type { Feature, FeatureCollection } from "geojson"
 import type {
   FuelStationData,
   MapOverviewResponse,
+  RestAreaFeatureCollection,
   TrafficLayerData,
   TruckRestrictionData,
 } from "@/client"
 import type { Coordinate } from "@/lib/routing"
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+}
+
+function isFiniteCoordinatePair(value: unknown): value is [number, number] {
+  return (
+    Array.isArray(value) &&
+    value.length === 2 &&
+    typeof value[0] === "number" &&
+    Number.isFinite(value[0]) &&
+    typeof value[1] === "number" &&
+    Number.isFinite(value[1])
+  )
+}
+
+function logRestAreaDebug(
+  level: "info" | "warn",
+  message: string,
+  payload: Record<string, unknown>,
+): void {
+  const logger = level === "warn" ? console.warn : console.info
+  logger(`[HERE] ${message}`, payload)
+}
 
 /**
  * Build a LineString feature from route coordinates.
@@ -64,6 +89,182 @@ export function buildFuelFeatures(
         coordinates: [...station.location.coordinates],
       },
     })),
+  }
+}
+
+function formatContactSummary(
+  contacts: Array<Record<string, unknown>>,
+): string {
+  const values: string[] = []
+
+  for (const contact of contacts) {
+    for (const rawEntries of Object.values(contact)) {
+      if (!Array.isArray(rawEntries)) {
+        continue
+      }
+      for (const entry of rawEntries) {
+        if (
+          entry &&
+          typeof entry === "object" &&
+          "value" in entry &&
+          typeof entry.value === "string"
+        ) {
+          values.push(entry.value)
+        }
+      }
+    }
+  }
+
+  return values.join(", ")
+}
+
+function formatOpeningHoursSummary(
+  openingHours: Array<Record<string, unknown>>,
+): string {
+  const values: string[] = []
+
+  for (const entry of openingHours) {
+    const text = entry.text
+    if (Array.isArray(text)) {
+      for (const line of text) {
+        if (typeof line === "string") {
+          values.push(line)
+        }
+      }
+    }
+  }
+
+  return values.join(" | ")
+}
+
+function formatCategorySummary(
+  categories: Array<Record<string, unknown>>,
+): string {
+  return categories
+    .map((category) =>
+      typeof category.name === "string"
+        ? category.name
+        : typeof category.id === "string"
+          ? category.id
+          : "unknown",
+    )
+    .join(", ")
+}
+
+/**
+ * Build a point FeatureCollection for rest areas.
+ *
+ * The backend already returns GeoJSON, but this helper augments marker-friendly
+ * properties such as primaryCategoryId and popup summaries.
+ */
+export function buildRestAreaFeatures(
+  restAreas: RestAreaFeatureCollection | null | undefined,
+): FeatureCollection | null {
+  const backendFeatures = Array.isArray(restAreas?.features)
+    ? restAreas.features
+    : []
+
+  if (backendFeatures.length === 0) {
+    return null
+  }
+
+  const features: Feature[] = []
+
+  for (const [index, feature] of backendFeatures.entries()) {
+    const coordinates = feature.geometry?.coordinates
+    if (!isFiniteCoordinatePair(coordinates)) {
+      logRestAreaDebug("warn", "Skipping rest area with invalid coordinates", {
+        featureId: feature.id,
+        index,
+        coordinates,
+      })
+      continue
+    }
+
+    const properties = isRecord(feature.properties) ? feature.properties : null
+    if (
+      !properties ||
+      typeof properties.provider !== "string" ||
+      typeof properties.provider_place_id !== "string" ||
+      typeof properties.title !== "string"
+    ) {
+      logRestAreaDebug("warn", "Skipping rest area with invalid properties", {
+        featureId: feature.id,
+        index,
+        properties,
+      })
+      continue
+    }
+
+    const categories = Array.isArray(properties.categories)
+      ? properties.categories.filter(isRecord)
+      : []
+    const primaryCategory =
+      categories.find((category) => category.primary === true) ??
+      categories[0] ??
+      null
+    const address = isRecord(properties.address) ? properties.address : null
+    const contacts = Array.isArray(properties.contacts)
+      ? properties.contacts.filter(isRecord)
+      : []
+    const openingHours = Array.isArray(properties.opening_hours)
+      ? properties.opening_hours.filter(isRecord)
+      : []
+    const categoryIds = categories
+      .map((category) => (typeof category.id === "string" ? category.id : ""))
+      .filter((categoryId) => categoryId.length > 0)
+    const categoryLabels = formatCategorySummary(categories)
+    const openingHoursSummary = formatOpeningHoursSummary(openingHours)
+    const contactsSummary = formatContactSummary(contacts)
+
+    features.push({
+      type: "Feature",
+      id: feature.id,
+      properties: {
+        id: feature.id,
+        provider: properties.provider,
+        providerPlaceId: properties.provider_place_id,
+        title: properties.title,
+        resultType:
+          typeof properties.result_type === "string"
+            ? properties.result_type
+            : null,
+        categoryIds: categoryIds.join(","),
+        categoryLabels,
+        primaryCategoryId:
+          primaryCategory && typeof primaryCategory.id === "string"
+            ? primaryCategory.id
+            : null,
+        distanceMeters:
+          typeof properties.distance_meters === "number"
+            ? properties.distance_meters
+            : null,
+        addressLabel: typeof address?.label === "string" ? address.label : "",
+        openingHoursSummary,
+        contactsSummary,
+      },
+      geometry: {
+        type: "Point",
+        coordinates: [...coordinates],
+      },
+    })
+  }
+
+  if (features.length === 0) {
+    logRestAreaDebug("warn", "Rest area payload had no renderable features", {
+      received: backendFeatures.length,
+    })
+    return null
+  }
+
+  logRestAreaDebug("info", "Prepared rest area features for rendering", {
+    received: backendFeatures.length,
+    renderable: features.length,
+  })
+
+  return {
+    type: "FeatureCollection",
+    features,
   }
 }
 
