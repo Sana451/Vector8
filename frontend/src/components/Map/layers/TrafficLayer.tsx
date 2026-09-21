@@ -8,6 +8,7 @@
 import type { Map as MapLibreMap } from "maplibre-gl"
 import { useCallback, useEffect, useMemo } from "react"
 import type { TrafficLayerData } from "@/client"
+import { syncMapImages } from "@/lib/mapImages"
 import { shouldShowMapObjects } from "@/lib/mapLayerInteraction"
 import { buildTrafficFeatures } from "@/lib/mapLayers"
 import { colorPalette, markerIcons, markerSizes } from "@/lib/mapMarkerIcons"
@@ -39,58 +40,36 @@ export function TrafficLayer({ mapInstance, traffic }: TrafficLayerProps) {
 
   // Load triangle images on mount
   useEffect(() => {
-    if (!mapInstance?.isStyleLoaded()) {
-      console.log("[TrafficLayer] Skipping image load: map not ready")
-      return
-    }
-
-    console.log("[TrafficLayer] Starting to load marker images")
-
-    // Load triangle marker images for each severity level
-    const severities = [
+    return syncMapImages(mapInstance, [
       {
-        key: "severe",
-        size: markerSizes.traffic.severe,
-        color: colorPalette.traffic.severe,
+        id: "traffic-triangle-severe",
+        svg: markerIcons.trafficTriangle(
+          colorPalette.traffic.severe,
+          markerSizes.traffic.severe,
+        ),
       },
       {
-        key: "major",
-        size: markerSizes.traffic.moderate,
-        color: colorPalette.traffic.moderate,
+        id: "traffic-triangle-major",
+        svg: markerIcons.trafficTriangle(
+          colorPalette.traffic.moderate,
+          markerSizes.traffic.moderate,
+        ),
       },
       {
-        key: "moderate",
-        size: markerSizes.traffic.moderate,
-        color: colorPalette.traffic.moderate,
+        id: "traffic-triangle-moderate",
+        svg: markerIcons.trafficTriangle(
+          colorPalette.traffic.moderate,
+          markerSizes.traffic.moderate,
+        ),
       },
       {
-        key: "minor",
-        size: markerSizes.traffic.minor,
-        color: colorPalette.traffic.minor,
+        id: "traffic-triangle-minor",
+        svg: markerIcons.trafficTriangle(
+          colorPalette.traffic.minor,
+          markerSizes.traffic.minor,
+        ),
       },
-    ]
-
-    let _loadedCount = 0
-    severities.forEach(({ key, size, color }) => {
-      const imageId = `traffic-triangle-${key}`
-      if (!mapInstance.hasImage(imageId)) {
-        const svgString = markerIcons.trafficTriangle(color, size)
-        const img = new Image()
-        img.onload = () => {
-          if (!mapInstance.hasImage(imageId)) {
-            mapInstance.addImage(imageId, img)
-            console.log(`[TrafficLayer] Loaded image: ${imageId}`)
-            _loadedCount++
-          }
-        }
-        img.onerror = () => {
-          console.error(`[TrafficLayer] Failed to load image: ${imageId}`)
-        }
-        img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`
-      } else {
-        console.log(`[TrafficLayer] Image already exists: ${imageId}`)
-      }
-    })
+    ])
   }, [mapInstance])
 
   const buildLayers = useCallback(

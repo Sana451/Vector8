@@ -8,6 +8,7 @@
 import type { Map as MapLibreMap } from "maplibre-gl"
 import { useCallback, useEffect, useMemo } from "react"
 import type { FuelStationData } from "@/client"
+import { syncMapImages } from "@/lib/mapImages"
 import {
   mapObjectZoom,
   shouldShowClusters,
@@ -37,25 +38,16 @@ export function FuelLayer({ mapInstance, stations }: FuelLayerProps) {
 
   // Load drop images on mount
   useEffect(() => {
-    if (!mapInstance?.isStyleLoaded()) {
-      return
-    }
-
-    const imageIds = ["fuel-drop-available", "fuel-drop-unavailable"]
-    const colors = [colorPalette.fuel.available, colorPalette.fuel.unavailable]
-
-    imageIds.forEach((id, idx) => {
-      if (!mapInstance.hasImage(id)) {
-        const svgString = markerIcons.fuelDrop(colors[idx])
-        const img = new Image()
-        img.onload = () => {
-          if (!mapInstance.hasImage(id)) {
-            mapInstance.addImage(id, img)
-          }
-        }
-        img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`
-      }
-    })
+    return syncMapImages(mapInstance, [
+      {
+        id: "fuel-drop-available",
+        svg: markerIcons.fuelDrop(colorPalette.fuel.available),
+      },
+      {
+        id: "fuel-drop-unavailable",
+        svg: markerIcons.fuelDrop(colorPalette.fuel.unavailable),
+      },
+    ])
   }, [mapInstance])
 
   const buildLayers = useCallback((sourceId: string): LayerWithVisibility[] => {

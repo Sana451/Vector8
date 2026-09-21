@@ -8,6 +8,7 @@
 import type { Map as MapLibreMap } from "maplibre-gl"
 import { useCallback, useEffect, useMemo } from "react"
 import type { TruckRestrictionData } from "@/client"
+import { syncMapImages } from "@/lib/mapImages"
 import {
   mapObjectZoom,
   shouldShowClusters,
@@ -45,46 +46,36 @@ export function TruckRestrictionLayer({
 
   // Load octagon images on mount
   useEffect(() => {
-    if (!mapInstance?.isStyleLoaded()) {
-      return
-    }
-
-    const restrictionTypes = [
+    return syncMapImages(mapInstance, [
       {
-        key: "weight",
-        color: colorPalette.truckRestrictions.weight,
-        icon: restrictionIcons.weight_limit,
+        id: "restriction-octagon-weight",
+        svg: markerIcons.restrictionOctagon(
+          colorPalette.truckRestrictions.weight,
+          restrictionIcons.weight_limit,
+        ),
       },
       {
-        key: "height",
-        color: colorPalette.truckRestrictions.height,
-        icon: restrictionIcons.height_restriction,
+        id: "restriction-octagon-height",
+        svg: markerIcons.restrictionOctagon(
+          colorPalette.truckRestrictions.height,
+          restrictionIcons.height_restriction,
+        ),
       },
       {
-        key: "noTrucks",
-        color: colorPalette.truckRestrictions.noTrucks,
-        icon: restrictionIcons.no_trucks,
+        id: "restriction-octagon-noTrucks",
+        svg: markerIcons.restrictionOctagon(
+          colorPalette.truckRestrictions.noTrucks,
+          restrictionIcons.no_trucks,
+        ),
       },
       {
-        key: "other",
-        color: colorPalette.truckRestrictions.other,
-        icon: restrictionIcons.other,
+        id: "restriction-octagon-other",
+        svg: markerIcons.restrictionOctagon(
+          colorPalette.truckRestrictions.other,
+          restrictionIcons.other,
+        ),
       },
-    ]
-
-    restrictionTypes.forEach(({ key, color, icon }) => {
-      const imageId = `restriction-octagon-${key}`
-      if (!mapInstance.hasImage(imageId)) {
-        const svgString = markerIcons.restrictionOctagon(color, icon)
-        const img = new Image()
-        img.onload = () => {
-          if (!mapInstance.hasImage(imageId)) {
-            mapInstance.addImage(imageId, img)
-          }
-        }
-        img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`
-      }
-    })
+    ])
   }, [mapInstance])
 
   const buildLayers = useCallback((sourceId: string): LayerWithVisibility[] => {

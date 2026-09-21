@@ -12,6 +12,7 @@ import {
 } from "maplibre-gl"
 import { useCallback, useEffect, useMemo } from "react"
 import type { RestAreaFeatureCollection } from "@/client"
+import { syncMapImages } from "@/lib/mapImages"
 import {
   mapObjectZoom,
   shouldShowClusters,
@@ -141,44 +142,29 @@ export function RestAreaLayer({ mapInstance, restAreas }: RestAreaLayerProps) {
 
   // Load square marker images on mount
   useEffect(() => {
-    if (!mapInstance?.isStyleLoaded()) {
-      return
-    }
-
-    const restAreaTypes = [
+    return syncMapImages(mapInstance, [
       {
-        key: "complete",
-        categoryId: COMPLETE_REST_AREA_CATEGORY_ID,
-        color: colorPalette.restAreas.complete,
-        icon: restAreaIcons["400-4300-0199"],
+        id: "rest-area-square-complete",
+        svg: markerIcons.restAreaSquare(
+          colorPalette.restAreas.complete,
+          restAreaIcons["400-4300-0199"],
+        ),
       },
       {
-        key: "parking",
-        categoryId: TRUCK_PARKING_CATEGORY_ID,
-        color: colorPalette.restAreas.parking,
-        icon: restAreaIcons["700-7900-0131"],
+        id: "rest-area-square-parking",
+        svg: markerIcons.restAreaSquare(
+          colorPalette.restAreas.parking,
+          restAreaIcons["700-7900-0131"],
+        ),
       },
       {
-        key: "other",
-        categoryId: null,
-        color: colorPalette.restAreas.stop,
-        icon: restAreaIcons.default,
+        id: "rest-area-square-other",
+        svg: markerIcons.restAreaSquare(
+          colorPalette.restAreas.stop,
+          restAreaIcons.default,
+        ),
       },
-    ]
-
-    restAreaTypes.forEach(({ key, color, icon }) => {
-      const imageId = `rest-area-square-${key}`
-      if (!mapInstance.hasImage(imageId)) {
-        const svgString = markerIcons.restAreaSquare(color, icon)
-        const img = new Image()
-        img.onload = () => {
-          if (!mapInstance.hasImage(imageId)) {
-            mapInstance.addImage(imageId, img)
-          }
-        }
-        img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`
-      }
-    })
+    ])
   }, [mapInstance])
 
   const buildLayers = useCallback((sourceId: string): LayerWithVisibility[] => {
