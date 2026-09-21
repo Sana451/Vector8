@@ -71,6 +71,7 @@ class Settings(BaseSettings):
     TRAFFIC_PROVIDER: Literal["tomtom"] = "tomtom"
     FUEL_PROVIDER: Literal["internal"] = "internal"
     TRUCK_RESTRICTION_PROVIDER: Literal["internal"] = "internal"
+    REST_AREAS_PROVIDER: Literal["here"] = "here"
 
     # TomTom configuration (routing + traffic)
     TOMTOM_API_KEY: str | None = None
@@ -87,6 +88,15 @@ class Settings(BaseSettings):
     TRUCK_RESTRICTION_API_BASE_URL: str | None = None
     TRUCK_RESTRICTION_API_KEY: str | None = None
     TRUCK_RESTRICTION_API_TIMEOUT_SECONDS: int = 15
+
+    # HERE Search API (rest areas along a TomTom route)
+    HERE_API_KEY: str | None = None
+    HERE_BASE_URL: str = "https://browse.search.hereapi.com"
+    HERE_TIMEOUT_SECONDS: int = 30
+    HERE_POI_CORRIDOR_WIDTH_METERS: int = 1000
+    HERE_POI_LIMIT: int = 100
+    HERE_POI_CACHE_TTL_SECONDS: int = 86400
+    HERE_POI_USE_EXCURSION_DISTANCE_RANKING: bool = False
 
     # Per-domain cache TTLs (lazy invalidation on read)
     GEOCODING_CACHE_TTL_SECONDS: int = 2_592_000  # 30 days

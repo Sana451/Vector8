@@ -464,8 +464,9 @@ export class MapService {
      *
      * Layer behaviour:
      * - **route**: mandatory. A routing failure returns 502.
-     * - **traffic**, **fuel_stations**, **truck_restrictions**: optional. On
-     * failure the layer is empty and the reason is reported in `errors`.
+     * - **traffic**, **fuel_stations**, **truck_restrictions**, **rest_areas**:
+     * optional. On failure the layer is empty and the reason is reported in
+     * `errors`.
      *
      * Query parameters:
      * - force_refresh: Skip all caches and refresh from providers.

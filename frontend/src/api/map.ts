@@ -9,9 +9,9 @@ import {
   type GeocodingSearchResponse,
   GeocodingService,
   type MapOverviewRequest,
-  type MapOverviewResponse,
   MapService,
 } from "@/client"
+import type { MapOverviewResponse } from "@/client/types.gen"
 
 /**
  * Fetch the aggregated map overview for a route.

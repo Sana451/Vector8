@@ -1,0 +1,19 @@
+{
+  "items": [
+    {
+      "title": "Truck Parking Lot",
+      "id": "here:pds:place:840dr5ru-789",
+      "resultType": "place",
+      "position": {
+        "lat": 41.801,
+        "lng": -88.101
+      },
+      "categories": [
+        {
+          "id": "700-7900-0131",
+          "name": "Truck Parking"
+        }
+      ]
+    }
+  ]
+}

@@ -9,8 +9,10 @@ import type {
   TrafficLayerData,
   TruckRestrictionData,
 } from "@/client"
+import type { RestAreaFeatureCollection } from "@/client/types.gen"
 import {
   FuelLayer,
+  RestAreaLayer,
   RouteLayer,
   TrafficLayer,
   TruckRestrictionLayer,
@@ -76,6 +78,9 @@ function MapPage() {
   const [truckRestrictions, setTruckRestrictions] = useState<
     Array<TruckRestrictionData>
   >([])
+  const [restAreas, setRestAreas] = useState<RestAreaFeatureCollection | null>(
+    null,
+  )
   const [layerErrors, setLayerErrors] = useState<Array<LayerError>>([])
   const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
 
@@ -84,6 +89,7 @@ function MapPage() {
     setTraffic(null)
     setFuelStations([])
     setTruckRestrictions([])
+    setRestAreas(null)
     setRouteInfo(null)
   }
 
@@ -184,6 +190,7 @@ function MapPage() {
       setTraffic(data.traffic ?? null)
       setFuelStations(data.fuel_stations ?? [])
       setTruckRestrictions(data.truck_restrictions ?? [])
+      setRestAreas(data.rest_areas ?? null)
 
       const summary = data.route?.routes?.[0]?.summary
       if (summary) {
@@ -369,6 +376,10 @@ function MapPage() {
               <span className="font-medium">Truck restrictions:</span>{" "}
               {truckRestrictions.length}
             </p>
+            <p>
+              <span className="font-medium">Rest areas:</span>{" "}
+              {restAreas?.features?.length ?? 0}
+            </p>
 
             {layerErrors.length > 0 && (
               <div className="mt-4 p-3 bg-amber-50 rounded text-amber-800 space-y-1">
@@ -398,6 +409,7 @@ function MapPage() {
           mapInstance={mapInstance}
           restrictions={truckRestrictions}
         />
+        <RestAreaLayer mapInstance={mapInstance} restAreas={restAreas} />
       </div>
     </div>
   )

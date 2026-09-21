@@ -14,6 +14,8 @@ if TYPE_CHECKING:
     from app.providers.schemas import (
         FuelStationData,
         LayerQuery,
+        RestAreaData,
+        RestAreaQuery,
         TrafficLayerData,
         TruckRestrictionData,
     )
@@ -92,6 +94,25 @@ class TruckRestrictionProvider(Protocol):
 
         Returns:
             List of normalized truck restrictions.
+
+        Raises:
+            ProviderError: If the provider call fails.
+        """
+        ...
+
+
+@runtime_checkable
+class RestAreaProvider(Protocol):
+    """Provides route-adjacent rest areas / truck POI."""
+
+    async def search_along_route(self, query: RestAreaQuery) -> list[RestAreaData]:
+        """Search rest areas along the given path.
+
+        Args:
+            query: HERE route corridor query with confirmed category ids.
+
+        Returns:
+            List of normalized rest areas.
 
         Raises:
             ProviderError: If the provider call fails.

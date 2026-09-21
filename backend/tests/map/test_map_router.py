@@ -11,6 +11,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.geocoding.providers.tomtom import TomTomGeocodingProvider
+from app.providers.exceptions import ProviderUnavailableError
+from app.providers.here.poi import HerePoiProvider
+from app.providers.schemas import TrafficLayerData
+from app.providers.tomtom.traffic import TomTomTrafficProvider
 from app.routing.exceptions import RoutingNoRouteFoundError
 from app.routing.providers.tomtom import TomTomProvider
 
@@ -60,14 +64,27 @@ class TestRouteOverviewEndpoint:
         self, client: TestClient, overview_payload: dict
     ):
         """Route succeeds while unconfigured layers degrade into errors."""
-        with patch.object(TomTomProvider, "calculate_route") as mock_route:
+        with (
+            patch.object(TomTomProvider, "calculate_route") as mock_route,
+            patch.object(TomTomTrafficProvider, "get_traffic") as mock_traffic,
+            patch.object(HerePoiProvider, "search_along_route") as mock_rest_areas,
+        ):
             from app.routing.schemas import CalculateRouteResponse
 
             mock_route.return_value = CalculateRouteResponse.model_validate(
                 TOMTOM_ROUTE_RESPONSE
             )
+            mock_traffic.return_value = TrafficLayerData(provider="tomtom")
+            mock_rest_areas.side_effect = ProviderUnavailableError(
+                "HERE_API_KEY is not configured",
+                provider="here",
+            )
 
-            response = client.post(OVERVIEW_URL, json=overview_payload)
+            response = client.post(
+                OVERVIEW_URL,
+                json=overview_payload,
+                params={"force_refresh": "true"},
+            )
 
         assert response.status_code == 200
         data = response.json()
@@ -76,12 +93,14 @@ class TestRouteOverviewEndpoint:
         assert data["route"]["provider"] == "tomtom"
         assert len(data["route"]["routes"]) == 1
 
-        # Fuel and truck providers have no base URL configured in tests.
+        # Fuel and truck providers are intentionally unconfigured in tests.
+        # HERE rest areas may either degrade or be served from cache.
         failed_layers = {error["layer"] for error in data["errors"]}
         assert "fuel" in failed_layers
         assert "truck_restrictions" in failed_layers
         assert data["fuel_stations"] == []
         assert data["truck_restrictions"] == []
+        assert data["rest_areas"]["type"] == "FeatureCollection"
 
     def test_layer_subset_limits_resolution(
         self, client: TestClient, overview_payload: dict
@@ -103,6 +122,7 @@ class TestRouteOverviewEndpoint:
 
         failed_layers = {error["layer"] for error in data["errors"]}
         assert "truck_restrictions" not in failed_layers
+        assert "rest_areas" not in failed_layers
         assert data["traffic"] is None
 
     def test_routing_failure_returns_502(

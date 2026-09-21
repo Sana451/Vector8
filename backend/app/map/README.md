@@ -23,16 +23,17 @@ MapLayerService
     ├── RoutingService          → RoutingProvider          → TomTom
     ├── TrafficService          → TrafficProvider          → TomTom
     ├── FuelService             → FuelStationProvider      → internal API
-    └── TruckRestrictionService → TruckRestrictionProvider → internal API
+    ├── TruckRestrictionService → TruckRestrictionProvider → internal API
+    └── HerePoiService          → RestAreaProvider         → HERE Search API
     ↓
-PostGIS: geocoding cache · route geometry · traffic cache · fuel stations · truck restrictions
+PostGIS: geocoding cache · route geometry · traffic cache · fuel stations · truck restrictions · rest area cache
 ```
 
 If pickup / delivery are passed as addresses, `GeocodingService` resolves them
 first and turns them into `GeoJSON Point` values. The route is then resolved
 from those coordinates, because its geometry is the corridor along which every
-other layer is queried. Traffic, fuel and truck restrictions still run
-concurrently once the route exists.
+other layer is queried. Traffic, fuel, truck restrictions and HERE rest areas
+still run concurrently once the route exists.
 
 ## Domain protocols
 
@@ -46,6 +47,7 @@ several domains:
 | Traffic | `TrafficProvider` | `tomtom` |
 | Fuel stations | `FuelStationProvider` | `internal` |
 | Truck restrictions | `TruckRestrictionProvider` | `internal` |
+| Rest areas | `RestAreaProvider` | `here` |
 
 Most provider protocols live in `app/providers/base.py`; geocoding keeps its own
 protocol in `app/geocoding/providers/base.py`. Adapters implement exactly one
@@ -61,6 +63,7 @@ app/providers/
 ├── schemas.py                     # Layer DTOs
 ├── tomtom/{routing,traffic}.py
 ├── fuel/internal.py
+├── here/poi.py
 └── truck_restrictions/internal.py
 
 app/geocoding/
@@ -79,6 +82,7 @@ registry.get("geocoding", "tomtom")
 registry.get("routing", "tomtom")
 registry.get("traffic", "tomtom")
 registry.get("fuel", "internal")
+registry.get("rest_areas", "here")
 ```
 
 This makes mixed configurations possible without touching business logic:
@@ -89,6 +93,7 @@ ROUTING_PROVIDER=tomtom
 TRAFFIC_PROVIDER=tomtom
 FUEL_PROVIDER=internal
 TRUCK_RESTRICTION_PROVIDER=internal
+REST_AREAS_PROVIDER=here
 ```
 
 Registration happens at import time in `registry._register_defaults()` and must
@@ -113,7 +118,7 @@ Modern shape with addresses:
   },
   "radius_meters": 5000,
   "limit": 200,
-  "layers": ["route", "traffic", "fuel", "truck_restrictions"]
+  "layers": ["route", "traffic", "fuel", "truck_restrictions", "rest_areas"]
 }
 ```
 
@@ -176,6 +181,10 @@ Response:
   },
   "fuel_stations": [],
   "truck_restrictions": [],
+  "rest_areas": {
+    "type": "FeatureCollection",
+    "features": []
+  },
   "errors": [
     { "layer": "fuel", "provider": "internal", "message": "FUEL_API_BASE_URL is not configured" }
   ]
@@ -221,6 +230,7 @@ Response:
 | `traffic` | `null` + entry in `errors`, HTTP 200 |
 | `fuel_stations` | `[]` + entry in `errors`, HTTP 200 |
 | `truck_restrictions` | `[]` + entry in `errors`, HTTP 200 |
+| `rest_areas` | empty `FeatureCollection` + entry in `errors`, HTTP 200 |
 
 `asyncio.gather(..., return_exceptions=True)` guarantees that one failing layer
 never cancels the others.
@@ -237,6 +247,7 @@ magnitude:
 | Traffic | `traffic_snapshots` | `TRAFFIC_CACHE_TTL_SECONDS` | 2 minutes |
 | Fuel | `fuel_stations` | `FUEL_CACHE_TTL_SECONDS` | 1 day |
 | Truck restrictions | `truck_restrictions` | `TRUCK_RESTRICTION_CACHE_TTL_SECONDS` | 1 week |
+| Rest areas | `map_rest_areas_cache` | `HERE_POI_CACHE_TTL_SECONDS` | 24 hours |
 
 Invalidation is **lazy**: expired rows are ignored on read and overwritten by
 the next successful provider call. There is no background cleanup job.
@@ -285,6 +296,7 @@ only its own data:
 <TrafficLayer mapInstance={mapInstance} traffic={traffic} />
 <FuelLayer mapInstance={mapInstance} stations={fuelStations} />
 <TruckRestrictionLayer mapInstance={mapInstance} restrictions={truckRestrictions} />
+<RestAreaLayer mapInstance={mapInstance} restAreas={restAreas} />
 ```
 
 Source/layer lifecycle is shared through `useGeoJsonLayer`, which waits for the
@@ -308,6 +320,7 @@ No changes are needed in services, the orchestrator or the HTTP layer.
 
 - `app/geocoding/README.md` - focused geocoding domain reference.
 - `app/routing/README.md` - route-only endpoint details.
+- `app/map/rest_areas_here.md` - HERE `rest_areas` layer implementation details.
 
 ## Deprecated endpoint
 

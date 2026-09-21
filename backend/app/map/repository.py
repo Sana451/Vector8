@@ -14,8 +14,13 @@ from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.core.logging import get_logger
-from app.map.models import FuelStation, TrafficSnapshot, TruckRestriction
-from app.providers.geo import Coordinate, linestring_to_wkt
+from app.map.models import (
+    FuelStation,
+    MapRestAreasCache,
+    TrafficSnapshot,
+    TruckRestriction,
+)
+from app.providers.geo import Coordinate, linestring_to_wkt, point_to_wkt
 
 logger = get_logger(__name__)
 
@@ -308,3 +313,129 @@ class TruckRestrictionRepository(_SpatialLayerRepository):
             )
             self.session.rollback()
             raise
+
+
+class RestAreaCacheRepository:
+    """Repository for route-specific HERE rest area cache rows."""
+
+    def __init__(self, session: Session):
+        self.session = session
+
+    def get_valid(self, provider: str, request_hash: str) -> list[MapRestAreasCache]:
+        statement = (
+            select(MapRestAreasCache)
+            .where(MapRestAreasCache.provider == provider)
+            .where(MapRestAreasCache.request_hash == request_hash)
+            .where(MapRestAreasCache.expires_at >= datetime.now(UTC))
+        )
+        return list(self.session.exec(statement).all())
+
+    def replace_many(
+        self,
+        *,
+        provider: str,
+        request_hash: str,
+        route_hash: str,
+        categories_hash: str,
+        corridor_width_meters: int,
+        rows: list[dict],
+        ttl_seconds: int,
+    ) -> int:
+        now = datetime.now(UTC)
+        expires_at = now + timedelta(seconds=ttl_seconds)
+
+        try:
+            existing_statement = select(MapRestAreasCache).where(
+                (MapRestAreasCache.provider == provider)
+                & (MapRestAreasCache.request_hash == request_hash)
+            )
+            existing_rows = {
+                row.provider_place_id: row
+                for row in self.session.exec(existing_statement).all()
+            }
+            seen_place_ids: set[str] = set()
+
+            for row in rows:
+                provider_place_id = row["provider_place_id"]
+                seen_place_ids.add(provider_place_id)
+                existing = existing_rows.get(provider_place_id)
+
+                if existing is not None:
+                    for key, value in row.items():
+                        setattr(existing, key, value)
+                    existing.route_hash = route_hash
+                    existing.categories_hash = categories_hash
+                    existing.corridor_width_meters = corridor_width_meters
+                    existing.fetched_at = now
+                    existing.expires_at = expires_at
+                    self.session.add(existing)
+                    continue
+
+                self.session.add(
+                    MapRestAreasCache(
+                        provider=provider,
+                        request_hash=request_hash,
+                        route_hash=route_hash,
+                        categories_hash=categories_hash,
+                        corridor_width_meters=corridor_width_meters,
+                        fetched_at=now,
+                        expires_at=expires_at,
+                        **row,
+                    )
+                )
+
+            for provider_place_id, existing in existing_rows.items():
+                if provider_place_id not in seen_place_ids:
+                    self.session.delete(existing)
+
+            self.session.commit()
+            return len(rows)
+        except Exception as exc:
+            logger.error(
+                "Error replacing rest area cache rows",
+                provider=provider,
+                request_hash=request_hash,
+                error=str(exc),
+                exc_info=True,
+            )
+            self.session.rollback()
+            raise
+
+
+def build_rest_area_row(
+    *,
+    provider_place_id: str,
+    title: str,
+    longitude: float,
+    latitude: float,
+    payload: dict,
+    access: list[dict],
+    address: dict | None,
+    categories: list[dict],
+    distance_meters: float | None,
+    result_type: str | None,
+    ontology_id: str | None,
+    opening_hours: list[dict],
+    contacts: list[dict],
+    chains: list[dict],
+    references: list[dict],
+    metadata_payload: dict | None,
+) -> dict:
+    """Build repository row values for a cached rest area."""
+    return {
+        "provider_place_id": provider_place_id,
+        "title": title,
+        "position": point_to_wkt(longitude, latitude),
+        "access": access,
+        "address": address,
+        "categories": categories,
+        "distance_meters": distance_meters,
+        "result_type": result_type,
+        "ontology_id": ontology_id,
+        "opening_hours": opening_hours,
+        "contacts": contacts,
+        "chains": chains,
+        "references": references,
+        "metadata_payload": metadata_payload,
+        "payload": payload,
+    }

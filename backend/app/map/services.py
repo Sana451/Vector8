@@ -10,22 +10,32 @@ from sqlmodel import Session
 
 from app.core.config import settings
 from app.core.logging import get_logger
-from app.map.models import FuelStation, TruckRestriction
+from app.map.models import FuelStation, MapRestAreasCache, TruckRestriction
 from app.map.repository import (
     FuelStationRepository,
+    RestAreaCacheRepository,
     TrafficSnapshotRepository,
     TruckRestrictionRepository,
+    build_rest_area_row,
 )
 from app.providers.base import (
     FuelStationProvider,
+    RestAreaProvider,
     TrafficProvider,
     TruckRestrictionProvider,
 )
 from app.providers.exceptions import ProviderError
 from app.providers.geo import GeoJSONPoint, point_to_wkt
+from app.providers.here.poi import (
+    HERE_BROWSE_MAX_LIMIT,
+    HERE_EXCURSION_DISTANCE_RANKING,
+    HERE_REST_AREA_CATEGORY_IDS,
+)
 from app.providers.schemas import (
     FuelStationData,
     LayerQuery,
+    RestAreaData,
+    RestAreaQuery,
     RestrictionType,
     TrafficLayerData,
     TruckRestrictionData,
@@ -45,6 +55,38 @@ def _corridor_hash(provider: str, query: LayerQuery) -> str:
             "coordinates": [list(coord) for coord in query.coordinates],
         }
     )
+
+
+def _route_hash(coordinates: list[tuple[float, float]]) -> str:
+    """Hash a route geometry independent of the layer provider."""
+    return compute_request_hash(
+        {
+            "coordinates": [list(coord) for coord in coordinates],
+        }
+    )
+
+
+def _rest_area_request_hash(
+    provider: str, query: RestAreaQuery
+) -> tuple[str, str, str]:
+    """Compute the route hash and cache key for HERE rest area queries."""
+    route_hash = _route_hash(query.coordinates)
+    categories_hash = compute_request_hash(
+        {
+            "categories": sorted(query.categories),
+        }
+    )
+    request_hash = compute_request_hash(
+        {
+            "provider": provider,
+            "route_hash": route_hash,
+            "categories": sorted(query.categories),
+            "corridor_width_meters": query.corridor_width_meters,
+            "limit": query.limit,
+            "ranking": query.ranking,
+        }
+    )
+    return route_hash, categories_hash, request_hash
 
 
 class TrafficService:
@@ -299,3 +341,153 @@ class TruckRestrictionService:
             description=row.description,
             location=GeoJSONPoint(coordinates=(0.0, 0.0)),
         )
+
+
+class HerePoiService:
+    """Rest area layer service backed by route-specific cache rows."""
+
+    def __init__(self, provider: RestAreaProvider, session: Session):
+        self.provider = provider
+        self.provider_name = settings.REST_AREAS_PROVIDER
+        self.repository = RestAreaCacheRepository(session)
+
+    async def find_rest_areas(
+        self,
+        query: LayerQuery,
+        *,
+        force_refresh: bool = False,
+    ) -> list[RestAreaData]:
+        """Find confirmed HERE rest areas along the route corridor."""
+        provider_query = RestAreaQuery(
+            path=query.path,
+            categories=list(HERE_REST_AREA_CATEGORY_IDS),
+            corridor_width_meters=settings.HERE_POI_CORRIDOR_WIDTH_METERS,
+            limit=min(query.limit, settings.HERE_POI_LIMIT, HERE_BROWSE_MAX_LIMIT),
+            ranking=(
+                HERE_EXCURSION_DISTANCE_RANKING
+                if settings.HERE_POI_USE_EXCURSION_DISTANCE_RANKING
+                else None
+            ),
+        )
+        route_hash, categories_hash, request_hash = _rest_area_request_hash(
+            self.provider_name,
+            provider_query,
+        )
+
+        logger.info(
+            "HERE rest area lookup started",
+            provider=self.provider_name,
+            request_hash=request_hash,
+            route_hash=route_hash,
+            categories_hash=categories_hash,
+            force_refresh=force_refresh,
+            requested_limit=query.limit,
+            effective_limit=provider_query.limit,
+            categories=provider_query.categories,
+            corridor_width_meters=provider_query.corridor_width_meters,
+            ranking=provider_query.ranking,
+        )
+
+        if not force_refresh:
+            cached = self._from_cache(request_hash)
+            if cached:
+                logger.info(
+                    "HERE rest area cache hit",
+                    provider=self.provider_name,
+                    request_hash=request_hash,
+                    route_hash=route_hash,
+                    count=len(cached),
+                )
+                return cached
+            logger.info(
+                "HERE rest area cache miss",
+                provider=self.provider_name,
+                request_hash=request_hash,
+                route_hash=route_hash,
+            )
+
+        logger.info(
+            "HERE rest area provider request",
+            provider=self.provider_name,
+            request_hash=request_hash,
+            categories=provider_query.categories,
+        )
+
+        try:
+            rest_areas = await self.provider.search_along_route(provider_query)
+        except ProviderError as exc:
+            cached = self._from_cache(request_hash)
+            if cached:
+                logger.warning(
+                    "HERE rest area provider failed, serving cache",
+                    provider=self.provider_name,
+                    request_hash=request_hash,
+                    route_hash=route_hash,
+                    count=len(cached),
+                    error=exc.message,
+                )
+                return cached
+            raise
+
+        logger.info(
+            "HERE rest area provider response",
+            provider=self.provider_name,
+            request_hash=request_hash,
+            route_hash=route_hash,
+            count=len(rest_areas),
+        )
+
+        self.repository.replace_many(
+            provider=self.provider_name,
+            request_hash=request_hash,
+            route_hash=route_hash,
+            categories_hash=categories_hash,
+            corridor_width_meters=provider_query.corridor_width_meters,
+            rows=[self._to_row(rest_area) for rest_area in rest_areas],
+            ttl_seconds=settings.HERE_POI_CACHE_TTL_SECONDS,
+        )
+
+        logger.info(
+            "HERE rest area cache updated",
+            provider=self.provider_name,
+            request_hash=request_hash,
+            route_hash=route_hash,
+            count=len(rest_areas),
+            ttl_seconds=settings.HERE_POI_CACHE_TTL_SECONDS,
+        )
+
+        return rest_areas
+
+    def _from_cache(self, request_hash: str) -> list[RestAreaData]:
+        rows = self.repository.get_valid(self.provider_name, request_hash)
+        return [self._from_row(row) for row in rows]
+
+    @staticmethod
+    def _to_row(rest_area: RestAreaData) -> dict:
+        lon, lat = rest_area.position.coordinates
+        return build_rest_area_row(
+            provider_place_id=rest_area.provider_place_id,
+            title=rest_area.title,
+            longitude=lon,
+            latitude=lat,
+            payload=rest_area.model_dump(mode="json"),
+            access=[point.model_dump(mode="json") for point in rest_area.access_points],
+            address=(
+                rest_area.address.model_dump(mode="json")
+                if rest_area.address is not None
+                else None
+            ),
+            categories=[item.model_dump(mode="json") for item in rest_area.categories],
+            distance_meters=rest_area.distance_meters,
+            result_type=rest_area.result_type,
+            ontology_id=rest_area.ontology_id,
+            opening_hours=rest_area.opening_hours,
+            contacts=rest_area.contacts,
+            chains=[item.model_dump(mode="json") for item in rest_area.chains],
+            references=[item.model_dump(mode="json") for item in rest_area.references],
+            metadata_payload=rest_area.metadata,
+        )
+
+    @staticmethod
+    def _from_row(row: MapRestAreasCache) -> RestAreaData:
+        return RestAreaData.model_validate(row.payload)

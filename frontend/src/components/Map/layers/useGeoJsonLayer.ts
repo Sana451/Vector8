@@ -103,9 +103,11 @@ export function useGeoJsonLayer({
     }
 
     const cancel = whenStyleReady(mapInstance, apply)
+    mapInstance.on("styledata", apply)
 
     return () => {
       cancel()
+      mapInstance.off("styledata", apply)
       remove()
     }
   }, [mapInstance, sourceId, data, buildLayers])

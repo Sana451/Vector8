@@ -502,7 +502,7 @@ export type Leg = {
  *
  * Identifiers of the map layers.
  */
-export type MapLayer = 'route' | 'traffic' | 'fuel' | 'truck_restrictions';
+export type MapLayer = 'route' | 'traffic' | 'fuel' | 'truck_restrictions' | 'rest_areas';
 
 /**
  * MapOverviewRequest
@@ -565,6 +565,7 @@ export type MapOverviewResponse = {
      * Truck Restrictions
      */
     truck_restrictions?: Array<TruckRestrictionData>;
+    rest_areas?: RestAreaFeatureCollection;
     /**
      * Errors
      */
@@ -655,6 +656,116 @@ export type ProgressPoint = {
      * Traveldurationinseconds
      */
     travelDurationInSeconds: number;
+};
+
+/**
+ * RestAreaFeature
+ *
+ * GeoJSON point feature for a rest area.
+ */
+export type RestAreaFeature = {
+    /**
+     * Type
+     */
+    type?: string;
+    /**
+     * Id
+     */
+    id: string;
+    properties: RestAreaFeatureProperties;
+    geometry: GeoJSONPoint;
+};
+
+/**
+ * RestAreaFeatureCollection
+ *
+ * GeoJSON feature collection for the rest_areas layer.
+ */
+export type RestAreaFeatureCollection = {
+    /**
+     * Type
+     */
+    type?: string;
+    /**
+     * Features
+     */
+    features?: Array<RestAreaFeature>;
+};
+
+/**
+ * RestAreaFeatureProperties
+ *
+ * Properties attached to each rest area GeoJSON feature.
+ */
+export type RestAreaFeatureProperties = {
+    /**
+     * Provider
+     */
+    provider: string;
+    /**
+     * Provider Place Id
+     */
+    provider_place_id: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Result Type
+     */
+    result_type?: string | null;
+    /**
+     * Categories
+     */
+    categories?: Array<{
+        [key: string]: unknown;
+    }>;
+    /**
+     * Distance Meters
+     */
+    distance_meters?: number | null;
+    /**
+     * Address
+     */
+    address?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Access Points
+     */
+    access_points?: Array<{
+        [key: string]: unknown;
+    }>;
+    /**
+     * Opening Hours
+     */
+    opening_hours?: Array<{
+        [key: string]: unknown;
+    }>;
+    /**
+     * Contacts
+     */
+    contacts?: Array<{
+        [key: string]: unknown;
+    }>;
+    /**
+     * Chains
+     */
+    chains?: Array<{
+        [key: string]: unknown;
+    }>;
+    /**
+     * References
+     */
+    references?: Array<{
+        [key: string]: unknown;
+    }>;
+    /**
+     * Metadata
+     */
+    metadata?: {
+        [key: string]: unknown;
+    } | null;
 };
 
 /**
