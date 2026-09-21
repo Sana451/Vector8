@@ -11,6 +11,10 @@ import type {
 } from "@/client"
 import type { RestAreaFeatureCollection } from "@/client/types.gen"
 import {
+  LayerTogglePanel,
+  type LayerType,
+} from "@/components/Map/LayerTogglePanel"
+import {
   FuelLayer,
   RestAreaLayer,
   RouteLayer,
@@ -50,6 +54,31 @@ interface RouteInfo {
 function MapPage() {
   const mapRef = useRef<TomTomMapHandle>(null)
   const { showSuccessToast, showErrorToast } = useCustomToast()
+
+  // Layer visibility state
+  const [visibleLayers, setVisibleLayers] = useState<Set<LayerType>>(
+    new Set(["route", "traffic", "fuel", "truck-restrictions", "rest-areas"]),
+  )
+
+  const handleToggleLayer = (layer: LayerType) => {
+    setVisibleLayers((prev) => {
+      const next = new Set(prev)
+      if (next.has(layer)) {
+        next.delete(layer)
+        console.info(
+          `[Map] Layer hidden: ${layer}`,
+          `Visible layers: ${Array.from(next).join(", ")}`,
+        )
+      } else {
+        next.add(layer)
+        console.info(
+          `[Map] Layer shown: ${layer}`,
+          `Visible layers: ${Array.from(next).join(", ")}`,
+        )
+      }
+      return next
+    })
+  }
 
   // Form state
   const [pickupAddress, setPickupAddress] = useState(
@@ -191,6 +220,40 @@ function MapPage() {
       setFuelStations(data.fuel_stations ?? [])
       setTruckRestrictions(data.truck_restrictions ?? [])
       setRestAreas(data.rest_areas ?? null)
+
+      // Log all layer data for debugging
+      console.group("[Map Layers] Route Overview Loaded")
+      console.info("Route coordinates:", coordinates.length, "points")
+      console.info("Traffic incidents:", data.traffic?.incidents?.length ?? 0)
+      console.table(
+        (data.traffic?.incidents ?? []).slice(0, 5).map((i: any) => ({
+          severity: i.severity,
+          type: i.type,
+          count: i.estimated_percent_congestion,
+        })),
+      )
+      console.info("Fuel stations:", data.fuel_stations?.length ?? 0)
+      console.info("Truck restrictions:", data.truck_restrictions?.length ?? 0)
+      console.table(
+        (data.truck_restrictions ?? []).slice(0, 5).map((r: any) => ({
+          type: r.type,
+          severity: r.severity,
+        })),
+      )
+      console.info(
+        "Rest areas:",
+        data.rest_areas?.features?.length ?? 0,
+        "locations",
+      )
+      const restAreaCategories = new Set()
+      data.rest_areas?.features?.forEach((f: any) => {
+        restAreaCategories.add(f.properties?.primaryCategoryId)
+      })
+      console.info(
+        "Rest area categories:",
+        Array.from(restAreaCategories).join(", "),
+      )
+      console.groupEnd()
 
       const summary = data.route?.routes?.[0]?.summary
       if (summary) {
@@ -402,14 +465,37 @@ function MapPage() {
 
       <div className="flex-1 min-h-0">
         <TomTomMap ref={mapRef} />
-        <RouteLayer mapInstance={mapInstance} coordinates={routeCoordinates} />
-        <TrafficLayer mapInstance={mapInstance} traffic={traffic} />
-        <FuelLayer mapInstance={mapInstance} stations={fuelStations} />
-        <TruckRestrictionLayer
-          mapInstance={mapInstance}
-          restrictions={truckRestrictions}
+        <LayerTogglePanel
+          visibleLayers={visibleLayers}
+          onToggleLayer={handleToggleLayer}
+          counts={{
+            traffic: traffic?.incidents?.length ?? 0,
+            fuel: fuelStations.length,
+            "truck-restrictions": truckRestrictions.length,
+            "rest-areas": restAreas?.features?.length ?? 0,
+          }}
         />
-        <RestAreaLayer mapInstance={mapInstance} restAreas={restAreas} />
+        {visibleLayers.has("route") && (
+          <RouteLayer
+            mapInstance={mapInstance}
+            coordinates={routeCoordinates}
+          />
+        )}
+        {visibleLayers.has("traffic") && (
+          <TrafficLayer mapInstance={mapInstance} traffic={traffic} />
+        )}
+        {visibleLayers.has("fuel") && (
+          <FuelLayer mapInstance={mapInstance} stations={fuelStations} />
+        )}
+        {visibleLayers.has("truck-restrictions") && (
+          <TruckRestrictionLayer
+            mapInstance={mapInstance}
+            restrictions={truckRestrictions}
+          />
+        )}
+        {visibleLayers.has("rest-areas") && (
+          <RestAreaLayer mapInstance={mapInstance} restAreas={restAreas} />
+        )}
       </div>
     </div>
   )

@@ -5,7 +5,6 @@
  */
 
 import {
-  type LayerSpecification,
   type MapGeoJSONFeature,
   type MapLayerMouseEvent,
   type Map as MapLibreMap,
@@ -13,12 +12,19 @@ import {
 } from "maplibre-gl"
 import { useCallback, useEffect, useMemo } from "react"
 import type { RestAreaFeatureCollection } from "@/client"
+import {
+  mapObjectZoom,
+  shouldShowClusters,
+  shouldShowMapObjects,
+  shouldShowObjectLabels,
+} from "@/lib/mapLayerInteraction"
 import { buildRestAreaFeatures } from "@/lib/mapLayers"
-import { useGeoJsonLayer } from "./useGeoJsonLayer"
+import { colorPalette, markerIcons, restAreaIcons } from "@/lib/mapMarkerIcons"
+import { type LayerWithVisibility, useGeoJsonLayer } from "./useGeoJsonLayer"
 
-const SOURCE_ID = "rest-areas"
-const CIRCLE_LAYER_ID = "rest-areas-layer"
-const LABEL_LAYER_ID = "rest-areas-label"
+const SOURCE_ID = "vector8-rest-areas-source"
+const CIRCLE_LAYER_ID = "vector8-rest-areas-circle-layer"
+const LABEL_LAYER_ID = "vector8-rest-areas-label-layer"
 const TRUCK_PARKING_CATEGORY_ID = "700-7900-0131"
 const COMPLETE_REST_AREA_CATEGORY_ID = "400-4300-0199"
 
@@ -74,7 +80,35 @@ function buildPopupHtml(properties: Record<string, unknown>): string {
     .filter(Boolean)
     .join("")
 
-  return `<div style="min-width:240px"><div style="font-weight:600;margin-bottom:6px">${title}</div>${rows}</div>`
+  return `
+    <div style="
+      min-width: 280px;
+      background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+      border-radius: 8px;
+      padding: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      color: #1e293b;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+    ">
+      <div style="
+        font-weight: 700;
+        margin-bottom: 10px;
+        font-size: 16px;
+        color: #0f172a;
+        border-bottom: 2px solid #e2e8f0;
+        padding-bottom: 8px;
+      ">
+        ${title}
+      </div>
+      <div style="
+        color: #334155;
+      ">
+        ${rows}
+      </div>
+    </div>
+  `
 }
 
 /**
@@ -88,40 +122,127 @@ export function RestAreaLayer({ mapInstance, restAreas }: RestAreaLayerProps) {
       return
     }
 
+    // Log all unique primary categories found in the data
+    const categories = new Set<string | null>()
+    restAreas.features?.forEach((feature) => {
+      const props = feature.properties as any
+      categories.add(props?.primaryCategoryId ?? null)
+    })
+
     console.info("[HERE] RestAreaLayer received backend payload", {
       backendFeatures: restAreas.features?.length ?? 0,
       renderableFeatures:
         data && "features" in data && Array.isArray(data.features)
           ? data.features.length
           : 0,
+      uniquePrimaryCategories: Array.from(categories),
     })
   }, [restAreas, data])
 
-  const buildLayers = useCallback(
-    (sourceId: string): LayerSpecification[] => [
+  // Load square marker images on mount
+  useEffect(() => {
+    if (!mapInstance?.isStyleLoaded()) {
+      return
+    }
+
+    const restAreaTypes = [
       {
-        id: CIRCLE_LAYER_ID,
+        key: "complete",
+        categoryId: COMPLETE_REST_AREA_CATEGORY_ID,
+        color: colorPalette.restAreas.complete,
+        icon: restAreaIcons["400-4300-0199"],
+      },
+      {
+        key: "parking",
+        categoryId: TRUCK_PARKING_CATEGORY_ID,
+        color: colorPalette.restAreas.parking,
+        icon: restAreaIcons["700-7900-0131"],
+      },
+      {
+        key: "other",
+        categoryId: null,
+        color: colorPalette.restAreas.stop,
+        icon: restAreaIcons.default,
+      },
+    ]
+
+    restAreaTypes.forEach(({ key, color, icon }) => {
+      const imageId = `rest-area-square-${key}`
+      if (!mapInstance.hasImage(imageId)) {
+        const svgString = markerIcons.restAreaSquare(color, icon)
+        const img = new Image()
+        img.onload = () => {
+          if (!mapInstance.hasImage(imageId)) {
+            mapInstance.addImage(imageId, img)
+          }
+        }
+        img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`
+      }
+    })
+  }, [mapInstance])
+
+  const buildLayers = useCallback((sourceId: string): LayerWithVisibility[] => {
+    const layers = [
+      // Cluster circles for x2-x3
+      {
+        id: "rest-areas-cluster-circle",
         type: "circle",
         source: sourceId,
+        filter: ["has", "point_count"],
+        shouldBeVisible: shouldShowClusters,
         paint: {
-          "circle-radius": 7,
-          "circle-color": [
+          "circle-color": colorPalette.restAreas.complete,
+          "circle-radius": ["step", ["get", "point_count"], 18, 10, 20, 25, 22],
+          "circle-opacity": 0.8,
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-width": 2,
+        },
+      },
+      // Cluster count text for x2-x3
+      {
+        id: "rest-areas-cluster-text",
+        type: "symbol",
+        source: sourceId,
+        filter: ["has", "point_count"],
+        shouldBeVisible: shouldShowClusters,
+        layout: {
+          "text-field": "{point_count_abbreviated}",
+          "text-size": 12,
+          "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+        },
+        paint: {
+          "text-color": "#ffffff",
+        },
+      },
+      // Individual markers from x2 and up
+      {
+        id: CIRCLE_LAYER_ID,
+        type: "symbol",
+        source: sourceId,
+        filter: ["!", ["has", "point_count"]],
+        shouldBeVisible: shouldShowMapObjects,
+        layout: {
+          "icon-image": [
             "match",
             ["get", "primaryCategoryId"],
             COMPLETE_REST_AREA_CATEGORY_ID,
-            "#d97706",
+            "rest-area-square-complete",
             TRUCK_PARKING_CATEGORY_ID,
-            "#2563eb",
-            "#475569",
+            "rest-area-square-parking",
+            "rest-area-square-other",
           ],
-          "circle-stroke-width": 1.5,
-          "circle-stroke-color": "#ffffff",
+          "icon-size": 1.2,
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
         },
       },
+      // Labels only at x4 to keep x2-x3 clean
       {
         id: LABEL_LAYER_ID,
         type: "symbol",
         source: sourceId,
+        filter: ["!", ["has", "point_count"]],
+        shouldBeVisible: shouldShowObjectLabels,
         layout: {
           "text-field": [
             "coalesce",
@@ -130,7 +251,7 @@ export function RestAreaLayer({ mapInstance, restAreas }: RestAreaLayerProps) {
             "Rest area",
           ],
           "text-size": 10,
-          "text-offset": [0, 1.4],
+          "text-offset": [0, 2.2],
           "text-anchor": "top",
           "text-allow-overlap": false,
         },
@@ -140,11 +261,22 @@ export function RestAreaLayer({ mapInstance, restAreas }: RestAreaLayerProps) {
           "text-halo-width": 1,
         },
       },
-    ],
-    [],
-  )
+    ]
 
-  useGeoJsonLayer({ mapInstance, sourceId: SOURCE_ID, buildLayers, data })
+    return layers as unknown as LayerWithVisibility[]
+  }, [])
+
+  useGeoJsonLayer({
+    mapInstance,
+    sourceId: SOURCE_ID,
+    buildLayers,
+    data,
+    clusterOptions: {
+      enabled: true,
+      radius: 30,
+      maxZoom: mapObjectZoom.clusterMax,
+    },
+  })
 
   useEffect(() => {
     if (!mapInstance || !data) {
@@ -181,28 +313,29 @@ export function RestAreaLayer({ mapInstance, restAreas }: RestAreaLayerProps) {
     }
 
     const attachHandlers = (layerId: string) => {
-      if (!mapInstance.getLayer(layerId)) {
+      const layer = mapInstance.getLayer(layerId)
+      if (!layer) {
+        console.warn(`[RestAreaLayer] Layer not found: ${layerId}`)
         return
       }
+      console.info(`[RestAreaLayer] Attaching handlers to layer: ${layerId}`)
       mapInstance.on("click", layerId, showPopup)
       mapInstance.on("mouseenter", layerId, onMouseEnter)
       mapInstance.on("mouseleave", layerId, onMouseLeave)
     }
 
-    attachHandlers(CIRCLE_LAYER_ID)
-    attachHandlers(LABEL_LAYER_ID)
+    // Use setTimeout to ensure layers are added to the map first
+    const timeoutId = setTimeout(() => {
+      attachHandlers(CIRCLE_LAYER_ID)
+    }, 0)
 
     return () => {
+      clearTimeout(timeoutId)
       popup?.remove()
       if (mapInstance.getLayer(CIRCLE_LAYER_ID)) {
         mapInstance.off("click", CIRCLE_LAYER_ID, showPopup)
         mapInstance.off("mouseenter", CIRCLE_LAYER_ID, onMouseEnter)
         mapInstance.off("mouseleave", CIRCLE_LAYER_ID, onMouseLeave)
-      }
-      if (mapInstance.getLayer(LABEL_LAYER_ID)) {
-        mapInstance.off("click", LABEL_LAYER_ID, showPopup)
-        mapInstance.off("mouseenter", LABEL_LAYER_ID, onMouseEnter)
-        mapInstance.off("mouseleave", LABEL_LAYER_ID, onMouseLeave)
       }
     }
   }, [mapInstance, data])

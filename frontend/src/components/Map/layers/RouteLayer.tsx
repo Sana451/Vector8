@@ -4,11 +4,11 @@
  * Renders the calculated route as a line on the map.
  */
 
-import type { LayerSpecification, Map as MapLibreMap } from "maplibre-gl"
+import type { Map as MapLibreMap } from "maplibre-gl"
 import { useCallback, useMemo } from "react"
 import { buildRouteFeature } from "@/lib/mapLayers"
 import type { Coordinate } from "@/lib/routing"
-import { useGeoJsonLayer } from "./useGeoJsonLayer"
+import { type LayerWithVisibility, useGeoJsonLayer } from "./useGeoJsonLayer"
 
 const SOURCE_ID = "route"
 const LAYER_ID = "route-layer"
@@ -28,15 +28,16 @@ export function RouteLayer({ mapInstance, coordinates }: RouteLayerProps) {
   const data = useMemo(() => buildRouteFeature(coordinates), [coordinates])
 
   const buildLayers = useCallback(
-    (sourceId: string): LayerSpecification[] => [
-      {
-        id: LAYER_ID,
-        type: "line",
-        source: sourceId,
-        layout: { "line-cap": "round", "line-join": "round" },
-        paint: { "line-color": "#0066cc", "line-width": 4 },
-      },
-    ],
+    (sourceId: string): LayerWithVisibility[] =>
+      [
+        {
+          id: LAYER_ID,
+          type: "line",
+          source: sourceId,
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: { "line-color": "#0066cc", "line-width": 4 },
+        },
+      ] as LayerWithVisibility[],
     [],
   )
 
