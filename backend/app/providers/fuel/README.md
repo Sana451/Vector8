@@ -85,12 +85,12 @@ Add to `.env`:
 # Fuel provider selection
 FUEL_PROVIDER=internal
 
-# Internal fuel station API
+# Internal fuel station API (used only when FUEL_PROVIDER=internal)
 FUEL_API_BASE_URL=
 FUEL_API_KEY=
 FUEL_API_TIMEOUT_SECONDS=15
 
-# HERE Fuel Prices API
+# HERE Fuel Prices API (used only when FUEL_PROVIDER=here)
 HERE_API_KEY=
 HERE_FUEL_BASE_URL=https://fuel.hereapi.com
 HERE_TIMEOUT_SECONDS=30
