@@ -89,6 +89,10 @@ class Settings(BaseSettings):
     HERE_FUEL_CORRIDOR_WIDTH: int = 1000
     HERE_FUEL_LIMIT: int = 1000
 
+    # PumpPrice import API (admin ingest only)
+    PUMPPRICE_BASE_URL: str = "https://www.pumpprice.co"
+    PUMPPRICE_TIMEOUT_SECONDS: int = 30
+
     # Internal truck restriction API
     TRUCK_RESTRICTION_API_BASE_URL: str | None = None
     TRUCK_RESTRICTION_API_KEY: str | None = None

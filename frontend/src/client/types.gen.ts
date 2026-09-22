@@ -726,6 +726,52 @@ export type ProgressPoint = {
 };
 
 /**
+ * PumpPriceImportRequest
+ *
+ * Admin request for synchronously importing PumpPrice stations.
+ */
+export type PumpPriceImportRequest = {
+    /**
+     * Fuel Analytics Session
+     *
+     * Value of the _fuel_analytics_session cookie
+     */
+    fuel_analytics_session: string;
+};
+
+/**
+ * PumpPriceImportResponse
+ *
+ * Summary of a synchronous PumpPrice import run.
+ */
+export type PumpPriceImportResponse = {
+    /**
+     * Source Provider
+     */
+    source_provider?: string;
+    /**
+     * Persisted Provider
+     */
+    persisted_provider?: string;
+    /**
+     * Stations Received
+     */
+    stations_received?: number;
+    /**
+     * Unique Stations
+     */
+    unique_stations?: number;
+    /**
+     * Duplicates Discarded
+     */
+    duplicates_discarded?: number;
+    /**
+     * Persisted Stations
+     */
+    persisted_stations?: number;
+};
+
+/**
  * RestAreaFeature
  *
  * GeoJSON point feature for a rest area.
@@ -1915,6 +1961,31 @@ export type itemsUpdateItemResponses = {
 };
 
 export type itemsUpdateItemResponse = itemsUpdateItemResponses[keyof itemsUpdateItemResponses];
+
+export type fuelImportPumppriceFuelData = {
+    body: PumpPriceImportRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/fuel/import/pumpprice';
+};
+
+export type fuelImportPumppriceFuelErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type fuelImportPumppriceFuelError = fuelImportPumppriceFuelErrors[keyof fuelImportPumppriceFuelErrors];
+
+export type fuelImportPumppriceFuelResponses = {
+    /**
+     * Successful Response
+     */
+    200: PumpPriceImportResponse;
+};
+
+export type fuelImportPumppriceFuelResponse = fuelImportPumppriceFuelResponses[keyof fuelImportPumppriceFuelResponses];
 
 export type geocodingSearchData = {
     body: GeocodingSearchRequest;
