@@ -49,6 +49,8 @@ services:
     environment:
       FRONTEND_HOST: https://${DOMAIN:?Variable not set}
       ROUTING_PROVIDER: ${ROUTING_PROVIDER:-tomtom}
+      TRAFFIC_PROVIDER: ${TRAFFIC_PROVIDER:-off}
+      FUEL_PROVIDER: ${FUEL_PROVIDER:-off}
       REST_AREAS_PROVIDER: ${REST_AREAS_PROVIDER:-here}
       TOMTOM_BASE_URL: ${TOMTOM_BASE_URL:-https://api.tomtom.com}
       TOMTOM_API_VERSION: ${TOMTOM_API_VERSION:-3}
@@ -61,6 +63,9 @@ services:
       HERE_POI_LIMIT: ${HERE_POI_LIMIT:-200}
       HERE_POI_CACHE_TTL_SECONDS: ${HERE_POI_CACHE_TTL_SECONDS:-86400}
       HERE_POI_USE_EXCURSION_DISTANCE_RANKING: ${HERE_POI_USE_EXCURSION_DISTANCE_RANKING:-false}
+      HERE_FUEL_BASE_URL: ${HERE_FUEL_BASE_URL:-https://fuel.hereapi.com}
+      HERE_FUEL_CORRIDOR_WIDTH: ${HERE_FUEL_CORRIDOR_WIDTH:-1000}
+      HERE_FUEL_LIMIT: ${HERE_FUEL_LIMIT:-1000}
     labels:
       # Route HTTPS traffic for this domain
       - traefik.http.routers.backend-https.rule=Host(`${DOMAIN:?Variable not set}`)
