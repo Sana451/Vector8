@@ -68,7 +68,7 @@ class Settings(BaseSettings):
     # Map layer providers (one vendor may serve several domains)
     GEOCODING_PROVIDER: Literal["tomtom"] = "tomtom"
     ROUTING_PROVIDER: Literal["tomtom"] = "tomtom"
-    TRAFFIC_PROVIDER: Literal["tomtom"] = "tomtom"
+    TRAFFIC_PROVIDER: Literal["tomtom", "off"] = "tomtom"
     FUEL_PROVIDER: Literal["internal"] = "internal"
     TRUCK_RESTRICTION_PROVIDER: Literal["internal"] = "internal"
     REST_AREAS_PROVIDER: Literal["here"] = "here"
@@ -123,6 +123,7 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _validate_routing_config(self) -> Self:
         # In development, allow missing TOMTOM_API_KEY, but warn
+        # Note: "off" providers don't require API keys
         uses_tomtom = any(
             provider == "tomtom"
             for provider in (
