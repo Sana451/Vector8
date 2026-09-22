@@ -119,7 +119,7 @@ export const colorPalette = {
   },
 
   fuel: {
-    available: "#059669", // Emerald
+    available: "#10B981", // Bright Emerald Green
     unavailable: "#94A3B8", // Gray-Blue
   },
 

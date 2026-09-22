@@ -199,7 +199,7 @@ export function FuelLayer({ mapInstance, stations }: FuelLayerProps) {
         layout: {
           "icon-image": [
             "case",
-            ["get", "truckAccessible"],
+            ["get", "hasPriceData"],
             "fuel-drop-available",
             "fuel-drop-unavailable",
           ],

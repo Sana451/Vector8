@@ -83,6 +83,8 @@ export function buildFuelFeatures(
         brand: station.brand ?? "",
         address: station.address ?? "",
         dieselPrice: station.diesel_price ?? null,
+        hasPriceData:
+          station.diesel_price !== null && station.diesel_price !== undefined,
         currency: station.currency ?? null,
         fuelType: station.fuel_type ?? null,
         distanceMeters: station.distance_meters ?? null,
