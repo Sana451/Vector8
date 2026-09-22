@@ -129,6 +129,14 @@ class FuelStationData(BaseModel):
     address: str | None = None
     location: GeoJSONPoint
     diesel_price: float | None = Field(default=None, ge=0)
+    currency: str | None = None
+    fuel_type: str | None = None
+    distance_meters: float | None = Field(default=None, ge=0)
+    is_open: bool | None = None
+    opening_hours: list[dict[str, Any]] = Field(default_factory=list)
+    phone: str | None = None
+    website: str | None = None
+    has_adblue: bool = False
     truck_accessible: bool = True
     raw: dict[str, Any] | None = None
 

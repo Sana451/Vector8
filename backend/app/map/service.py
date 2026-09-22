@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.geocoding.service import GeocodingService
 from app.map.schemas import (
+    ConfiguredLayerProviders,
     LayerError,
     MapLayer,
     MapOverviewRequest,
@@ -115,7 +116,11 @@ class MapLayerService:
         path = self._extract_path(route_response)
         if path is None:
             logger.warning("Route has no usable geometry, skipping point layers")
-            return MapOverviewResponse(route=route_layer, errors=errors)
+            return MapOverviewResponse(
+                route=route_layer,
+                configured_providers=self._configured_providers(),
+                errors=errors,
+            )
 
         query = LayerQuery(
             path=path,
@@ -148,7 +153,11 @@ class MapLayerService:
             )
 
         if not tasks:
-            return MapOverviewResponse(route=route_layer, errors=errors)
+            return MapOverviewResponse(
+                route=route_layer,
+                configured_providers=self._configured_providers(),
+                errors=errors,
+            )
 
         results = await asyncio.gather(*tasks.values(), return_exceptions=True)
 
@@ -173,11 +182,23 @@ class MapLayerService:
 
         return MapOverviewResponse(
             route=route_layer,
+            configured_providers=self._configured_providers(),
             traffic=traffic,
             fuel_stations=fuel_stations,
             truck_restrictions=truck_restrictions,
             rest_areas=build_rest_area_feature_collection(rest_areas),
             errors=errors,
+        )
+
+    @staticmethod
+    def _configured_providers() -> ConfiguredLayerProviders:
+        """Return configured provider names for every overview layer."""
+        return ConfiguredLayerProviders(
+            route=settings.ROUTING_PROVIDER,
+            traffic=settings.TRAFFIC_PROVIDER,
+            fuel=settings.FUEL_PROVIDER,
+            truck_restrictions=settings.TRUCK_RESTRICTION_PROVIDER,
+            rest_areas=settings.REST_AREAS_PROVIDER,
         )
 
     async def _build_route_request(

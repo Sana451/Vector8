@@ -96,7 +96,9 @@ def _register_defaults() -> None:
     import schemas from :mod:`app.providers`, which must be fully initialized.
     """
     from app.geocoding.providers.tomtom import TomTomGeocodingProvider
+    from app.providers.fuel.here import HereFuelProvider
     from app.providers.fuel.internal import InternalFuelStationProvider
+    from app.providers.fuel.off import OffFuelProvider
     from app.providers.here.poi import HerePoiProvider
     from app.providers.tomtom.routing import TomTomRoutingProvider
     from app.providers.tomtom.traffic import TomTomTrafficProvider
@@ -110,6 +112,8 @@ def _register_defaults() -> None:
     registry.register("traffic", "tomtom", TomTomTrafficProvider)
     registry.register("traffic", "off", OffTrafficProvider)
     registry.register("fuel", "internal", InternalFuelStationProvider)
+    registry.register("fuel", "here", HereFuelProvider)
+    registry.register("fuel", "off", OffFuelProvider)
     registry.register(
         "truck_restrictions", "internal", InternalTruckRestrictionProvider
     )

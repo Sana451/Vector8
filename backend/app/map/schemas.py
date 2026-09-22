@@ -46,6 +46,16 @@ class RouteLayerData(BaseModel):
     routes: list[Route]
 
 
+class ConfiguredLayerProviders(BaseModel):
+    """Configured provider names for each overview layer."""
+
+    route: str
+    traffic: str
+    fuel: str
+    truck_restrictions: str
+    rest_areas: str
+
+
 class RestAreaFeatureProperties(BaseModel):
     """Properties attached to each rest area GeoJSON feature."""
 
@@ -183,6 +193,7 @@ class MapOverviewResponse(BaseModel):
     """
 
     route: RouteLayerData | None = None
+    configured_providers: ConfiguredLayerProviders
     traffic: TrafficLayerData | None = None
     fuel_stations: list[FuelStationData] = Field(default_factory=list)
     truck_restrictions: list[TruckRestrictionData] = Field(default_factory=list)
