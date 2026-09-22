@@ -100,6 +100,7 @@ def _register_defaults() -> None:
     from app.providers.here.poi import HerePoiProvider
     from app.providers.tomtom.routing import TomTomRoutingProvider
     from app.providers.tomtom.traffic import TomTomTrafficProvider
+    from app.providers.traffic.off import OffTrafficProvider
     from app.providers.truck_restrictions.internal import (
         InternalTruckRestrictionProvider,
     )
@@ -107,6 +108,7 @@ def _register_defaults() -> None:
     registry.register("geocoding", "tomtom", TomTomGeocodingProvider)
     registry.register("routing", "tomtom", TomTomRoutingProvider)
     registry.register("traffic", "tomtom", TomTomTrafficProvider)
+    registry.register("traffic", "off", OffTrafficProvider)
     registry.register("fuel", "internal", InternalFuelStationProvider)
     registry.register(
         "truck_restrictions", "internal", InternalTruckRestrictionProvider
