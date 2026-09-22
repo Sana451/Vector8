@@ -10,6 +10,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.core.config import settings
 from app.geocoding.schemas import MapPointInput
 from app.providers.geo import GeoJSONPoint
 from app.providers.schemas import (
@@ -44,6 +45,16 @@ class RouteLayerData(BaseModel):
 
     provider: str
     routes: list[Route]
+
+
+class ConfiguredLayerProviders(BaseModel):
+    """Configured provider names for each overview layer."""
+
+    route: str
+    traffic: str
+    fuel: str
+    truck_restrictions: str
+    rest_areas: str
 
 
 class RestAreaFeatureProperties(BaseModel):
@@ -146,7 +157,7 @@ class MapOverviewRequest(BaseModel):
     limit: int | None = Field(
         default=None,
         ge=1,
-        le=1000,
+        le=settings.MAP_LAYER_RESULT_LIMIT,
         description="Maximum features per point layer (defaults to settings)",
     )
     layers: list[MapLayer] | None = Field(
@@ -183,6 +194,7 @@ class MapOverviewResponse(BaseModel):
     """
 
     route: RouteLayerData | None = None
+    configured_providers: ConfiguredLayerProviders
     traffic: TrafficLayerData | None = None
     fuel_stations: list[FuelStationData] = Field(default_factory=list)
     truck_restrictions: list[TruckRestrictionData] = Field(default_factory=list)

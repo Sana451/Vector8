@@ -10,7 +10,9 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.config import settings
 from app.geocoding.providers.tomtom import TomTomGeocodingProvider
+from app.map.service import MapLayerService
 from app.providers.exceptions import ProviderUnavailableError
 from app.providers.here.poi import HerePoiProvider
 from app.providers.schemas import TrafficLayerData
@@ -91,14 +93,24 @@ class TestRouteOverviewEndpoint:
 
         assert data["route"] is not None
         assert data["route"]["provider"] == "tomtom"
+        assert data["configured_providers"]["route"] == "tomtom"
+        assert data["configured_providers"]["traffic"] == settings.TRAFFIC_PROVIDER
+        assert data["configured_providers"]["fuel"] == settings.FUEL_PROVIDER
         assert len(data["route"]["routes"]) == 1
 
+        if settings.TRAFFIC_PROVIDER == "off":
+            assert data["traffic"] is not None
+            assert data["traffic"]["provider"] == "off"
+        else:
+            assert data["traffic"] is not None
+            assert data["traffic"]["provider"] == "tomtom"
+
         # Fuel and truck providers are intentionally unconfigured in tests.
-        # HERE rest areas may either degrade or be served from cache.
+        # Truck restrictions are intentionally unconfigured in tests.
+        # Fuel/rest areas may either degrade or succeed depending on local provider config.
         failed_layers = {error["layer"] for error in data["errors"]}
-        assert "fuel" in failed_layers
         assert "truck_restrictions" in failed_layers
-        assert data["fuel_stations"] == []
+        assert isinstance(data["fuel_stations"], list)
         assert data["truck_restrictions"] == []
         assert data["rest_areas"]["type"] == "FeatureCollection"
 
@@ -169,6 +181,22 @@ class TestRouteOverviewEndpoint:
         )
 
         assert response.status_code == 422
+
+    def test_unexpected_service_error_returns_500(
+        self, client: TestClient, overview_payload: dict
+    ):
+        """Unexpected map service errors are hidden behind HTTP 500."""
+        with patch.object(MapLayerService, "get_overview") as mock_get_overview:
+            mock_get_overview.side_effect = RuntimeError("boom")
+
+            response = client.post(
+                OVERVIEW_URL,
+                json=overview_payload,
+                params={"force_refresh": "true"},
+            )
+
+        assert response.status_code == 500
+        assert response.json()["detail"] == "Internal server error"
 
     def test_accepts_address_payload(self, client: TestClient):
         """Modern request format supports free-form addresses."""

@@ -21,10 +21,36 @@ export const markerIcons = {
    * Fuel station drop markers
    */
   fuelDrop: (color: string) => `
-    <svg width="24" height="32" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 2 C12 2 8 10 8 14 C8 18.418 9.79 22 12 22 C14.21 22 16 18.418 16 14 C16 10 12 2 12 2 Z"
-            fill="${color}" stroke="white" stroke-width="1.5"/>
-      <circle cx="12" cy="14" r="3" fill="white"/>
+    <svg width="28" height="36" viewBox="0 0 28 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M14 2C8.477 2 4 6.477 4 12c0 8.413 8.294 17.205 9.241 18.175a1 1 0 0 0 1.518 0C15.706 29.205 24 20.413 24 12 24 6.477 19.523 2 14 2Z"
+        fill="${color}"
+        stroke="white"
+        stroke-width="1.75"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M10.5 8.5A1.5 1.5 0 0 1 12 7h4a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 16 18h-4a1.5 1.5 0 0 1-1.5-1.5v-8Z"
+        fill="white"
+      />
+      <path
+        d="M17.5 10.5h1.25A1.75 1.75 0 0 1 20.5 12.25V18a1 1 0 0 1-1 1h-0.75"
+        stroke="white"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M12.25 10.25h3.5v3h-3.5z"
+        fill="${color}"
+        opacity="0.25"
+      />
+      <path
+        d="M11.75 20h5"
+        stroke="white"
+        stroke-width="1.5"
+        stroke-linecap="round"
+      />
     </svg>
   `,
 
@@ -93,7 +119,7 @@ export const colorPalette = {
   },
 
   fuel: {
-    available: "#059669", // Emerald
+    available: "#10B981", // Bright Emerald Green
     unavailable: "#94A3B8", // Gray-Blue
   },
 

@@ -80,7 +80,8 @@ class FuelStation(SQLModel, table=True):
         )
     )
     diesel_price: float | None = Field(default=None)
-    truck_accessible: bool = Field(default=True)
+    medium_truck_accessible: bool = Field(default=True)
+    large_truck_accessible: bool = Field(default=True)
     payload: dict[str, Any] = Field(sa_column=Column(JSON))
     created_at: datetime = Field(
         default_factory=get_datetime_utc,

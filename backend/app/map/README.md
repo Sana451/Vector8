@@ -45,9 +45,9 @@ several domains:
 | Geocoding | `GeocodingProvider` | `tomtom` |
 | Routing | `RoutingProvider` | `tomtom` |
 | Traffic | `TrafficProvider` | `tomtom` |
-| Fuel stations | `FuelStationProvider` | `internal` |
+| Fuel stations | `FuelStationProvider` | `internal` ([docs](../providers/fuel/README.md)) |
 | Truck restrictions | `TruckRestrictionProvider` | `internal` |
-| Rest areas | `RestAreaProvider` | `here` |
+| Rest areas | `RestAreaProvider` | `here` ([docs](./rest_areas_here.md)) |
 
 Most provider protocols live in `app/providers/base.py`; geocoding keeps its own
 protocol in `app/geocoding/providers/base.py`. Adapters implement exactly one

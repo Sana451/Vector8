@@ -227,6 +227,34 @@ export type CalculateRouteResponse = {
 };
 
 /**
+ * ConfiguredLayerProviders
+ *
+ * Configured provider names for each overview layer.
+ */
+export type ConfiguredLayerProviders = {
+    /**
+     * Route
+     */
+    route: string;
+    /**
+     * Traffic
+     */
+    traffic: string;
+    /**
+     * Fuel
+     */
+    fuel: string;
+    /**
+     * Truck Restrictions
+     */
+    truck_restrictions: string;
+    /**
+     * Rest Areas
+     */
+    rest_areas: string;
+};
+
+/**
  * DeviationPoint
  *
  * Deviation point information.
@@ -283,9 +311,47 @@ export type FuelStationData = {
      */
     diesel_price?: number | null;
     /**
-     * Truck Accessible
+     * Currency
      */
-    truck_accessible?: boolean;
+    currency?: string | null;
+    /**
+     * Fuel Type
+     */
+    fuel_type?: string | null;
+    /**
+     * Distance Meters
+     */
+    distance_meters?: number | null;
+    /**
+     * Is Open
+     */
+    is_open?: boolean | null;
+    /**
+     * Opening Hours
+     */
+    opening_hours?: Array<{
+        [key: string]: unknown;
+    }>;
+    /**
+     * Phone
+     */
+    phone?: string | null;
+    /**
+     * Website
+     */
+    website?: string | null;
+    /**
+     * Has Adblue
+     */
+    has_adblue?: boolean;
+    /**
+     * Medium Truck Accessible
+     */
+    medium_truck_accessible?: boolean;
+    /**
+     * Large Truck Accessible
+     */
+    large_truck_accessible?: boolean;
     /**
      * Raw
      */
@@ -556,6 +622,7 @@ export type MapOverviewRequest = {
  */
 export type MapOverviewResponse = {
     route?: RouteLayerData | null;
+    configured_providers: ConfiguredLayerProviders;
     traffic?: TrafficLayerData | null;
     /**
      * Fuel Stations

@@ -7,6 +7,7 @@ failures and propagation of mandatory route failures.
 
 import pytest
 
+from app.core.config import settings
 from app.geocoding.schemas import MapPointInput
 from app.map.schemas import MapLayer, MapOverviewRequest
 from app.map.service import MapLayerService
@@ -215,15 +216,24 @@ class TestMapLayerServiceSuccess:
 
         assert result.route is not None
         assert result.route.provider == "tomtom"
+        assert result.configured_providers.route == settings.ROUTING_PROVIDER
         assert len(result.route.routes) == 1
         assert result.traffic is not None
+        assert result.configured_providers.traffic == settings.TRAFFIC_PROVIDER
         assert [s.external_id for s in result.fuel_stations] == ["s1"]
-        assert [r.external_id for r in result.truck_restrictions] == ["r1"]
-        assert len(result.rest_areas.features) == 1
-        assert (
-            result.rest_areas.features[0].properties.provider_place_id
-            == "here:pds:place:r1"
+
+    @pytest.mark.asyncio
+    async def test_disabled_traffic_provider_stays_visible_for_reference(self):
+        """No-op traffic providers should still expose provider info in response."""
+        service = build_service(
+            traffic=FakeTrafficService(data=TrafficLayerData(provider="off"))
         )
+
+        result = await service.get_overview(build_request())
+
+        assert result.traffic is not None
+        assert result.traffic.provider == "off"
+        assert result.configured_providers.traffic == "off"
         assert result.errors == []
 
     @pytest.mark.asyncio

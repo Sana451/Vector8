@@ -30,10 +30,14 @@ jobs:
       SENTRY_DSN: ${{ vars.SENTRY_DSN }}
       ROUTING_PROVIDER: ${{ vars.ROUTING_PROVIDER }}
       TRAFFIC_PROVIDER: ${{ vars.TRAFFIC_PROVIDER }}
+      FUEL_PROVIDER: ${{ vars.FUEL_PROVIDER }}
       TOMTOM_BASE_URL: ${{ vars.TOMTOM_BASE_URL }}
       TOMTOM_API_VERSION: ${{ vars.TOMTOM_API_VERSION }}
       TOMTOM_TIMEOUT_SECONDS: ${{ vars.TOMTOM_TIMEOUT_SECONDS }}
       TOMTOM_API_KEY: ${{ secrets.TOMTOM_API_KEY }}
+      HERE_API_KEY: ${{ secrets.HERE_API_KEY }}
+      HERE_FUEL_BASE_URL: ${{ vars.HERE_FUEL_BASE_URL }}
+      HERE_FUEL_LIMIT: ${{ vars.HERE_FUEL_LIMIT }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

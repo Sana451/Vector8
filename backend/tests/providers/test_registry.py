@@ -78,7 +78,10 @@ class TestDefaultRegistrations:
             ("geocoding", "tomtom"),
             ("routing", "tomtom"),
             ("traffic", "tomtom"),
+            ("traffic", "off"),
             ("fuel", "internal"),
+            ("fuel", "here"),
+            ("fuel", "off"),
             ("truck_restrictions", "internal"),
         ],
     )

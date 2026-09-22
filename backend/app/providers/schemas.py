@@ -11,6 +11,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.core.config import settings
 from app.providers.geo import Coordinate, GeoJSONLineString, GeoJSONPoint
 
 # ============================================================================
@@ -31,7 +32,7 @@ class LayerQuery(BaseModel):
     limit: int = Field(
         default=200,
         ge=1,
-        le=1000,
+        le=settings.MAP_LAYER_RESULT_LIMIT,
         description="Maximum number of features to return",
     )
 
@@ -129,7 +130,16 @@ class FuelStationData(BaseModel):
     address: str | None = None
     location: GeoJSONPoint
     diesel_price: float | None = Field(default=None, ge=0)
-    truck_accessible: bool = True
+    currency: str | None = None
+    fuel_type: str | None = None
+    distance_meters: float | None = Field(default=None, ge=0)
+    is_open: bool | None = None
+    opening_hours: list[dict[str, Any]] = Field(default_factory=list)
+    phone: str | None = None
+    website: str | None = None
+    has_adblue: bool = False
+    medium_truck_accessible: bool = True
+    large_truck_accessible: bool = True
     raw: dict[str, Any] | None = None
 
 
