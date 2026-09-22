@@ -217,12 +217,24 @@ class FuelStationRepository(_SpatialLayerRepository):
         expires_at = now + timedelta(seconds=ttl_seconds)
 
         try:
-            for row in stations:
+            # Build map of external_ids to stations for fast lookup
+            stations_by_id = {row["external_id"]: row for row in stations}
+            external_ids = list(stations_by_id.keys())
+
+            # Fetch existing stations with matching external IDs
+            existing_map: dict[str, FuelStation] = {}
+            for external_id in external_ids:
                 statement = select(FuelStation).where(
                     (FuelStation.provider == provider)
-                    & (FuelStation.external_id == row["external_id"])
+                    & (FuelStation.external_id == external_id)
                 )
                 existing = self.session.exec(statement).first()
+                if existing is not None:
+                    existing_map[external_id] = existing
+
+            # Process all stations
+            for external_id, row in stations_by_id.items():
+                existing = existing_map.get(external_id)
 
                 if existing is not None:
                     for key, value in row.items():
