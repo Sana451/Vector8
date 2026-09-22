@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 import pytest
 
+import app.providers.fuel.here as here_module
 from app.core.config import settings
 from app.providers.exceptions import (
     ProviderBadRequestError,
@@ -64,7 +65,7 @@ async def test_find_stations_calls_here_with_truck_diesel_params(
     assert call["params"] == {
         "apiKey": "test-key",
         "fuelTypes": "11",
-        "limit": 50,
+        "limit": min(layer_query.limit, settings.HERE_FUEL_LIMIT),
         "sort": "price:asc",
         "returnAllStations": "true",
     }
@@ -200,6 +201,224 @@ async def test_find_stations_keeps_station_without_price_when_return_all_enabled
     assert station.currency is None
     assert station.has_adblue is True
     assert station.is_open is None
+
+
+@pytest.mark.asyncio
+async def test_find_stations_normalizes_current_here_v3_payload(
+    monkeypatch: pytest.MonkeyPatch,
+    layer_query: LayerQuery,
+):
+    async def fake_request_json(_self, _method, _path, **_kwargs):
+        return {
+            "stations": [
+                {
+                    "id": "station-3",
+                    "name": "LOVE'S",
+                    "brand": "Love's",
+                    "position": {"lat": 38.09573, "lng": -102.61981},
+                    "access": {"lat": 38.09573, "lng": -102.61981},
+                    "address": {
+                        "label": "Loves Travel Stop [605 N Main St], Lamar, 81052"
+                    },
+                    "open24x7": True,
+                    "contacts": {
+                        "phones": [{"value": "+17193365202", "label": "PHONE"}],
+                        "faxes": [{"value": "+17193365202", "label": "FAX"}],
+                    },
+                    "prices": [
+                        {
+                            "price": 6.169,
+                            "deltaPrice": 0,
+                            "indexScore": 5,
+                            "fuelType": "11",
+                            "unit": "gal",
+                            "currency": "USD",
+                        },
+                        {
+                            "price": 0.999,
+                            "fuelType": 72,
+                            "unit": "gal",
+                            "currency": "USD",
+                        },
+                    ],
+                    "stationDetails": {
+                        "openingHours": {
+                            "regularSchedule": [
+                                {
+                                    "days": [
+                                        "mo",
+                                        "tu",
+                                        "we",
+                                        "th",
+                                        "fr",
+                                        "sa",
+                                        "su",
+                                    ],
+                                    "periods": [{"from": "00:00:00", "to": "24:00:00"}],
+                                }
+                            ]
+                        },
+                        "restrictedAccess": False,
+                        "accessibilities": [
+                            "Suitable for cars",
+                            "Suitable for medium trucks",
+                            "Suitable for large trucks",
+                        ],
+                    },
+                }
+            ]
+        }
+
+    monkeypatch.setattr(ProviderHTTPClient, "request_json", fake_request_json)
+
+    provider = HereFuelProvider()
+    provider.api_key = "test-key"
+    stations = await provider.find_stations(layer_query)
+
+    assert len(stations) == 1
+    station = stations[0]
+    assert station.external_id == "station-3"
+    assert station.name == "LOVE'S"
+    assert station.brand == "Love's"
+    assert station.address == "Loves Travel Stop [605 N Main St], Lamar, 81052"
+    assert station.location.coordinates == (-102.61981, 38.09573)
+    assert station.diesel_price == pytest.approx(6.169)
+    assert station.currency == "USD"
+    assert station.is_open is True
+    assert station.opening_hours == [
+        {
+            "regularSchedule": [
+                {
+                    "days": ["mo", "tu", "we", "th", "fr", "sa", "su"],
+                    "periods": [{"from": "00:00:00", "to": "24:00:00"}],
+                }
+            ]
+        }
+    ]
+    assert station.phone == "+17193365202"
+    assert station.website is None
+    assert station.has_adblue is True
+    assert station.truck_accessible is True
+
+
+@pytest.mark.asyncio
+async def test_find_stations_logs_raw_payload_and_pagination_hints(
+    monkeypatch: pytest.MonkeyPatch,
+    layer_query: LayerQuery,
+):
+    logged_info: list[tuple[str, dict[str, Any]]] = []
+    logged_warnings: list[tuple[str, dict[str, Any]]] = []
+    payload = {
+        "stations": [
+            {
+                "id": "station-page-1",
+                "name": "Pilot",
+                "position": {"lat": 41.7, "lng": -87.6},
+                "prices": [{"fuelType": "11", "price": 4.25, "currency": "USD"}],
+            }
+        ],
+        "hasMore": True,
+        "offset": 0,
+        "limit": 200,
+        "nextPageToken": "page-2-token",
+    }
+
+    async def fake_request_json(_self, _method, _path, **_kwargs):
+        return payload
+
+    def fake_info(message: str, **kwargs: Any):
+        logged_info.append((message, kwargs))
+
+    def fake_warning(message: str, **kwargs: Any):
+        logged_warnings.append((message, kwargs))
+
+    monkeypatch.setattr(ProviderHTTPClient, "request_json", fake_request_json)
+    monkeypatch.setattr(here_module.logger, "info", fake_info)
+    monkeypatch.setattr(here_module.logger, "warning", fake_warning)
+
+    provider = HereFuelProvider()
+    provider.api_key = "test-key"
+    stations = await provider.find_stations(layer_query)
+
+    assert len(stations) == 1
+    raw_response_logs = [
+        kwargs
+        for message, kwargs in logged_info
+        if message == "HERE fuel raw response payload"
+    ]
+    assert len(raw_response_logs) == 1
+    assert raw_response_logs[0]["payload"] == payload
+    assert raw_response_logs[0]["items_key"] == "stations"
+    assert raw_response_logs[0]["items_count"] == 1
+    assert raw_response_logs[0]["pagination"] == {
+        "hasMore": True,
+        "offset": 0,
+        "limit": 200,
+        "nextPageToken": "page-2-token",
+    }
+
+    pagination_warnings = [
+        kwargs
+        for message, kwargs in logged_warnings
+        if message == "HERE fuel response may be paginated or truncated"
+    ]
+    assert len(pagination_warnings) == 1
+    assert pagination_warnings[0]["pagination"]["hasMore"] is True
+    assert pagination_warnings[0]["pagination"]["nextPageToken"] == "page-2-token"
+
+
+@pytest.mark.asyncio
+async def test_find_stations_infers_not_truck_accessible_for_cars_only_here_v3_payload(
+    monkeypatch: pytest.MonkeyPatch,
+    layer_query: LayerQuery,
+):
+    async def fake_request_json(_self, _method, _path, **_kwargs):
+        return {
+            "stations": [
+                {
+                    "id": "station-4",
+                    "name": "SUNOCO",
+                    "position": {"lat": 34.2922, "lng": -99.7552},
+                    "open24x7": True,
+                    "contacts": {
+                        "phones": [{"value": "+18777983752", "label": "PHONE"}]
+                    },
+                    "stationDetails": {
+                        "openingHours": {
+                            "regularSchedule": [
+                                {
+                                    "days": [
+                                        "mo",
+                                        "tu",
+                                        "we",
+                                        "th",
+                                        "fr",
+                                        "sa",
+                                        "su",
+                                    ],
+                                    "periods": [{"from": "00:00:00", "to": "24:00:00"}],
+                                }
+                            ]
+                        },
+                        "restrictedAccess": False,
+                        "accessibilities": ["Suitable for cars"],
+                    },
+                }
+            ]
+        }
+
+    monkeypatch.setattr(ProviderHTTPClient, "request_json", fake_request_json)
+
+    provider = HereFuelProvider()
+    provider.api_key = "test-key"
+    stations = await provider.find_stations(layer_query)
+
+    assert len(stations) == 1
+    station = stations[0]
+    assert station.phone == "+18777983752"
+    assert station.diesel_price is None
+    assert station.is_open is True
+    assert station.truck_accessible is False
 
 
 @pytest.mark.asyncio

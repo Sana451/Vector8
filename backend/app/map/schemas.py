@@ -10,6 +10,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.core.config import settings
 from app.geocoding.schemas import MapPointInput
 from app.providers.geo import GeoJSONPoint
 from app.providers.schemas import (
@@ -156,7 +157,7 @@ class MapOverviewRequest(BaseModel):
     limit: int | None = Field(
         default=None,
         ge=1,
-        le=1000,
+        le=settings.MAP_LAYER_RESULT_LIMIT,
         description="Maximum features per point layer (defaults to settings)",
     )
     layers: list[MapLayer] | None = Field(

@@ -23,6 +23,23 @@ TRUCK_DIESEL_LABEL = "Truck Diesel"
 PRICE_SORT = "price:asc"
 HERE_FUEL_ROUTE_TARGET_POINTS = 100
 HERE_FUEL_ROUTE_MAX_ENCODED_LENGTH = 800
+PHONE_CONTACT_KEYS = ("phone", "phones", "tel", "telephone")
+WEBSITE_CONTACT_KEYS = ("www", "website", "websites", "url", "urls")
+PAGINATION_KEYS = (
+    "hasMore",
+    "offset",
+    "limit",
+    "page",
+    "pageSize",
+    "total",
+    "totalCount",
+    "count",
+    "next",
+    "nextPage",
+    "nextPageToken",
+    "cursor",
+)
+PAGINATION_CONTAINER_KEYS = ("paging", "pagination", "pageInfo", "metadata")
 
 
 class HereFuelProvider:
@@ -83,6 +100,7 @@ class HereFuelProvider:
             },
         )
 
+        self._log_response_payload(payload, requested_limit=limit)
         stations = self._parse(payload)
         logger.info(
             "HERE fuel stations parsed",
@@ -128,8 +146,14 @@ class HereFuelProvider:
         return stations
 
     def _extract_items(self, payload: Any) -> list[dict[str, Any]]:
+        _items_key, items = self._extract_items_with_source(payload)
+        return items
+
+    def _extract_items_with_source(
+        self, payload: Any
+    ) -> tuple[str | None, list[dict[str, Any]]]:
         if isinstance(payload, list):
-            return [item for item in payload if isinstance(item, dict)]
+            return None, [item for item in payload if isinstance(item, dict)]
         if not isinstance(payload, dict):
             raise ProviderBadRequestError(
                 "Invalid HERE fuel response payload",
@@ -145,20 +169,116 @@ class HereFuelProvider:
                     f"HERE fuel response field '{key}' is not an array",
                     provider=PROVIDER_NAME,
                 )
-            return [item for item in items if isinstance(item, dict)]
-        return []
+            return key, [item for item in items if isinstance(item, dict)]
+        return None, []
+
+    def _log_response_payload(self, payload: Any, *, requested_limit: int) -> None:
+        items_key, items = self._extract_items_with_source(payload)
+        pagination = self._pagination_metadata(payload)
+        first_item_keys = sorted(items[0].keys()) if items else []
+
+        logger.info(
+            "HERE fuel raw response payload",
+            provider=PROVIDER_NAME,
+            requested_limit=requested_limit,
+            response_type=type(payload).__name__,
+            items_key=items_key,
+            items_count=len(items),
+            top_level_keys=sorted(payload.keys()) if isinstance(payload, dict) else [],
+            first_item_keys=first_item_keys,
+            pagination=pagination,
+            payload=payload,
+        )
+
+        if self._looks_paginated(
+            items_count=len(items),
+            requested_limit=requested_limit,
+            pagination=pagination,
+        ):
+            logger.warning(
+                "HERE fuel response may be paginated or truncated",
+                provider=PROVIDER_NAME,
+                requested_limit=requested_limit,
+                items_count=len(items),
+                pagination=pagination,
+            )
+
+    @staticmethod
+    def _pagination_metadata(payload: Any) -> dict[str, Any]:
+        if not isinstance(payload, dict):
+            return {}
+
+        metadata = {
+            key: payload[key]
+            for key in PAGINATION_KEYS
+            if key in payload and payload[key] is not None
+        }
+        for container_key in PAGINATION_CONTAINER_KEYS:
+            container = payload.get(container_key)
+            if not isinstance(container, dict):
+                continue
+            nested = {
+                key: container[key]
+                for key in PAGINATION_KEYS
+                if key in container and container[key] is not None
+            }
+            if nested:
+                metadata[container_key] = nested
+        return metadata
+
+    @staticmethod
+    def _looks_paginated(
+        *,
+        items_count: int,
+        requested_limit: int,
+        pagination: dict[str, Any],
+    ) -> bool:
+        if not pagination:
+            return (
+                items_count > 0
+                and requested_limit > 0
+                and items_count >= requested_limit
+            )
+
+        if pagination.get("hasMore") is True:
+            return True
+        if any(
+            key in pagination for key in ("next", "nextPage", "nextPageToken", "cursor")
+        ):
+            return True
+        for container_key in PAGINATION_CONTAINER_KEYS:
+            container = pagination.get(container_key)
+            if not isinstance(container, dict):
+                continue
+            if container.get("hasMore") is True:
+                return True
+            if any(
+                key in container
+                for key in ("next", "nextPage", "nextPageToken", "cursor")
+            ):
+                return True
+
+        return (
+            items_count > 0 and requested_limit > 0 and items_count >= requested_limit
+        )
 
     def _parse_station(self, raw: dict[str, Any]) -> FuelStationData | None:
         external_id = self._as_str(raw.get("id"))
         name = self._as_str(raw.get("name") or raw.get("title"))
-        point = self._point_from_here(raw.get("location") or raw.get("position"))
+        point = self._point_from_here(
+            raw.get("location") or raw.get("position") or raw.get("access")
+        )
         if external_id is None or name is None or point is None:
             return None
 
-        fuel_info = self._fuel_info(raw.get("fuels"))
-        adblue_present = self._has_fuel_type(raw.get("fuels"), ADBLUE_FUEL_TYPE)
+        station_details = self._station_details(raw)
+        fuel_entries = self._fuel_entries(raw)
+        fuel_info = self._fuel_info(fuel_entries)
+        adblue_present = self._has_fuel_type(fuel_entries, ADBLUE_FUEL_TYPE)
         contacts = self._contacts(raw.get("contacts"))
-        opening_hours = self._opening_hours(raw.get("openingHours"))
+        opening_hours = self._opening_hours(
+            raw.get("openingHours") or station_details.get("openingHours")
+        )
 
         return FuelStationData(
             external_id=external_id,
@@ -169,11 +289,11 @@ class HereFuelProvider:
             diesel_price=self._as_float(fuel_info.get("price")),
             currency=self._as_str(fuel_info.get("currency") or raw.get("currency")),
             fuel_type=TRUCK_DIESEL_LABEL,
-            distance_meters=self._as_float(raw.get("distance")),
-            is_open=self._is_open(opening_hours),
+            distance_meters=self._distance_meters(raw),
+            is_open=self._is_open(opening_hours, raw.get("open24x7")),
             opening_hours=opening_hours,
-            phone=self._first_contact_value(contacts, "phone"),
-            website=self._first_contact_value(contacts, "www"),
+            phone=self._first_contact_value(contacts, *PHONE_CONTACT_KEYS),
+            website=self._first_contact_value(contacts, *WEBSITE_CONTACT_KEYS),
             has_adblue=adblue_present,
             truck_accessible=self._truck_accessible(raw),
             raw=raw,
@@ -219,11 +339,15 @@ class HereFuelProvider:
         return []
 
     @staticmethod
-    def _is_open(opening_hours: list[dict[str, Any]]) -> bool | None:
+    def _is_open(
+        opening_hours: list[dict[str, Any]], open_24x7: Any = None
+    ) -> bool | None:
         for entry in opening_hours:
             is_open = entry.get("isOpen")
             if isinstance(is_open, bool):
                 return is_open
+        if open_24x7 is True:
+            return True
         return None
 
     @staticmethod
@@ -231,7 +355,28 @@ class HereFuelProvider:
         explicit = raw.get("truckAccessible")
         if isinstance(explicit, bool):
             return explicit
+        station_details = HereFuelProvider._station_details(raw)
+        if station_details.get("restrictedAccess") is True:
+            return False
+        accessibilities = station_details.get("accessibilities")
+        if isinstance(accessibilities, list):
+            normalized = {
+                str(item).strip().lower()
+                for item in accessibilities
+                if item is not None
+            }
+            if any("truck" in item for item in normalized):
+                return True
+            if normalized:
+                return False
         return True
+
+    @staticmethod
+    def _fuel_entries(raw: dict[str, Any]) -> Any:
+        fuels = raw.get("fuels")
+        if fuels is not None:
+            return fuels
+        return raw.get("prices")
 
     @staticmethod
     def _fuel_info(raw: Any) -> dict[str, Any]:
@@ -267,14 +412,28 @@ class HereFuelProvider:
 
     @staticmethod
     def _first_contact_value(
-        raw_contacts: list[dict[str, Any]], key: str
+        raw_contacts: list[dict[str, Any]], *keys: str
     ) -> str | None:
         for contact in raw_contacts:
-            value = contact.get(key)
-            extracted = HereFuelProvider._contact_value(value)
-            if extracted is not None:
-                return extracted
+            for key in keys:
+                value = contact.get(key)
+                extracted = HereFuelProvider._contact_value(value)
+                if extracted is not None:
+                    return extracted
         return None
+
+    @staticmethod
+    def _station_details(raw: dict[str, Any]) -> dict[str, Any]:
+        station_details = raw.get("stationDetails")
+        if isinstance(station_details, dict):
+            return station_details
+        return {}
+
+    @staticmethod
+    def _distance_meters(raw: dict[str, Any]) -> float | None:
+        if "distance" in raw:
+            return HereFuelProvider._as_float(raw.get("distance"))
+        return HereFuelProvider._as_float(raw.get("distanceMeters"))
 
     @staticmethod
     def _contact_value(value: Any) -> str | None:

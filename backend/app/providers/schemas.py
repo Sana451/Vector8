@@ -11,6 +11,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.core.config import settings
 from app.providers.geo import Coordinate, GeoJSONLineString, GeoJSONPoint
 
 # ============================================================================
@@ -31,7 +32,7 @@ class LayerQuery(BaseModel):
     limit: int = Field(
         default=200,
         ge=1,
-        le=1000,
+        le=settings.MAP_LAYER_RESULT_LIMIT,
         description="Maximum number of features to return",
     )
 

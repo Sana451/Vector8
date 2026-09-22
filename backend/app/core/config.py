@@ -87,7 +87,7 @@ class Settings(BaseSettings):
     # HERE Fuel Prices API (fuel stations along route, backend only)
     HERE_FUEL_BASE_URL: str = "https://fuel.hereapi.com"
     HERE_FUEL_CORRIDOR_WIDTH: int = 1000
-    HERE_FUEL_LIMIT: int = 50
+    HERE_FUEL_LIMIT: int = 1000
 
     # Internal truck restriction API
     TRUCK_RESTRICTION_API_BASE_URL: str | None = None
@@ -112,7 +112,7 @@ class Settings(BaseSettings):
 
     # Map overview defaults
     MAP_LAYER_RADIUS_METERS: int = 5000
-    MAP_LAYER_RESULT_LIMIT: int = 200
+    MAP_LAYER_RESULT_LIMIT: int = 5000
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":

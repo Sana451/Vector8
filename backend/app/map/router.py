@@ -7,9 +7,12 @@ restrictions and HERE rest areas into a single response.
 
 from fastapi import APIRouter, HTTPException, Query
 
+from app.core.logging import get_logger
 from app.map.dependencies import MapLayerServiceDep
 from app.map.schemas import MapOverviewRequest, MapOverviewResponse
 from app.providers.exceptions import ProviderError
+
+logger = get_logger(__name__)
 
 router = APIRouter(
     prefix="/map",
@@ -66,4 +69,13 @@ async def route_overview(
             },
         ) from e
     except Exception as e:
+        logger.exception(
+            "Map route overview failed unexpectedly",
+            force_refresh=force_refresh,
+            requested_layers=[layer.value for layer in (request.layers or [])],
+            has_pickup=request.pickup is not None,
+            has_delivery=request.delivery is not None,
+            has_legacy_route=request.route is not None,
+            error_type=type(e).__name__,
+        )
         raise HTTPException(status_code=500, detail="Internal server error") from e

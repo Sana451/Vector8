@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.geocoding.providers.tomtom import TomTomGeocodingProvider
+from app.map.service import MapLayerService
 from app.providers.exceptions import ProviderUnavailableError
 from app.providers.here.poi import HerePoiProvider
 from app.providers.schemas import TrafficLayerData
@@ -180,6 +181,22 @@ class TestRouteOverviewEndpoint:
         )
 
         assert response.status_code == 422
+
+    def test_unexpected_service_error_returns_500(
+        self, client: TestClient, overview_payload: dict
+    ):
+        """Unexpected map service errors are hidden behind HTTP 500."""
+        with patch.object(MapLayerService, "get_overview") as mock_get_overview:
+            mock_get_overview.side_effect = RuntimeError("boom")
+
+            response = client.post(
+                OVERVIEW_URL,
+                json=overview_payload,
+                params={"force_refresh": "true"},
+            )
+
+        assert response.status_code == 500
+        assert response.json()["detail"] == "Internal server error"
 
     def test_accepts_address_payload(self, client: TestClient):
         """Modern request format supports free-form addresses."""
