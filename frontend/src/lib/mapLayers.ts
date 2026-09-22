@@ -93,7 +93,8 @@ export function buildFuelFeatures(
         phone: station.phone ?? null,
         website: station.website ?? null,
         hasAdblue: station.has_adblue ?? false,
-        truckAccessible: station.truck_accessible ?? true,
+        mediumTruckAccessible: station.medium_truck_accessible ?? true,
+        largeTruckAccessible: station.large_truck_accessible ?? true,
       },
       geometry: {
         type: "Point",

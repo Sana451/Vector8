@@ -147,6 +147,7 @@ class InternalFuelStationProvider:
             address=raw.get("address"),
             location=point,
             diesel_price=diesel_price,
-            truck_accessible=bool(raw.get("truck_accessible", True)),
+            medium_truck_accessible=bool(raw.get("truck_accessible", True)),
+            large_truck_accessible=bool(raw.get("truck_accessible", True)),
             raw=raw,
         )

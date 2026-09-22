@@ -345,9 +345,13 @@ export type FuelStationData = {
      */
     has_adblue?: boolean;
     /**
-     * Truck Accessible
+     * Medium Truck Accessible
      */
-    truck_accessible?: boolean;
+    medium_truck_accessible?: boolean;
+    /**
+     * Large Truck Accessible
+     */
+    large_truck_accessible?: boolean;
     /**
      * Raw
      */

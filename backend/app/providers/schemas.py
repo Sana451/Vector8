@@ -138,7 +138,8 @@ class FuelStationData(BaseModel):
     phone: str | None = None
     website: str | None = None
     has_adblue: bool = False
-    truck_accessible: bool = True
+    medium_truck_accessible: bool = True
+    large_truck_accessible: bool = True
     raw: dict[str, Any] | None = None
 
 

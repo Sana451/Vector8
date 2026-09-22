@@ -90,6 +90,8 @@ function buildPopupHtml(properties: Record<string, unknown>): string {
       : "Hours unavailable"
   const phone = escapeHtml(String(properties.phone ?? ""))
   const website = escapeHtml(String(properties.website ?? ""))
+  const mediumTruckAccessible = properties.mediumTruckAccessible === true
+  const largeTruckAccessible = properties.largeTruckAccessible === true
 
   const rows = [
     brand && brand !== name
@@ -98,6 +100,12 @@ function buildPopupHtml(properties: Record<string, unknown>): string {
     fuelType ? `<div><strong>Fuel:</strong> ${fuelType}</div>` : "",
     `<div><strong>Price:</strong> ${price}</div>`,
     `<div><strong>AdBlue:</strong> ${hasAdblue ? "✓ Available" : "—"}</div>`,
+    `<div><strong>Truck Access:</strong>
+      <div style="margin-left: 16px;">
+        <div>Medium trucks: ${mediumTruckAccessible ? "✓ Yes" : "✗ No"}</div>
+        <div>Large trucks: ${largeTruckAccessible ? "✓ Yes" : "✗ No"}</div>
+      </div>
+    </div>`,
     distance ? `<div><strong>Distance:</strong> ${distance}</div>` : "",
     `<div><strong>Status:</strong> ${escapeHtml(isOpen)}</div>`,
     address ? `<div><strong>Address:</strong> ${address}</div>` : "",
@@ -199,7 +207,7 @@ export function FuelLayer({ mapInstance, stations }: FuelLayerProps) {
         layout: {
           "icon-image": [
             "case",
-            ["get", "hasPriceData"],
+            ["all", ["get", "hasPriceData"], ["get", "largeTruckAccessible"]],
             "fuel-drop-available",
             "fuel-drop-unavailable",
           ],

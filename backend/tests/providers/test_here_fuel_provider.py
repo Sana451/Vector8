@@ -168,7 +168,8 @@ async def test_find_stations_normalizes_here_payload(
     assert station.phone == "+13125550123"
     assert station.website == "https://pilot.example.com"
     assert station.has_adblue is True
-    assert station.truck_accessible is True
+    assert station.medium_truck_accessible is True
+    assert station.large_truck_accessible is True
     assert station.opening_hours == [{"isOpen": True, "text": ["Open 24/7"]}]
 
 
@@ -298,7 +299,8 @@ async def test_find_stations_normalizes_current_here_v3_payload(
     assert station.phone == "+17193365202"
     assert station.website is None
     assert station.has_adblue is True
-    assert station.truck_accessible is True
+    assert station.medium_truck_accessible is True
+    assert station.large_truck_accessible is True
 
 
 @pytest.mark.asyncio
@@ -418,7 +420,8 @@ async def test_find_stations_infers_not_truck_accessible_for_cars_only_here_v3_p
     assert station.phone == "+18777983752"
     assert station.diesel_price is None
     assert station.is_open is True
-    assert station.truck_accessible is False
+    assert station.medium_truck_accessible is False
+    assert station.large_truck_accessible is False
 
 
 @pytest.mark.asyncio

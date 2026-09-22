@@ -295,7 +295,8 @@ class HereFuelProvider:
             phone=self._first_contact_value(contacts, *PHONE_CONTACT_KEYS),
             website=self._first_contact_value(contacts, *WEBSITE_CONTACT_KEYS),
             has_adblue=adblue_present,
-            truck_accessible=self._truck_accessible(raw),
+            medium_truck_accessible=self._medium_truck_accessible(raw),
+            large_truck_accessible=self._large_truck_accessible(raw),
             raw=raw,
         )
 
@@ -351,10 +352,8 @@ class HereFuelProvider:
         return None
 
     @staticmethod
-    def _truck_accessible(raw: dict[str, Any]) -> bool:
-        explicit = raw.get("truckAccessible")
-        if isinstance(explicit, bool):
-            return explicit
+    def _medium_truck_accessible(raw: dict[str, Any]) -> bool:
+        """Check if station is accessible for medium trucks."""
         station_details = HereFuelProvider._station_details(raw)
         if station_details.get("restrictedAccess") is True:
             return False
@@ -365,8 +364,35 @@ class HereFuelProvider:
                 for item in accessibilities
                 if item is not None
             }
+            # Check for medium trucks
+            if any("medium" in item for item in normalized):
+                return True
             if any("truck" in item for item in normalized):
                 return True
+            # If accessibilities exist but no truck mention, not accessible
+            if normalized:
+                return False
+        return True
+
+    @staticmethod
+    def _large_truck_accessible(raw: dict[str, Any]) -> bool:
+        """Check if station is accessible for large trucks."""
+        station_details = HereFuelProvider._station_details(raw)
+        if station_details.get("restrictedAccess") is True:
+            return False
+        accessibilities = station_details.get("accessibilities")
+        if isinstance(accessibilities, list):
+            normalized = {
+                str(item).strip().lower()
+                for item in accessibilities
+                if item is not None
+            }
+            # Check for large trucks
+            if any("large" in item for item in normalized):
+                return True
+            if any("truck" in item for item in normalized):
+                return True
+            # If accessibilities exist but no truck mention, not accessible
             if normalized:
                 return False
         return True

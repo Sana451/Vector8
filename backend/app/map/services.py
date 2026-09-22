@@ -233,7 +233,8 @@ class FuelService:
             "address": station.address,
             "location": point_to_wkt(lon, lat),
             "diesel_price": station.diesel_price,
-            "truck_accessible": station.truck_accessible,
+            "medium_truck_accessible": station.medium_truck_accessible,
+            "large_truck_accessible": station.large_truck_accessible,
             "payload": station.model_dump(mode="json"),
         }
 
