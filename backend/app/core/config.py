@@ -29,10 +29,13 @@ class Settings(BaseSettings):
     PROJECT_NAME: str
     SENTRY_DSN: HttpUrl | None = None
     DATABASE_URL: PostgresDsn
+    TEST_DATABASE_URL: PostgresDsn | None = None
 
-    @field_validator("DATABASE_URL", mode="before")
+    @field_validator("DATABASE_URL", "TEST_DATABASE_URL", mode="before")
     @classmethod
-    def _use_psycopg_driver(cls, value: str | PostgresDsn) -> str:
+    def _use_psycopg_driver(cls, value: str | PostgresDsn | None) -> str | None:
+        if value is None:
+            return None
         database_url = str(value)
         for scheme in ("postgres://", "postgresql://"):
             if database_url.startswith(scheme):
@@ -79,7 +82,9 @@ class Settings(BaseSettings):
     TOMTOM_API_VERSION: str = "3"
     TOMTOM_TIMEOUT_SECONDS: int = 30
 
-    # Internal fuel station API
+    # Internal fuel station catalog import settings.
+    # When FUEL_PROVIDER=internal, route searches run locally against PostGIS;
+    # these values are only relevant for optional upstream ingest workflows.
     FUEL_API_BASE_URL: str | None = None
     FUEL_API_KEY: str | None = None
     FUEL_API_TIMEOUT_SECONDS: int = 15
