@@ -214,8 +214,8 @@ class GreedyFuelOptimizationStrategy:
         debug_trace: list[dict[str, Any]] = [
             {
                 "event": "initial_state",
-                "message": "Initialized greedy fuel optimization state.",
-                "formula": "0 <= initial_fuel_gallons <= usable_tank_capacity_gallons and initial_fuel_gallons >= reserve_gallons",
+                "message": "Initialized greedy fuel optimization.",
+                "status": "initialized",
                 "route_total_distance_meters": context.route.total_distance_meters,
                 "route_total_distance_miles": context.route.total_distance_meters
                 * MILES_PER_METER,
@@ -231,29 +231,6 @@ class GreedyFuelOptimizationStrategy:
                 context, current_offset, context.route.total_distance_meters, ZERO
             )
             destination_reachable = current_fuel - fuel_to_destination >= reserve
-            debug_trace.append(
-                {
-                    "event": "destination_reachability_check",
-                    "message": "Checked whether destination is reachable from current state while preserving reserve.",
-                    "formula": "reachable = current_fuel_gallons - (((target_offset_meters - current_offset_meters) + detour_distance_meters) * MILES_PER_METER / consumption_mpg) >= reserve_gallons",
-                    "current_offset_meters": current_offset,
-                    "current_fuel_gallons": current_fuel,
-                    "target_offset_meters": context.route.total_distance_meters,
-                    "route_distance_meters": max(
-                        ZERO, context.route.total_distance_meters - current_offset
-                    ),
-                    "detour_distance_meters": ZERO,
-                    "travel_distance_miles": max(
-                        ZERO, context.route.total_distance_meters - current_offset
-                    )
-                    * MILES_PER_METER,
-                    "fuel_required_gallons": fuel_to_destination,
-                    "projected_fuel_after_arrival_gallons": current_fuel
-                    - fuel_to_destination,
-                    "reserve_gallons": reserve,
-                    "reachable": destination_reachable,
-                }
-            )
 
             if destination_reachable:
                 remaining = current_fuel - fuel_to_destination
@@ -307,7 +284,7 @@ class GreedyFuelOptimizationStrategy:
                     {
                         "event": "travel_to_initial_station",
                         "message": "Traveled to the farthest reachable station before first refuel.",
-                        "formula": "fuel_required_gallons = (((route_offset_meters - current_offset_meters) + detour_distance_meters) * MILES_PER_METER) / consumption_mpg",
+                        "reachable_station_count": len(reachable),
                         "selected_station_id": next_station.station_id,
                         "selected_station_price_per_gallon": next_station.fuel_price_per_gallon,
                         "selected_station_route_offset_meters": next_station.route_offset_meters,
@@ -343,17 +320,22 @@ class GreedyFuelOptimizationStrategy:
             )
             debug_trace.append(
                 {
-                    "event": "cheaper_station_search",
-                    "message": "Looked ahead for a cheaper reachable station after hypothetically filling up to usable capacity.",
+                    "event": "lookahead_for_cheaper_station",
+                    "message": "Searched for a cheaper reachable station ahead, assuming full tank.",
                     "current_station_id": current_station.station_id,
                     "current_station_price_per_gallon": current_station.fuel_price_per_gallon,
-                    "reachable_station_ids": [
-                        item.station_id for item in full_reachable
-                    ],
+                    "full_tank_reachable_count": len(full_reachable),
+                    "cheaper_station_found": cheaper_ahead is not None,
                     "cheaper_station_id": cheaper_ahead.station_id
                     if cheaper_ahead is not None
                     else None,
                     "cheaper_station_price_per_gallon": cheaper_ahead.fuel_price_per_gallon
+                    if cheaper_ahead is not None
+                    else None,
+                    "price_difference_per_gallon": (
+                        current_station.fuel_price_per_gallon
+                        - cheaper_ahead.fuel_price_per_gallon
+                    )
                     if cheaper_ahead is not None
                     else None,
                 }
@@ -433,7 +415,6 @@ class GreedyFuelOptimizationStrategy:
                 {
                     "event": "refuel_decision",
                     "message": "Computed how much fuel to buy at the current station.",
-                    "formula": "fuel_added = min(max(0, desired_fuel_after_gallons - current_fuel_gallons), usable_tank_capacity_gallons - current_fuel_gallons); fuel_cost = fuel_added_gallons * fuel_price_per_gallon",
                     "decision_reason": decision_reason,
                     "current_station_id": current_station.station_id,
                     "current_station_price_per_gallon": current_station.fuel_price_per_gallon,
@@ -445,7 +426,7 @@ class GreedyFuelOptimizationStrategy:
                     "max_refuel_gallons": max_refuel,
                     "fuel_added_gallons": fuel_added,
                     "fuel_after_gallons": fuel_after,
-                    "fuel_cost_precise": fuel_cost_precise,
+                    "fuel_cost": _money(fuel_cost_precise),
                     "next_target_station_id": next_target.station_id
                     if next_target is not None
                     else None,
@@ -460,10 +441,14 @@ class GreedyFuelOptimizationStrategy:
                 ):
                     debug_trace.append(
                         {
-                            "event": "post_refuel_destination_reachable",
-                            "message": "After refuel, destination became reachable; loop will finish on the next destination check.",
+                            "event": "destination_reachable",
+                            "message": "After refueling, the destination became reachable.",
                             "current_offset_meters": current_offset,
                             "current_fuel_gallons": current_fuel,
+                            "remaining_distance_meters": max(
+                                ZERO,
+                                context.route.total_distance_meters - current_offset,
+                            ),
                             "reserve_gallons": reserve,
                         }
                     )
@@ -480,7 +465,7 @@ class GreedyFuelOptimizationStrategy:
                     debug_trace.append(
                         {
                             "event": "no_reachable_station_after_refuel",
-                            "message": "After refuel, neither destination nor any next station is reachable.",
+                            "message": "After refueling, neither destination nor any next station is reachable.",
                             "current_offset_meters": current_offset,
                             "current_station_id": current_station.station_id,
                             "current_fuel_gallons": current_fuel,
@@ -506,14 +491,17 @@ class GreedyFuelOptimizationStrategy:
                 debug_trace.append(
                     {
                         "event": "next_station_became_unreachable",
-                        "message": "Selected next station would violate reserve after travel.",
+                        "message": "The planned next station cannot be reached without violating reserve.",
+                        "reason": "insufficient_fuel_for_travel",
                         "current_station_id": current_station.station_id,
-                        "selected_station_id": next_target.station_id,
-                        "fuel_before_gallons": current_fuel,
-                        "fuel_required_gallons": fuel_to_station,
+                        "planned_next_station_id": next_target.station_id,
+                        "fuel_before_travel_gallons": current_fuel,
+                        "fuel_required_for_travel_gallons": fuel_to_station,
                         "projected_fuel_after_arrival_gallons": current_fuel
                         - fuel_to_station,
                         "reserve_gallons": reserve,
+                        "fuel_deficit_gallons": reserve
+                        - (current_fuel - fuel_to_station),
                     }
                 )
                 return self._infeasible_plan(
@@ -523,13 +511,12 @@ class GreedyFuelOptimizationStrategy:
                 {
                     "event": "travel_to_next_station",
                     "message": "Departed current station and traveled to the selected next station.",
-                    "formula": "fuel_required_gallons = (((route_offset_meters - current_offset_meters) + detour_distance_meters) * MILES_PER_METER) / consumption_mpg",
                     "selected_station_id": next_target.station_id,
                     "selected_station_price_per_gallon": next_target.fuel_price_per_gallon,
                     "selected_station_route_offset_meters": next_target.route_offset_meters,
                     "selected_station_detour_distance_meters": next_target.detour.distance_meters,
                     "fuel_before_departure_gallons": current_fuel,
-                    "fuel_required_gallons": fuel_to_station,
+                    "fuel_required_for_travel_gallons": fuel_to_station,
                     "fuel_after_arrival_gallons": current_fuel - fuel_to_station,
                 }
             )
@@ -550,52 +537,66 @@ class GreedyFuelOptimizationStrategy:
     ) -> list[FuelStationCandidate]:
         reserve = context.constraints.reserve_gallons
         reachable: list[FuelStationCandidate] = []
+        skipped_behind: list[tuple[UUID, Decimal]] = []
+        unreachable_due_to_fuel: list[tuple[UUID, Decimal, Decimal]] = []
+
         for station in stations:
             if station.route_offset_meters <= current_offset:
-                if debug_trace is not None:
-                    debug_trace.append(
-                        {
-                            "event": "station_skipped_behind_current_position",
-                            "phase": phase,
-                            "station_id": station.station_id,
-                            "station_route_offset_meters": station.route_offset_meters,
-                            "current_offset_meters": current_offset,
-                            "message": "Station was skipped because it is not ahead of the current route position.",
-                        }
-                    )
+                skipped_behind.append((station.station_id, station.route_offset_meters))
                 continue
             fuel_needed = self._fuel_to_station(context, current_offset, station)
             projected_after_arrival = current_fuel - fuel_needed
             reachable_now = projected_after_arrival >= reserve
-            if debug_trace is not None:
-                debug_trace.append(
-                    {
-                        "event": "station_reachability_evaluated",
-                        "phase": phase,
-                        "message": "Evaluated whether the station is reachable while preserving reserve.",
-                        "formula": "reachable = current_fuel_gallons - (((station_route_offset_meters - current_offset_meters) + detour_distance_meters) * MILES_PER_METER / consumption_mpg) >= reserve_gallons",
-                        "station_id": station.station_id,
-                        "station_route_offset_meters": station.route_offset_meters,
-                        "station_price_per_gallon": station.fuel_price_per_gallon,
-                        "current_offset_meters": current_offset,
-                        "route_distance_meters": max(
-                            ZERO, station.route_offset_meters - current_offset
-                        ),
-                        "detour_distance_meters": station.detour.distance_meters,
-                        "travel_distance_miles": (
-                            max(ZERO, station.route_offset_meters - current_offset)
-                            + station.detour.distance_meters
-                        )
-                        * MILES_PER_METER,
-                        "current_fuel_gallons": current_fuel,
-                        "fuel_required_gallons": fuel_needed,
-                        "projected_fuel_after_arrival_gallons": projected_after_arrival,
-                        "reserve_gallons": reserve,
-                        "reachable": reachable_now,
-                    }
+            if not reachable_now:
+                unreachable_due_to_fuel.append(
+                    (
+                        station.station_id,
+                        station.fuel_price_per_gallon,
+                        projected_after_arrival,
+                    )
                 )
-            if reachable_now:
+            else:
                 reachable.append(station)
+
+        if debug_trace is not None:
+            evaluation_summary = {
+                "event": "stations_evaluated",
+                "phase": phase,
+                "message": f"Evaluated {len(stations)} station(s) for reachability.",
+                "total_stations_evaluated": len(stations),
+                "skipped_behind_current_offset_count": len(skipped_behind),
+                "unreachable_due_to_fuel_count": len(unreachable_due_to_fuel),
+                "reachable_count": len(reachable),
+                "current_offset_meters": current_offset,
+                "current_fuel_gallons": current_fuel,
+                "reserve_gallons": reserve,
+            }
+            if skipped_behind:
+                evaluation_summary["skipped_behind_sample"] = [
+                    {
+                        "station_id": str(sid),
+                        "station_route_offset_meters": _q2(offset),
+                    }
+                    for sid, offset in skipped_behind[:3]
+                ]
+                if len(skipped_behind) > 3:
+                    evaluation_summary["skipped_behind_omitted_count"] = (
+                        len(skipped_behind) - 3
+                    )
+            if unreachable_due_to_fuel:
+                evaluation_summary["unreachable_sample"] = [
+                    {
+                        "station_id": str(sid),
+                        "projected_fuel_after_arrival_gallons": _q4(fuel),
+                    }
+                    for sid, _, fuel in unreachable_due_to_fuel[:3]
+                ]
+                if len(unreachable_due_to_fuel) > 3:
+                    evaluation_summary["unreachable_omitted_count"] = (
+                        len(unreachable_due_to_fuel) - 3
+                    )
+            debug_trace.append(evaluation_summary)
+
         return reachable
 
     def _destination_reachable(
@@ -655,13 +656,14 @@ class GreedyFuelOptimizationStrategy:
             {
                 "event": "optimization_completed_successfully",
                 "message": "Fuel optimization finished with a feasible plan.",
+                "status": "success",
                 "total_fuel_consumed_gallons": total_consumed,
                 "total_fuel_purchased_gallons": total_purchased,
-                "total_cost_precise": total_cost_precise,
+                "total_cost": _money(total_cost_precise),
                 "total_detour_distance_meters": total_detour_distance,
                 "total_detour_time_seconds": total_detour_time,
                 "remaining_fuel_gallons": remaining_fuel,
-                "stop_count": len(stops),
+                "number_of_stops": len(stops),
             }
         )
         return FuelOptimizationPlan(

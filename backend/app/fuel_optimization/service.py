@@ -583,6 +583,7 @@ class OptimizeFuelUseCase:
                     }
                 )
             elif event == "travel_to_initial_station":
+                reachable_count = step.get("reachable_station_count", 1)
                 timeline.append(
                     {
                         "step": "arrival",
@@ -593,7 +594,7 @@ class OptimizeFuelUseCase:
                             "selected_station_route_offset_meters"
                         ),
                         "station_id": step.get("selected_station_id"),
-                        "action": "Arrived at first reachable station.",
+                        "action": f"Arrived at first reachable station (selected from {reachable_count} candidate(s)).",
                     }
                 )
             elif event == "travel_to_next_station":
@@ -613,6 +614,8 @@ class OptimizeFuelUseCase:
             elif event == "refuel_decision":
                 fuel_added = step.get("fuel_added_gallons")
                 if fuel_added is not None and Decimal(str(fuel_added)) > Decimal("0"):
+                    reason = step.get("decision_reason", "unknown")
+                    reason_text = cls._format_decision_reason(reason)
                     timeline.append(
                         {
                             "step": "refuel",
@@ -620,18 +623,19 @@ class OptimizeFuelUseCase:
                             "route_offset_meters": None,
                             "station_id": step.get("current_station_id"),
                             "action": (
-                                f"Refueled {cls._fmt(fuel_added)} gal at ${cls._fmt(step.get('current_station_price_per_gallon'))}/gal."
+                                f"Refueled {cls._fmt(fuel_added)} gal at ${cls._fmt(step.get('current_station_price_per_gallon'))}/gal. "
+                                f"Reason: {reason_text}."
                             ),
                         }
                     )
-            elif event == "post_refuel_destination_reachable":
+            elif event == "destination_reachable":
                 timeline.append(
                     {
                         "step": "destination_reachable",
                         "remaining_fuel_gallons": step.get("current_fuel_gallons"),
                         "route_offset_meters": step.get("current_offset_meters"),
                         "station_id": None,
-                        "action": "Destination became reachable after refueling.",
+                        "action": "Destination became reachable.",
                     }
                 )
             elif event == "no_reachable_station_from_origin":
@@ -655,14 +659,17 @@ class OptimizeFuelUseCase:
                     }
                 )
             elif event == "next_station_became_unreachable":
+                deficit = step.get("fuel_deficit_gallons")
                 timeline.append(
                     {
                         "step": "blocked",
-                        "remaining_fuel_gallons": step.get("fuel_before_gallons"),
+                        "remaining_fuel_gallons": step.get(
+                            "fuel_before_travel_gallons"
+                        ),
                         "route_offset_meters": None,
                         "station_id": step.get("current_station_id"),
-                        "next_station_id": step.get("selected_station_id"),
-                        "action": "The planned next station became unreachable without violating reserve.",
+                        "next_station_id": step.get("planned_next_station_id"),
+                        "action": f"The planned next station became unreachable (fuel deficit: {cls._fmt(deficit)} gal).",
                     }
                 )
             elif event == "optimization_completed_successfully":
@@ -779,7 +786,9 @@ class OptimizeFuelUseCase:
             event = step.get("event")
             if event == "initial_state":
                 lines.append(
-                    f"Start state: {cls._fmt(step.get('initial_fuel_gallons'))} gal available, reserve requirement {cls._fmt(step.get('reserve_gallons'))} gal, {step.get('station_count')} candidate station(s)."
+                    f"Start state: {cls._fmt(step.get('initial_fuel_gallons'))} gal available, "
+                    f"reserve requirement {cls._fmt(step.get('reserve_gallons'))} gal, "
+                    f"{step.get('station_count')} candidate station(s)."
                 )
             elif event == "no_reachable_station_from_origin":
                 lines.append(
@@ -790,8 +799,10 @@ class OptimizeFuelUseCase:
                     "After refueling, neither the destination nor any further station was reachable while preserving reserve."
                 )
             elif event == "next_station_became_unreachable":
+                deficit = step.get("fuel_deficit_gallons")
                 lines.append(
-                    f"A planned next station ({step.get('selected_station_id')}) would have violated reserve upon arrival, so the plan became infeasible."
+                    f"A planned next station ({step.get('planned_next_station_id')}) would require "
+                    f"{cls._fmt(deficit)} gal more than available to reach it while preserving reserve."
                 )
         if not lines:
             lines.append(
@@ -856,3 +867,16 @@ class OptimizeFuelUseCase:
             normalized = value.normalize()
             return format(normalized, "f")
         return str(value)
+
+    @staticmethod
+    def _format_decision_reason(reason: str) -> str:
+        """Format the decision reason into a human-readable string."""
+        reasons = {
+            "buy_minimum_to_reach_cheaper_station_plus_reserve": (
+                "Buy minimum fuel to reach cheaper station ahead while maintaining reserve"
+            ),
+            "buy_enough_for_destination_or_until_next_reachable_segment": (
+                "Buy enough fuel to reach destination or next reachable station segment"
+            ),
+        }
+        return reasons.get(reason, reason)
