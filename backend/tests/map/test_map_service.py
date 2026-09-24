@@ -5,6 +5,8 @@ Covers concurrent layer resolution, partial degradation on optional layer
 failures and propagation of mandatory route failures.
 """
 
+import uuid
+
 import pytest
 
 from app.core.config import settings
@@ -184,6 +186,7 @@ class TestMapLayerServiceSuccess:
     @pytest.mark.asyncio
     async def test_returns_all_layers(self):
         """Every layer is present and errors are empty."""
+        route_id = uuid.uuid4()
         station = FuelStationData(
             external_id="s1",
             name="Pilot",
@@ -207,6 +210,9 @@ class TestMapLayerServiceSuccess:
             ],
         )
         service = build_service(
+            routing=FakeRoutingService(
+                response={**ROUTE_RESPONSE, "id": str(route_id)}
+            ),
             fuel=FakeFuelService(data=[station]),
             truck=FakeTruckService(data=[restriction]),
             rest_areas=FakeRestAreaService(data=[rest_area]),
@@ -215,6 +221,7 @@ class TestMapLayerServiceSuccess:
         result = await service.get_overview(build_request())
 
         assert result.route is not None
+        assert result.route.id == route_id
         assert result.route.provider == "tomtom"
         assert result.configured_providers.route == settings.ROUTING_PROVIDER
         assert len(result.route.routes) == 1

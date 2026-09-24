@@ -217,6 +217,10 @@ export type CalculateRouteRequest = {
  */
 export type CalculateRouteResponse = {
     /**
+     * Id
+     */
+    id?: string | null;
+    /**
      * Routes
      */
     routes: Array<Route>;
@@ -280,6 +284,244 @@ export type ElectronicTollTransponder = 'all' | 'none';
  * Vehicle engine type.
  */
 export type EngineType = 'combustion' | 'electric';
+
+/**
+ * FuelOptimizationAlgorithm
+ */
+export type FuelOptimizationAlgorithm = 'greedy';
+
+/**
+ * FuelOptimizationCalculateRequest
+ */
+export type FuelOptimizationCalculateRequest = {
+    /**
+     * Route Id
+     */
+    route_id: string;
+    /**
+     * Vehicle Id
+     */
+    vehicle_id: string;
+    algorithm?: FuelOptimizationAlgorithm;
+    /**
+     * Initial Fuel Gallons
+     */
+    initial_fuel_gallons: number | string;
+    constraints?: FuelOptimizationConstraintsInput | null;
+    /**
+     * Include Debug
+     */
+    include_debug?: boolean;
+};
+
+/**
+ * FuelOptimizationCalculateResponse
+ */
+export type FuelOptimizationCalculateResponse = {
+    /**
+     * Route Id
+     */
+    route_id: string;
+    /**
+     * Vehicle Id
+     */
+    vehicle_id: string;
+    /**
+     * Optimization Run Id
+     */
+    optimization_run_id: string;
+    status: FuelOptimizationStatus;
+    algorithm: FuelOptimizationAlgorithm;
+    /**
+     * Algorithm Version
+     */
+    algorithm_version: string;
+    summary: FuelOptimizationSummaryPublic;
+    /**
+     * Stops
+     */
+    stops: Array<FuelOptimizationStopPublic>;
+    explanation: FuelOptimizationExplanationPublic;
+    /**
+     * Debug
+     */
+    debug?: {
+        [key: string]: unknown;
+    } | null;
+};
+
+/**
+ * FuelOptimizationConstraintsInput
+ */
+export type FuelOptimizationConstraintsInput = {
+    /**
+     * Reserve Gallons
+     */
+    reserve_gallons?: number | string | null;
+    /**
+     * Max Allowed Detour Meters
+     */
+    max_allowed_detour_meters?: number | string | null;
+};
+
+/**
+ * FuelOptimizationExplanationPublic
+ */
+export type FuelOptimizationExplanationPublic = {
+    /**
+     * Summary
+     */
+    summary: string;
+    /**
+     * Outcome
+     */
+    outcome: string;
+    /**
+     * Key Points
+     */
+    key_points?: Array<string>;
+    /**
+     * Warnings
+     */
+    warnings?: Array<string>;
+    /**
+     * Skipped Station Stats
+     */
+    skipped_station_stats?: Array<FuelOptimizationSkippedStationStatPublic>;
+};
+
+/**
+ * FuelOptimizationSkippedStationPointPublic
+ */
+export type FuelOptimizationSkippedStationPointPublic = {
+    /**
+     * Station Id
+     */
+    station_id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Latitude
+     */
+    latitude: string;
+    /**
+     * Longitude
+     */
+    longitude: string;
+};
+
+/**
+ * FuelOptimizationSkippedStationStatPublic
+ */
+export type FuelOptimizationSkippedStationStatPublic = {
+    /**
+     * Reason
+     */
+    reason: string;
+    /**
+     * Description
+     */
+    description: string;
+    /**
+     * Count
+     */
+    count: number;
+    /**
+     * Sample Points
+     */
+    sample_points?: Array<FuelOptimizationSkippedStationPointPublic>;
+    /**
+     * Omitted Points Count
+     */
+    omitted_points_count?: number;
+};
+
+/**
+ * FuelOptimizationStatus
+ */
+export type FuelOptimizationStatus = 'success' | 'infeasible';
+
+/**
+ * FuelOptimizationStopPublic
+ */
+export type FuelOptimizationStopPublic = {
+    /**
+     * Sequence
+     */
+    sequence: number;
+    /**
+     * Station Id
+     */
+    station_id: string;
+    /**
+     * Route Offset Meters
+     */
+    route_offset_meters: string;
+    /**
+     * Fuel Before Gallons
+     */
+    fuel_before_gallons: string;
+    /**
+     * Fuel Added Gallons
+     */
+    fuel_added_gallons: string;
+    /**
+     * Fuel After Gallons
+     */
+    fuel_after_gallons: string;
+    /**
+     * Fuel Price Per Gallon
+     */
+    fuel_price_per_gallon: string;
+    /**
+     * Fuel Cost
+     */
+    fuel_cost: string;
+    /**
+     * Detour Distance Meters
+     */
+    detour_distance_meters: string;
+    /**
+     * Detour Time Seconds
+     */
+    detour_time_seconds: number;
+};
+
+/**
+ * FuelOptimizationSummaryPublic
+ */
+export type FuelOptimizationSummaryPublic = {
+    /**
+     * Total Fuel Consumed Gallons
+     */
+    total_fuel_consumed_gallons: string;
+    /**
+     * Total Fuel Purchased Gallons
+     */
+    total_fuel_purchased_gallons: string;
+    /**
+     * Total Fuel Cost
+     */
+    total_fuel_cost: string;
+    /**
+     * Total Detour Distance Meters
+     */
+    total_detour_distance_meters: string;
+    /**
+     * Total Detour Time Seconds
+     */
+    total_detour_time_seconds: number;
+    /**
+     * Number Of Stops
+     */
+    number_of_stops: number;
+    /**
+     * Remaining Fuel Gallons
+     */
+    remaining_fuel_gallons: string;
+};
 
 /**
  * FuelStationData
@@ -918,6 +1160,10 @@ export type Route = {
  */
 export type RouteLayerData = {
     /**
+     * Id
+     */
+    id?: string | null;
+    /**
      * Provider
      */
     provider: string;
@@ -1381,6 +1627,263 @@ export type ValidationError = {
     ctx?: {
         [key: string]: unknown;
     };
+};
+
+/**
+ * VehicleCreate
+ */
+export type VehicleCreate = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Unit Number
+     */
+    unit_number: string;
+    status?: VehicleStatus;
+    vehicle_type: VehicleType;
+    /**
+     * Make
+     */
+    make?: string | null;
+    /**
+     * Model
+     */
+    model?: string | null;
+    /**
+     * Year
+     */
+    year?: number | null;
+    /**
+     * Routing Profile Id
+     */
+    routing_profile_id?: string | null;
+    fuel_profile: VehicleFuelProfileCreate;
+};
+
+/**
+ * VehicleFuelProfileCreate
+ */
+export type VehicleFuelProfileCreate = {
+    /**
+     * Name
+     */
+    name: string;
+    fuel_type?: VehicleFuelType;
+    /**
+     * Tank Capacity Gallons
+     */
+    tank_capacity_gallons: number | string;
+    /**
+     * Usable Tank Capacity Gallons
+     */
+    usable_tank_capacity_gallons: number | string;
+    /**
+     * Consumption Mpg
+     */
+    consumption_mpg: number | string;
+    /**
+     * Reserve Gallons
+     */
+    reserve_gallons: number | string;
+    /**
+     * Min Refuel Gallons
+     */
+    min_refuel_gallons?: number | string | null;
+    /**
+     * Max Refuel Gallons
+     */
+    max_refuel_gallons?: number | string | null;
+};
+
+/**
+ * VehicleFuelProfilePublic
+ */
+export type VehicleFuelProfilePublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    fuel_type: VehicleFuelType;
+    /**
+     * Tank Capacity Gallons
+     */
+    tank_capacity_gallons: string;
+    /**
+     * Usable Tank Capacity Gallons
+     */
+    usable_tank_capacity_gallons: string;
+    /**
+     * Consumption Mpg
+     */
+    consumption_mpg: string;
+    /**
+     * Reserve Gallons
+     */
+    reserve_gallons: string;
+    /**
+     * Min Refuel Gallons
+     */
+    min_refuel_gallons?: string | null;
+    /**
+     * Max Refuel Gallons
+     */
+    max_refuel_gallons?: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+};
+
+/**
+ * VehicleFuelProfileUpdate
+ */
+export type VehicleFuelProfileUpdate = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    fuel_type?: VehicleFuelType | null;
+    /**
+     * Tank Capacity Gallons
+     */
+    tank_capacity_gallons?: number | string | null;
+    /**
+     * Usable Tank Capacity Gallons
+     */
+    usable_tank_capacity_gallons?: number | string | null;
+    /**
+     * Consumption Mpg
+     */
+    consumption_mpg?: number | string | null;
+    /**
+     * Reserve Gallons
+     */
+    reserve_gallons?: number | string | null;
+    /**
+     * Min Refuel Gallons
+     */
+    min_refuel_gallons?: number | string | null;
+    /**
+     * Max Refuel Gallons
+     */
+    max_refuel_gallons?: number | string | null;
+};
+
+/**
+ * VehicleFuelType
+ */
+export type VehicleFuelType = 'truck_diesel';
+
+/**
+ * VehiclePublic
+ */
+export type VehiclePublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Unit Number
+     */
+    unit_number: string;
+    status: VehicleStatus;
+    vehicle_type: VehicleType;
+    /**
+     * Make
+     */
+    make?: string | null;
+    /**
+     * Model
+     */
+    model?: string | null;
+    /**
+     * Year
+     */
+    year?: number | null;
+    /**
+     * Routing Profile Id
+     */
+    routing_profile_id?: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    fuel_profile: VehicleFuelProfilePublic;
+};
+
+/**
+ * VehicleStatus
+ */
+export type VehicleStatus = 'active' | 'inactive' | 'maintenance';
+
+/**
+ * VehicleType
+ */
+export type VehicleType = 'tractor' | 'truck';
+
+/**
+ * VehicleUpdate
+ */
+export type VehicleUpdate = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Unit Number
+     */
+    unit_number?: string | null;
+    status?: VehicleStatus | null;
+    vehicle_type?: VehicleType | null;
+    /**
+     * Make
+     */
+    make?: string | null;
+    /**
+     * Model
+     */
+    model?: string | null;
+    /**
+     * Year
+     */
+    year?: number | null;
+    /**
+     * Routing Profile Id
+     */
+    routing_profile_id?: string | null;
+    fuel_profile?: VehicleFuelProfileUpdate | null;
+};
+
+/**
+ * VehiclesPublic
+ */
+export type VehiclesPublic = {
+    /**
+     * Data
+     */
+    data: Array<VehiclePublic>;
+    /**
+     * Count
+     */
+    count: number;
 };
 
 export type loginLoginAccessTokenData = {
@@ -1962,6 +2465,155 @@ export type itemsUpdateItemResponses = {
 
 export type itemsUpdateItemResponse = itemsUpdateItemResponses[keyof itemsUpdateItemResponses];
 
+export type vehiclesListVehiclesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Skip
+         */
+        skip?: number;
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/v1/vehicles/';
+};
+
+export type vehiclesListVehiclesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type vehiclesListVehiclesError = vehiclesListVehiclesErrors[keyof vehiclesListVehiclesErrors];
+
+export type vehiclesListVehiclesResponses = {
+    /**
+     * Successful Response
+     */
+    200: VehiclesPublic;
+};
+
+export type vehiclesListVehiclesResponse = vehiclesListVehiclesResponses[keyof vehiclesListVehiclesResponses];
+
+export type vehiclesCreateVehicleData = {
+    body: VehicleCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/vehicles/';
+};
+
+export type vehiclesCreateVehicleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type vehiclesCreateVehicleError = vehiclesCreateVehicleErrors[keyof vehiclesCreateVehicleErrors];
+
+export type vehiclesCreateVehicleResponses = {
+    /**
+     * Successful Response
+     */
+    200: VehiclePublic;
+};
+
+export type vehiclesCreateVehicleResponse = vehiclesCreateVehicleResponses[keyof vehiclesCreateVehicleResponses];
+
+export type vehiclesDeleteVehicleData = {
+    body?: never;
+    path: {
+        /**
+         * Vehicle Id
+         */
+        vehicle_id: string;
+    };
+    query?: never;
+    url: '/api/v1/vehicles/{vehicle_id}';
+};
+
+export type vehiclesDeleteVehicleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type vehiclesDeleteVehicleError = vehiclesDeleteVehicleErrors[keyof vehiclesDeleteVehicleErrors];
+
+export type vehiclesDeleteVehicleResponses = {
+    /**
+     * Successful Response
+     */
+    200: Message;
+};
+
+export type vehiclesDeleteVehicleResponse = vehiclesDeleteVehicleResponses[keyof vehiclesDeleteVehicleResponses];
+
+export type vehiclesGetVehicleData = {
+    body?: never;
+    path: {
+        /**
+         * Vehicle Id
+         */
+        vehicle_id: string;
+    };
+    query?: never;
+    url: '/api/v1/vehicles/{vehicle_id}';
+};
+
+export type vehiclesGetVehicleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type vehiclesGetVehicleError = vehiclesGetVehicleErrors[keyof vehiclesGetVehicleErrors];
+
+export type vehiclesGetVehicleResponses = {
+    /**
+     * Successful Response
+     */
+    200: VehiclePublic;
+};
+
+export type vehiclesGetVehicleResponse = vehiclesGetVehicleResponses[keyof vehiclesGetVehicleResponses];
+
+export type vehiclesUpdateVehicleData = {
+    body: VehicleUpdate;
+    path: {
+        /**
+         * Vehicle Id
+         */
+        vehicle_id: string;
+    };
+    query?: never;
+    url: '/api/v1/vehicles/{vehicle_id}';
+};
+
+export type vehiclesUpdateVehicleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type vehiclesUpdateVehicleError = vehiclesUpdateVehicleErrors[keyof vehiclesUpdateVehicleErrors];
+
+export type vehiclesUpdateVehicleResponses = {
+    /**
+     * Successful Response
+     */
+    200: VehiclePublic;
+};
+
+export type vehiclesUpdateVehicleResponse = vehiclesUpdateVehicleResponses[keyof vehiclesUpdateVehicleResponses];
+
 export type fuelImportPumppriceFuelData = {
     body: PumpPriceImportRequest;
     path?: never;
@@ -1986,6 +2638,31 @@ export type fuelImportPumppriceFuelResponses = {
 };
 
 export type fuelImportPumppriceFuelResponse = fuelImportPumppriceFuelResponses[keyof fuelImportPumppriceFuelResponses];
+
+export type fuelOptimizationCalculateFuelOptimizationData = {
+    body: FuelOptimizationCalculateRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/fuel-optimization/calculate';
+};
+
+export type fuelOptimizationCalculateFuelOptimizationErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type fuelOptimizationCalculateFuelOptimizationError = fuelOptimizationCalculateFuelOptimizationErrors[keyof fuelOptimizationCalculateFuelOptimizationErrors];
+
+export type fuelOptimizationCalculateFuelOptimizationResponses = {
+    /**
+     * Successful Response
+     */
+    200: FuelOptimizationCalculateResponse;
+};
+
+export type fuelOptimizationCalculateFuelOptimizationResponse = fuelOptimizationCalculateFuelOptimizationResponses[keyof fuelOptimizationCalculateFuelOptimizationResponses];
 
 export type geocodingSearchData = {
     body: GeocodingSearchRequest;

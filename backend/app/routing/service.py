@@ -120,14 +120,14 @@ class RoutingService:
         response = await self.provider.calculate_route(request)
 
         # Persist to database
-        await self._persist_calculation(
+        calculation = await self._persist_calculation(
             request=request,
             response=response,
             request_hash=request_hash,
             request_data_dict=request_data_dict,
         )
 
-        return response
+        return response.model_copy(update={"id": calculation.id})
 
     async def _persist_calculation(
         self,
@@ -220,4 +220,5 @@ class RoutingService:
             The provider_response field contains the full response,
             so we deserialize it directly.
         """
-        return CalculateRouteResponse.model_validate(calculation.provider_response)
+        response = CalculateRouteResponse.model_validate(calculation.provider_response)
+        return response.model_copy(update={"id": calculation.id})

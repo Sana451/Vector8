@@ -2,7 +2,7 @@
 
 import { type Client, type Options as Options2, type TDataShape, urlSearchParamsBodySerializer } from './client';
 import { client } from './client.gen';
-import type { fuelImportPumppriceFuelData, fuelImportPumppriceFuelErrors, fuelImportPumppriceFuelResponses, geocodingSearchData, geocodingSearchErrors, geocodingSearchResponses, itemsCreateItemData, itemsCreateItemErrors, itemsCreateItemResponses, itemsDeleteItemData, itemsDeleteItemErrors, itemsDeleteItemResponses, itemsReadItemData, itemsReadItemErrors, itemsReadItemResponses, itemsReadItemsData, itemsReadItemsErrors, itemsReadItemsResponses, itemsUpdateItemData, itemsUpdateItemErrors, itemsUpdateItemResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, mapRouteOverviewData, mapRouteOverviewErrors, mapRouteOverviewResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, routingCalculateRouteData, routingCalculateRouteErrors, routingCalculateRouteResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses } from './types.gen';
+import type { fuelImportPumppriceFuelData, fuelImportPumppriceFuelErrors, fuelImportPumppriceFuelResponses, fuelOptimizationCalculateFuelOptimizationData, fuelOptimizationCalculateFuelOptimizationErrors, fuelOptimizationCalculateFuelOptimizationResponses, geocodingSearchData, geocodingSearchErrors, geocodingSearchResponses, itemsCreateItemData, itemsCreateItemErrors, itemsCreateItemResponses, itemsDeleteItemData, itemsDeleteItemErrors, itemsDeleteItemResponses, itemsReadItemData, itemsReadItemErrors, itemsReadItemResponses, itemsReadItemsData, itemsReadItemsErrors, itemsReadItemsResponses, itemsUpdateItemData, itemsUpdateItemErrors, itemsUpdateItemResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, mapRouteOverviewData, mapRouteOverviewErrors, mapRouteOverviewResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, routingCalculateRouteData, routingCalculateRouteErrors, routingCalculateRouteResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses, vehiclesCreateVehicleData, vehiclesCreateVehicleErrors, vehiclesCreateVehicleResponses, vehiclesDeleteVehicleData, vehiclesDeleteVehicleErrors, vehiclesDeleteVehicleResponses, vehiclesGetVehicleData, vehiclesGetVehicleErrors, vehiclesGetVehicleResponses, vehiclesListVehiclesData, vehiclesListVehiclesErrors, vehiclesListVehiclesResponses, vehiclesUpdateVehicleData, vehiclesUpdateVehicleErrors, vehiclesUpdateVehicleResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -364,6 +364,76 @@ export class ItemsService {
     }
 }
 
+export class VehiclesService {
+    /**
+     * List Vehicles
+     */
+    public static listVehicles<ThrowOnError extends boolean = true>(options?: Options<vehiclesListVehiclesData, ThrowOnError>) {
+        return (options?.client ?? client).get<vehiclesListVehiclesResponses, vehiclesListVehiclesErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/vehicles/',
+            ...options
+        });
+    }
+    
+    /**
+     * Create Vehicle
+     */
+    public static createVehicle<ThrowOnError extends boolean = true>(options: Options<vehiclesCreateVehicleData, ThrowOnError>) {
+        return (options.client ?? client).post<vehiclesCreateVehicleResponses, vehiclesCreateVehicleErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/vehicles/',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Delete Vehicle
+     */
+    public static deleteVehicle<ThrowOnError extends boolean = true>(options: Options<vehiclesDeleteVehicleData, ThrowOnError>) {
+        return (options.client ?? client).delete<vehiclesDeleteVehicleResponses, vehiclesDeleteVehicleErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/vehicles/{vehicle_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Get Vehicle
+     */
+    public static getVehicle<ThrowOnError extends boolean = true>(options: Options<vehiclesGetVehicleData, ThrowOnError>) {
+        return (options.client ?? client).get<vehiclesGetVehicleResponses, vehiclesGetVehicleErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/vehicles/{vehicle_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Update Vehicle
+     */
+    public static updateVehicle<ThrowOnError extends boolean = true>(options: Options<vehiclesUpdateVehicleData, ThrowOnError>) {
+        return (options.client ?? client).patch<vehiclesUpdateVehicleResponses, vehiclesUpdateVehicleErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/vehicles/{vehicle_id}',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+}
+
 export class FuelService {
     /**
      * Import Pumpprice Fuel
@@ -375,6 +445,24 @@ export class FuelService {
             responseType: 'json',
             security: [{ scheme: 'bearer', type: 'http' }],
             url: '/api/v1/fuel/import/pumpprice',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+}
+
+export class FuelOptimizationService {
+    /**
+     * Calculate Fuel Optimization
+     */
+    public static optimizationCalculateFuelOptimization<ThrowOnError extends boolean = true>(options: Options<fuelOptimizationCalculateFuelOptimizationData, ThrowOnError>) {
+        return (options.client ?? client).post<fuelOptimizationCalculateFuelOptimizationResponses, fuelOptimizationCalculateFuelOptimizationErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/fuel-optimization/calculate',
             ...options,
             headers: {
                 'Content-Type': 'application/json',

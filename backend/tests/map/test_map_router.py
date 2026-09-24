@@ -5,6 +5,7 @@ Verifies partial degradation semantics: optional layer failures are reported in
 ``errors`` with HTTP 200, while a routing failure surfaces as HTTP 502.
 """
 
+import uuid
 from unittest.mock import patch
 
 import pytest
@@ -92,6 +93,8 @@ class TestRouteOverviewEndpoint:
         data = response.json()
 
         assert data["route"] is not None
+        assert data["route"]["id"] is not None
+        assert uuid.UUID(data["route"]["id"])
         assert data["route"]["provider"] == "tomtom"
         assert data["configured_providers"]["route"] == "tomtom"
         assert data["configured_providers"]["traffic"] == settings.TRAFFIC_PROVIDER
