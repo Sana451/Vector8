@@ -196,11 +196,71 @@ class FuelStationRepository(_SpatialLayerRepository):
 
     model = FuelStation
 
+    def find_along_route(
+        self,
+        coordinates: list[Coordinate],
+        radius_meters: int,
+        limit: int,
+        provider: str | None = None,
+    ) -> list[FuelStation]:
+        """Find fuel stations near the route with provider-aware ordering.
+
+        Internal stations ignore TTL and are ordered by route progress first,
+        then by distance to the route. External providers keep the existing TTL
+        filtering while also exposing the same distance/progress annotations.
+        """
+        if len(coordinates) < 2:
+            return []
+
+        route_wkt = linestring_to_wkt(coordinates).split(";", 1)[1]
+        route_geography = func.ST_GeogFromText(route_wkt)
+        route_geometry = func.ST_GeomFromText(route_wkt, 4326)
+        location_geometry = func.ST_GeomFromText(
+            func.ST_AsText(FuelStation.location), 4326
+        )
+
+        distance_to_route = func.ST_Distance(
+            FuelStation.location,
+            route_geography,
+        ).label("distance_to_route_meters")
+        progress_along_route = func.ST_LineLocatePoint(
+            route_geometry,
+            location_geometry,
+        ).label("progress_along_route")
+
+        statement = (
+            select(FuelStation, distance_to_route, progress_along_route)
+            .where(
+                func.ST_DWithin(FuelStation.location, route_geography, radius_meters)
+            )
+            .limit(limit)
+        )
+
+        if provider is not None:
+            statement = statement.where(FuelStation.provider == provider)
+
+        if provider != "internal":
+            statement = statement.where(FuelStation.expires_at >= datetime.now(UTC))
+
+        if provider == "internal":
+            statement = statement.order_by(progress_along_route, distance_to_route)
+        else:
+            statement = statement.order_by(distance_to_route)
+
+        rows: list[FuelStation] = []
+        for station, distance, progress in self.session.exec(statement).all():
+            object.__setattr__(station, "distance_to_route_meters", float(distance))
+            object.__setattr__(station, "progress_along_route", float(progress))
+            rows.append(station)
+        return rows
+
     def upsert_many(
         self,
         provider: str,
         stations: list[dict],
         ttl_seconds: int,
+        *,
+        persist_internal: bool = False,
     ) -> int:
         """Insert or refresh fuel stations.
 
@@ -209,10 +269,15 @@ class FuelStationRepository(_SpatialLayerRepository):
             stations: Rows keyed by ``FuelStation`` column names plus
                 ``external_id`` and ``location`` (EWKT).
             ttl_seconds: Cache lifetime in seconds.
+            persist_internal: When ``False``, internal read-through results are not
+                written back into the same catalog table.
 
         Returns:
             Number of persisted rows.
         """
+        if provider == "internal" and not persist_internal:
+            return len(stations)
+
         now = datetime.now(UTC)
         expires_at = now + timedelta(seconds=ttl_seconds)
 

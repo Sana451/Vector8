@@ -83,6 +83,10 @@ class FuelStation(SQLModel, table=True):
     medium_truck_accessible: bool = Field(default=True)
     large_truck_accessible: bool = Field(default=True)
     payload: dict[str, Any] = Field(sa_column=Column(JSON))
+    last_imported_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+    )
     created_at: datetime = Field(
         default_factory=get_datetime_utc,
         sa_column=Column(DateTime(timezone=True), nullable=False),

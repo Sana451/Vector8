@@ -21,9 +21,9 @@ Source file:
 
 Purpose:
 
-- fetch stations from the internal Vector8 fleet API;
-- normalize them into `FuelStationData`;
-- let `FuelService` cache normalized rows in PostGIS.
+- read stations from the local `fuel_stations` catalog via PostGIS;
+- order corridor results by route progress and proximity to the route;
+- return the same `FuelStationData` DTO shape used by every other provider.
 
 ### `here`
 
@@ -85,7 +85,8 @@ Add to `.env`:
 # Fuel provider selection
 FUEL_PROVIDER=internal
 
-# Internal fuel station API (used only when FUEL_PROVIDER=internal)
+# Optional internal ingest API settings. Route searches for FUEL_PROVIDER=internal
+# are executed locally from PostGIS and do not call this API.
 FUEL_API_BASE_URL=
 FUEL_API_KEY=
 FUEL_API_TIMEOUT_SECONDS=15
@@ -113,29 +114,12 @@ FUEL_PROVIDER=off
 
 ### `internal`
 
-Request shape:
-
-```http
-POST /fuel-stations/search
-```
-
-Body:
-
-```json
-{
-  "path": {
-    "type": "LineString",
-    "coordinates": [[-87.9, 41.8], [-87.8, 41.85]]
-  },
-  "radius_meters": 5000,
-  "limit": 200
-}
-```
-
 Notes:
 
-- if `FUEL_API_BASE_URL` is not configured, provider raises `ProviderUnavailableError`;
-- `FuelService` may still serve cached PostGIS rows when available.
+- searches run locally against `fuel_stations` with `ST_DWithin`;
+- rows are ordered by `progress_along_route`, then by distance to the route;
+- `expires_at` is ignored when `provider="internal"`;
+- `last_imported_at` records the last successful catalog import timestamp.
 
 ### `here`
 

@@ -12,6 +12,7 @@ from app.api.deps import SessionDep
 from app.core.config import settings
 from app.geocoding.dependencies import get_geocoding_service
 from app.geocoding.service import GeocodingService
+from app.map.repository import FuelStationRepository
 from app.map.service import MapLayerService
 from app.map.services import (
     FuelService,
@@ -25,6 +26,7 @@ from app.providers.base import (
     TrafficProvider,
     TruckRestrictionProvider,
 )
+from app.providers.fuel.internal import InternalFuelStationProvider
 from app.providers.registry import registry
 from app.routing.dependencies import get_routing_service
 from app.routing.service import RoutingService
@@ -35,8 +37,10 @@ def get_traffic_provider() -> TrafficProvider:
     return registry.get("traffic", settings.TRAFFIC_PROVIDER)
 
 
-def get_fuel_provider() -> FuelStationProvider:
+def get_fuel_provider(session: SessionDep) -> FuelStationProvider:
     """Resolve the configured fuel station provider."""
+    if settings.FUEL_PROVIDER == "internal":
+        return InternalFuelStationProvider(repository=FuelStationRepository(session))
     return registry.get("fuel", settings.FUEL_PROVIDER)
 
 

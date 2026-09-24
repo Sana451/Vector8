@@ -6,6 +6,8 @@ with a domain-specific TTL and falls back to cached PostGIS rows when the
 provider is unavailable.
 """
 
+from datetime import datetime
+
 from sqlmodel import Session
 
 from app.core.config import settings
@@ -223,7 +225,11 @@ class FuelService:
         return [self._from_row(row) for row in rows]
 
     @staticmethod
-    def _to_row(station: FuelStationData) -> dict:
+    def _to_row(
+        station: FuelStationData,
+        *,
+        last_imported_at: datetime | None = None,
+    ) -> dict:
         """Map a provider DTO onto repository row values."""
         lon, lat = station.location.coordinates
         return {
@@ -236,12 +242,17 @@ class FuelService:
             "medium_truck_accessible": station.medium_truck_accessible,
             "large_truck_accessible": station.large_truck_accessible,
             "payload": station.model_dump(mode="json"),
+            "last_imported_at": last_imported_at,
         }
 
     @staticmethod
     def _from_row(row: FuelStation) -> FuelStationData:
         """Rebuild a provider DTO from a cached row."""
-        return FuelStationData.model_validate(row.payload)
+        station = FuelStationData.model_validate(row.payload)
+        distance = getattr(row, "distance_to_route_meters", None)
+        if not isinstance(distance, int | float):
+            return station
+        return station.model_copy(update={"distance_meters": float(distance)})
 
 
 class TruckRestrictionService:

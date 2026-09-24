@@ -60,6 +60,16 @@ $ docker compose exec backend bash
 
 ## Backend Tests
 
+Pytest is isolated from the development database. The application keeps using `DATABASE_URL` (for example `app`), while tests require `TEST_DATABASE_URL` (for example `app_test`).
+
+Before running tests for the first time, prepare the dedicated test database:
+
+```console
+$ uv run python scripts/init_test_db.py
+```
+
+The script creates `app_test` when needed and runs `alembic upgrade head` against `TEST_DATABASE_URL`.
+
 To test the backend from the `backend` directory, run:
 
 ```console

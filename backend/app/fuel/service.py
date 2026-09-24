@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -74,6 +76,7 @@ class PumpPriceImportService:
     ) -> PumpPriceImportResponse:
         """Run a synchronous nationwide PumpPrice import and persist unique stations."""
         latitude, longitude = NATIONAL_SEARCH_CENTER
+        imported_at = datetime.now(UTC)
         unique_stations: dict[str, FuelStationData] = {}
         duplicates_discarded = 0
         stations_received = 0
@@ -129,9 +132,11 @@ class PumpPriceImportService:
             persisted_stations = self.repository.upsert_many(
                 provider=PERSISTED_PROVIDER_NAME,
                 stations=[
-                    FuelService._to_row(station) for station in unique_stations.values()
+                    FuelService._to_row(station, last_imported_at=imported_at)
+                    for station in unique_stations.values()
                 ],
                 ttl_seconds=settings.FUEL_CACHE_TTL_SECONDS,
+                persist_internal=True,
             )
 
         return PumpPriceImportResponse(
@@ -150,14 +155,8 @@ class PumpPriceImportService:
         return f"_fuel_analytics_session={session_cookie}"
 
     def _log_error_response(self, response: httpx.Response) -> None:
-        payload: Any
-        try:
-            payload = response.json()
-        except ValueError:
-            payload = None
-
-        request_headers = self._sanitize_headers(dict(response.request.headers))
-        response_headers = self._sanitize_headers(dict(response.headers))
+        request_headers = self._sanitize_headers(dict(response.request.headers.items()))
+        response_headers = self._sanitize_headers(dict(response.headers.items()))
 
         logger.error(
             "PumpPrice provider returned error response",
@@ -165,19 +164,31 @@ class PumpPriceImportService:
             request_url=str(response.request.url),
             request_headers=request_headers,
             response_headers=response_headers,
-            response_json=payload,
+            response_json=self._response_json_for_logging(response),
             response_text=self._truncate_text(response.text),
         )
 
     @staticmethod
-    def _sanitize_headers(headers: dict[str, Any]) -> dict[str, str]:
+    def _response_json_for_logging(response: httpx.Response) -> dict[str, Any] | None:
+        try:
+            parsed = response.json()
+        except ValueError:
+            return None
+
+        if not isinstance(parsed, dict):
+            return None
+        return {str(key): value for key, value in parsed.items()}
+
+    @staticmethod
+    def _sanitize_headers(headers: Mapping[object, Any]) -> dict[str, str]:
         redacted_names = {"authorization", "cookie", "set-cookie", "x-api-key"}
         sanitized: dict[str, str] = {}
         for key, value in headers.items():
-            if key.lower() in redacted_names:
-                sanitized[key] = "<redacted>"
+            key_text = str(key)
+            if key_text.lower() in redacted_names:
+                sanitized[key_text] = "<redacted>"
             else:
-                sanitized[key] = str(value)
+                sanitized[key_text] = str(value)
         return sanitized
 
     @staticmethod

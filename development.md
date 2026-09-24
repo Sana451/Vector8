@@ -17,6 +17,15 @@ uv sync
 uv run bash scripts/prestart.sh
 ```
 
+Prepare the isolated pytest database separately:
+
+```bash
+cd backend
+uv run python scripts/init_test_db.py
+```
+
+This keeps `DATABASE_URL` pointed at the development database (`app`) and uses `TEST_DATABASE_URL` for tests (`app_test`).
+
 Start the FastAPI development server:
 
 ```bash

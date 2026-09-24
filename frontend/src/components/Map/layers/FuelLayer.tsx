@@ -64,11 +64,11 @@ function formatPrice(price: unknown, currency: unknown): string {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: currencyCode,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      minimumFractionDigits: 3,
+      maximumFractionDigits: 3,
     }).format(price)
   } catch {
-    return `${price.toFixed(2)} ${currencyCode}`
+    return `${price.toFixed(3)} ${currencyCode}`
   }
 }
 
