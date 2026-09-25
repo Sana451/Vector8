@@ -1,12 +1,15 @@
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useEffect, useRef, useState } from "react"
+import { calculateFuelOptimization } from "@/api/fuelOptimization"
 import { getRouteOverview, searchAddress } from "@/api/map"
+import { listVehicles } from "@/api/vehicles"
 import type {
   FuelStationData,
   GeocodingSearchResponse,
   TrafficLayerData,
   TruckRestrictionData,
+  VehiclePublic,
 } from "@/client"
 import type { RestAreaFeatureCollection } from "@/client/types.gen"
 import {
@@ -103,6 +106,17 @@ function MapPage() {
     null,
   )
   const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
+  const [routeId, setRouteId] = useState<string | null>(null)
+  const [selectedVehicleId, setSelectedVehicleId] = useState("")
+  const [maxDetourMeters, setMaxDetourMeters] = useState("100000")
+  const [initialFuelGallons, setInitialFuelGallons] = useState("42")
+  const [reserveGallons, setReserveGallons] = useState("3")
+
+  // Fetch vehicles list
+  const { data: vehicles = [] } = useQuery<VehiclePublic[]>({
+    queryKey: ["vehicles"],
+    queryFn: listVehicles,
+  })
 
   const resetLayers = () => {
     setRouteCoordinates(null)
@@ -111,6 +125,7 @@ function MapPage() {
     setTruckRestrictions([])
     setRestAreas(null)
     setRouteInfo(null)
+    setRouteId(null)
   }
 
   useEffect(() => {
@@ -254,6 +269,11 @@ function MapPage() {
         })
       }
 
+      // Save route ID for fuel optimization (from API response)
+      if (data.route?.id) {
+        setRouteId(data.route.id)
+      }
+
       mapRef.current?.fitBounds(calculateBoundingBox(coordinates))
 
       showSuccessToast("Route calculated successfully")
@@ -267,6 +287,39 @@ function MapPage() {
 
   const handleForceRefresh = () => {
     mutation.mutate(true)
+  }
+
+  const fuelOptimizationMutation = useMutation({
+    mutationFn: async () => {
+      if (!routeId || !selectedVehicleId) {
+        throw new Error("Route ID and vehicle ID are required")
+      }
+
+      return await calculateFuelOptimization({
+        route_id: routeId,
+        vehicle_id: selectedVehicleId,
+        algorithm: "greedy",
+        initial_fuel_gallons: parseInt(initialFuelGallons, 10),
+        constraints: {
+          reserve_gallons: parseInt(reserveGallons, 10),
+          max_allowed_detour_meters: parseInt(maxDetourMeters, 10),
+        },
+        include_debug: false,
+      })
+    },
+    onSuccess: (data) => {
+      showSuccessToast("Fuel optimization calculated successfully")
+      console.log("Fuel optimization result:", data)
+    },
+    onError: handleError.bind(showErrorToast),
+  })
+
+  const handleOptimizeFuel = () => {
+    if (!selectedVehicleId) {
+      showErrorToast("Please select a vehicle")
+      return
+    }
+    fuelOptimizationMutation.mutate()
   }
 
   const canSubmit =
@@ -419,7 +472,94 @@ function MapPage() {
         </div>
       </div>
 
-      {/* Карта - занимает остальную площадь */}
+      {/* Fuel Optimization Panel - показывается после расчета маршрута */}
+      {routeId && (
+        <div className="flex-shrink-0 border-b border-border/50 bg-background p-2">
+          <div className="flex flex-wrap gap-2 items-end">
+            <div className="flex-1 min-w-[200px]">
+              <label htmlFor="vehicle-select" className="text-xs font-medium">
+                Vehicle
+              </label>
+              <select
+                id="vehicle-select"
+                value={selectedVehicleId}
+                onChange={(e) => setSelectedVehicleId(e.target.value)}
+                className="w-full text-xs h-8 px-2 rounded border border-border bg-background"
+              >
+                <option value="">Select a vehicle...</option>
+                {vehicles.map((vehicle) => (
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {vehicle.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex-1 min-w-[150px]">
+              <label htmlFor="initial-fuel" className="text-xs font-medium">
+                Initial Fuel (gal)
+              </label>
+              <Input
+                id="initial-fuel"
+                type="number"
+                value={initialFuelGallons}
+                onChange={(e) => setInitialFuelGallons(e.target.value)}
+                className="text-xs h-8"
+                placeholder="42"
+              />
+            </div>
+
+            <div className="flex-1 min-w-[150px]">
+              <label htmlFor="reserve-fuel" className="text-xs font-medium">
+                Reserve Fuel (gal)
+              </label>
+              <Input
+                id="reserve-fuel"
+                type="number"
+                value={reserveGallons}
+                onChange={(e) => setReserveGallons(e.target.value)}
+                className="text-xs h-8"
+                placeholder="3"
+              />
+            </div>
+
+            <div className="flex-1 min-w-[160px]">
+              <label htmlFor="max-detour" className="text-xs font-medium">
+                Max Detour (m)
+              </label>
+              <Input
+                id="max-detour"
+                type="number"
+                value={maxDetourMeters}
+                onChange={(e) => setMaxDetourMeters(e.target.value)}
+                className="text-xs h-8"
+                placeholder="100000"
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                onClick={handleOptimizeFuel}
+                disabled={
+                  fuelOptimizationMutation.isPending || !selectedVehicleId
+                }
+                className="text-xs h-8 px-3"
+                size="sm"
+              >
+                {fuelOptimizationMutation.isPending
+                  ? "Optimizing…"
+                  : "Optimize Fuel"}
+              </Button>
+            </div>
+
+            {fuelOptimizationMutation.isError && (
+              <div className="text-xs text-red-600 dark:text-red-400 flex-wrap">
+                Optimization error
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       <div className="flex-1 min-h-0 relative w-full overflow-hidden">
         <TomTomMap ref={mapRef} />
         <LayerTogglePanel
