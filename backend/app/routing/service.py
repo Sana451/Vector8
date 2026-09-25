@@ -8,9 +8,9 @@ from sqlmodel import Session
 
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.providers.base import RoutingProvider
 from app.routing.hashing import compute_request_hash
 from app.routing.models import RouteCalculation
-from app.routing.providers.base import RoutingProvider
 from app.routing.repository import RouteCalculationRepository
 from app.routing.schemas import CalculateRouteRequest, CalculateRouteResponse
 
