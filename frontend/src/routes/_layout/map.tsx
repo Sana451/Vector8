@@ -5,7 +5,6 @@ import { getRouteOverview, searchAddress } from "@/api/map"
 import type {
   FuelStationData,
   GeocodingSearchResponse,
-  LayerError,
   TrafficLayerData,
   TruckRestrictionData,
 } from "@/client"
@@ -23,13 +22,6 @@ import {
 } from "@/components/Map/layers"
 import TomTomMap, { type TomTomMapHandle } from "@/components/Map/TomTomMap"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import useCustomToast from "@/hooks/useCustomToast"
 import { extractOverviewCoordinates } from "@/lib/mapLayers"
@@ -110,7 +102,6 @@ function MapPage() {
   const [restAreas, setRestAreas] = useState<RestAreaFeatureCollection | null>(
     null,
   )
-  const [layerErrors, setLayerErrors] = useState<Array<LayerError>>([])
   const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
 
   const resetLayers = () => {
@@ -206,8 +197,6 @@ function MapPage() {
       return await getRouteOverview(request, forceRefresh)
     },
     onSuccess: (data) => {
-      setLayerErrors(data.errors ?? [])
-
       const coordinates = extractOverviewCoordinates(data)
       if (!coordinates) {
         resetLayers()
@@ -306,23 +295,19 @@ function MapPage() {
   const mapInstance = mapRef.current?.getMapInstance() || null
 
   return (
-    <div className="p-4 h-screen flex flex-col gap-4">
-      <div className="flex gap-4 flex-wrap">
-        <Card className="flex-1 min-w-[300px]">
-          <CardHeader className="pb-3">
-            <CardTitle>Route Calculator</CardTitle>
-            <CardDescription>
-              Enter pickup and delivery addresses
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="pickup-address" className="text-sm font-medium">
-                Pickup address
-              </label>
+    <div className="flex flex-col w-full gap-2 h-[calc(100vh-100px)] overflow-hidden">
+      {/* Route Calculator - горизонтальная панель сверху */}
+      <div className="flex-shrink-0 border-b border-border/50 bg-background p-2">
+        <div className="flex flex-wrap gap-2 items-end">
+          {/* Pickup Address */}
+          <div className="flex-1 min-w-[220px]">
+            <label htmlFor="pickup-address" className="text-xs font-medium">
+              Pickup
+            </label>
+            <div className="relative">
               <Input
                 id="pickup-address"
-                placeholder="1521 Hickory Trail Allen TX 75002"
+                placeholder="1521 Hickory Trail..."
                 value={pickupAddress}
                 onChange={(e) => {
                   setPickupAddress(e.target.value)
@@ -330,30 +315,36 @@ function MapPage() {
                     setPickupSelection(null)
                   }
                 }}
+                className="text-xs h-8"
               />
               {isPickupSearching && (
-                <p className="text-xs text-gray-500">Searching address…</p>
+                <p className="text-xs text-muted-foreground absolute top-8 left-0 z-10">
+                  Searching…
+                </p>
               )}
               {pickupSuggestion &&
                 pickupSuggestion.formatted_address !==
                   pickupSelection?.formatted_address && (
                   <button
                     type="button"
-                    className="w-full rounded-md border px-3 py-2 text-left text-sm hover:bg-muted"
+                    className="absolute top-8 left-0 w-full rounded-md border px-2 py-1 text-xs hover:bg-muted bg-white dark:bg-slate-950 z-10"
                     onClick={() => applySuggestion("pickup", pickupSuggestion)}
                   >
                     {pickupSuggestion.formatted_address}
                   </button>
                 )}
             </div>
+          </div>
 
-            <div className="space-y-2">
-              <label htmlFor="delivery-address" className="text-sm font-medium">
-                Delivery address
-              </label>
+          {/* Delivery Address */}
+          <div className="flex-1 min-w-[220px]">
+            <label htmlFor="delivery-address" className="text-xs font-medium">
+              Delivery
+            </label>
+            <div className="relative">
               <Input
                 id="delivery-address"
-                placeholder="3660 Gateway Street Springfield OR 97477"
+                placeholder="3660 Gateway Street..."
                 value={deliveryAddress}
                 onChange={(e) => {
                   setDeliveryAddress(e.target.value)
@@ -361,16 +352,19 @@ function MapPage() {
                     setDeliverySelection(null)
                   }
                 }}
+                className="text-xs h-8"
               />
               {isDeliverySearching && (
-                <p className="text-xs text-gray-500">Searching address…</p>
+                <p className="text-xs text-muted-foreground absolute top-8 left-0 z-10">
+                  Searching…
+                </p>
               )}
               {deliverySuggestion &&
                 deliverySuggestion.formatted_address !==
                   deliverySelection?.formatted_address && (
                   <button
                     type="button"
-                    className="w-full rounded-md border px-3 py-2 text-left text-sm hover:bg-muted"
+                    className="absolute top-8 left-0 w-full rounded-md border px-2 py-1 text-xs hover:bg-muted bg-white dark:bg-slate-950 z-10"
                     onClick={() =>
                       applySuggestion("delivery", deliverySuggestion)
                     }
@@ -379,91 +373,54 @@ function MapPage() {
                   </button>
                 )}
             </div>
+          </div>
 
-            <div className="flex gap-2">
-              <Button
-                onClick={handleCalculateRoute}
-                disabled={mutation.isPending || !canSubmit}
-                className="flex-1"
-              >
-                {mutation.isPending ? "Calculating..." : "Calculate Route"}
-              </Button>
-              <Button
-                onClick={handleForceRefresh}
-                disabled={mutation.isPending || !canSubmit}
-                variant="outline"
-                className="flex-1"
-              >
-                Refresh
-              </Button>
+          {/* Buttons */}
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              onClick={handleCalculateRoute}
+              disabled={mutation.isPending || !canSubmit}
+              className="text-xs h-8 px-3"
+              size="sm"
+            >
+              {mutation.isPending ? "Calculating…" : "Calculate"}
+            </Button>
+            <Button
+              onClick={handleForceRefresh}
+              disabled={mutation.isPending || !canSubmit}
+              variant="outline"
+              className="text-xs h-8 px-3"
+              size="sm"
+            >
+              Refresh
+            </Button>
+          </div>
+
+          {/* Route Info */}
+          {routeInfo && (
+            <div className="flex gap-3 text-xs items-center flex-wrap">
+              <div>
+                <span className="font-medium">Distance:</span>{" "}
+                {routeInfo.distance}
+              </div>
+              <div>
+                <span className="font-medium">Duration:</span>{" "}
+                {routeInfo.duration}
+              </div>
             </div>
+          )}
 
-            {routeInfo && (
-              <div className="mt-4 p-3 bg-blue-50 rounded text-sm">
-                <p className="text-gray-700">
-                  <span className="font-medium">Distance:</span>{" "}
-                  {routeInfo.distance}
-                </p>
-                <p className="text-gray-700">
-                  <span className="font-medium">Duration:</span>{" "}
-                  {routeInfo.duration}
-                </p>
-              </div>
-            )}
-
-            {mutation.isError && (
-              <div className="mt-4 p-3 bg-red-50 rounded text-sm text-red-700">
-                Error calculating route. Try different addresses.
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="flex-1 min-w-[300px]">
-          <CardHeader className="pb-3">
-            <CardTitle>Layers</CardTitle>
-            <CardDescription>
-              Each layer is resolved independently by its provider
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-sm text-gray-600 space-y-2">
-            <p>
-              <span className="font-medium">Traffic:</span>{" "}
-              {traffic ? `${traffic.incidents?.length ?? 0} incidents` : "—"}
-            </p>
-            <p>
-              <span className="font-medium">Fuel stations:</span>{" "}
-              {fuelStations.length}
-            </p>
-            <p>
-              <span className="font-medium">Truck restrictions:</span>{" "}
-              {truckRestrictions.length}
-            </p>
-            <p>
-              <span className="font-medium">Rest areas:</span>{" "}
-              {restAreas?.features?.length ?? 0}
-            </p>
-
-            {layerErrors.length > 0 && (
-              <div className="mt-4 p-3 bg-amber-50 rounded text-amber-800 space-y-1">
-                <p className="font-medium">Some layers are unavailable:</p>
-                {layerErrors.map((error) => (
-                  <p
-                    key={`${error.layer}-${error.message}`}
-                    className="text-xs"
-                  >
-                    {error.layer}
-                    {error.provider ? ` (${error.provider})` : ""}:{" "}
-                    {error.message}
-                  </p>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          {/* Error Message */}
+          {mutation.isError && (
+            <div className="text-xs text-red-600 dark:text-red-400 flex-wrap">
+              Error calculating route
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="flex-1 min-h-0">
+      {/* Карта - занимает остальную площадь */}
+      <div className="flex-1 min-h-0 relative w-full overflow-hidden">
         <TomTomMap ref={mapRef} />
         <LayerTogglePanel
           visibleLayers={visibleLayers}
