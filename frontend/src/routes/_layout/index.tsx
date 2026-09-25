@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, Link } from "@tanstack/react-router"
 
 import useAuth from "@/hooks/useAuth"
 
@@ -59,7 +59,10 @@ function Dashboard() {
             navigation stable and out of the way for dispatch-heavy flows.
           </p>
           <div className="mt-6 list-card">
-            <div className="row-item">
+            <Link
+              to="/map"
+              className="row-item hover:bg-accent/50 transition-colors cursor-pointer"
+            >
               <div>
                 <div className="t">Routes and maps</div>
                 <div className="d">
@@ -67,7 +70,7 @@ function Dashboard() {
                 </div>
               </div>
               <span className="badge badge-teal">Ready</span>
-            </div>
+            </Link>
             <div className="row-item">
               <div>
                 <div className="t">Items & resources</div>

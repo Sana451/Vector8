@@ -42,7 +42,7 @@ import {
 import { type Coordinate, calculateBoundingBox } from "@/lib/routing"
 import { handleError } from "@/utils"
 
-export const Route = createFileRoute("/map")({
+export const Route = createFileRoute("/_layout/map")({
   component: MapPage,
 })
 
