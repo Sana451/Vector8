@@ -6,6 +6,7 @@ independent: a failing optional layer yields ``null`` / an empty list plus an
 entry in ``errors`` instead of failing the whole request.
 """
 
+import uuid
 from enum import StrEnum
 
 from pydantic import BaseModel, Field, model_validator
@@ -43,6 +44,7 @@ class LayerError(BaseModel):
 class RouteLayerData(BaseModel):
     """Route layer payload."""
 
+    id: uuid.UUID | None = None
     provider: str
     routes: list[Route]
 

@@ -4,19 +4,15 @@ Route calculation repository.
 CRUD and query operations for RouteCalculation persistence.
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 from sqlmodel import Session, select
 
+from app.core.datetime import get_datetime_utc
 from app.core.logging import get_logger
 from app.routing.models import RouteCalculation
 
 logger = get_logger(__name__)
-
-
-def get_datetime_utc() -> datetime:
-    """Get current datetime in UTC with timezone awareness."""
-    return datetime.now(UTC)
 
 
 class RouteCalculationRepository:
@@ -29,6 +25,10 @@ class RouteCalculationRepository:
             session: SQLModel session for database operations.
         """
         self.session = session
+
+    def get_by_id(self, route_id) -> RouteCalculation | None:
+        """Get route calculation by primary key."""
+        return self.session.get(RouteCalculation, route_id)
 
     def get_by_provider_and_hash(
         self,
@@ -70,7 +70,7 @@ class RouteCalculationRepository:
             return None
 
         # Check if expired - compare timezone-aware datetimes
-        now = datetime.now(UTC)
+        now = get_datetime_utc()
         if calculation.expires_at < now:
             logger.info(
                 "Route calculation cache expired",
@@ -119,7 +119,7 @@ class RouteCalculationRepository:
             existing = self.get_by_provider_and_hash(provider, request_hash)
 
             # Use timezone-aware UTC datetime for storage and comparison
-            now = datetime.now(UTC)
+            now = get_datetime_utc()
             expires_at = now + timedelta(seconds=ttl_seconds)
 
             if existing:

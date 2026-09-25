@@ -8,11 +8,12 @@ as the skeleton: fuel stations and truck restrictions are selected with
 All reads apply lazy TTL invalidation - expired rows are simply not returned.
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 from sqlalchemy import func
 from sqlmodel import Session, select
 
+from app.core.datetime import get_datetime_utc
 from app.core.logging import get_logger
 from app.map.models import (
     FuelStation,
@@ -23,11 +24,6 @@ from app.map.models import (
 from app.providers.geo import Coordinate, linestring_to_wkt, point_to_wkt
 
 logger = get_logger(__name__)
-
-
-def get_datetime_utc() -> datetime:
-    """Get current datetime in UTC with timezone awareness."""
-    return datetime.now(UTC)
 
 
 class TrafficSnapshotRepository:
@@ -64,7 +60,7 @@ class TrafficSnapshotRepository:
         if snapshot is None:
             return None
 
-        if snapshot.expires_at < datetime.now(UTC):
+        if snapshot.expires_at < get_datetime_utc():
             logger.info(
                 "Traffic snapshot cache expired",
                 provider=provider,
@@ -94,7 +90,7 @@ class TrafficSnapshotRepository:
         Returns:
             Persisted snapshot.
         """
-        now = datetime.now(UTC)
+        now = get_datetime_utc()
         expires_at = now + timedelta(seconds=ttl_seconds)
         geometry = (
             linestring_to_wkt(coordinates)
@@ -180,7 +176,7 @@ class _SpatialLayerRepository:
         statement = (
             select(self.model)
             .where(func.ST_DWithin(self.model.location, route, radius_meters))
-            .where(self.model.expires_at >= datetime.now(UTC))
+            .where(self.model.expires_at >= get_datetime_utc())
             .order_by(func.ST_Distance(self.model.location, route))
             .limit(limit)
         )
@@ -240,7 +236,7 @@ class FuelStationRepository(_SpatialLayerRepository):
             statement = statement.where(FuelStation.provider == provider)
 
         if provider != "internal":
-            statement = statement.where(FuelStation.expires_at >= datetime.now(UTC))
+            statement = statement.where(FuelStation.expires_at >= get_datetime_utc())
 
         if provider == "internal":
             statement = statement.order_by(progress_along_route, distance_to_route)
@@ -278,7 +274,7 @@ class FuelStationRepository(_SpatialLayerRepository):
         if provider == "internal" and not persist_internal:
             return len(stations)
 
-        now = datetime.now(UTC)
+        now = get_datetime_utc()
         expires_at = now + timedelta(seconds=ttl_seconds)
 
         try:
@@ -352,7 +348,7 @@ class TruckRestrictionRepository(_SpatialLayerRepository):
         Returns:
             Number of persisted rows.
         """
-        now = datetime.now(UTC)
+        now = get_datetime_utc()
         expires_at = now + timedelta(seconds=ttl_seconds)
 
         try:
@@ -403,7 +399,7 @@ class RestAreaCacheRepository:
             select(MapRestAreasCache)
             .where(MapRestAreasCache.provider == provider)
             .where(MapRestAreasCache.request_hash == request_hash)
-            .where(MapRestAreasCache.expires_at >= datetime.now(UTC))
+            .where(MapRestAreasCache.expires_at >= get_datetime_utc())
         )
         return list(self.session.exec(statement).all())
 
@@ -418,7 +414,7 @@ class RestAreaCacheRepository:
         rows: list[dict],
         ttl_seconds: int,
     ) -> int:
-        now = datetime.now(UTC)
+        now = get_datetime_utc()
         expires_at = now + timedelta(seconds=ttl_seconds)
 
         try:

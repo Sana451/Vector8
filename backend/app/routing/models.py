@@ -5,17 +5,14 @@ Persistence and domain entities for route calculations.
 """
 
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 
 from geoalchemy2 import Geography
 from sqlalchemy import JSON, DateTime
 from sqlmodel import Column, Field, SQLModel
 
-
-def get_datetime_utc() -> datetime:
-    """Get current datetime in UTC with timezone awareness."""
-    return datetime.now(UTC)
+from app.core.datetime import get_datetime_utc
 
 
 class RouteCalculation(SQLModel, table=True):

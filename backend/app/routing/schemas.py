@@ -11,6 +11,7 @@ Key design principles:
 - No direct TomTom dependency - these are application schemas
 """
 
+import uuid
 from datetime import datetime
 from enum import StrEnum
 from typing import Any, Literal
@@ -540,6 +541,7 @@ class CalculateRouteResponse(BaseModel):
     Contains one or more routes depending on maxPathAlternativeRoutes parameter.
     """
 
+    id: uuid.UUID | None = None
     routes: list[Route]
     format_version: str | None = Field(None, alias="formatVersion")
 

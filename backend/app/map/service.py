@@ -109,6 +109,7 @@ class MapLayerService:
             force_refresh=force_refresh,
         )
         route_layer = RouteLayerData(
+            id=route_response.id,
             provider=settings.ROUTING_PROVIDER,
             routes=route_response.routes,
         )
