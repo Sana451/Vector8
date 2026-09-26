@@ -68,7 +68,7 @@ class TestCalculateRouteEndpoint:
         }
 
         with patch(
-            "app.routing.providers.tomtom.TomTomProvider.calculate_route"
+            "app.providers.tomtom.routing.TomTomRoutingProvider.calculate_route"
         ) as mock_calculate:
             from app.routing.schemas import CalculateRouteResponse
 
@@ -108,7 +108,7 @@ class TestCalculateRouteEndpoint:
         }
 
         with patch(
-            "app.routing.providers.tomtom.TomTomProvider.calculate_route"
+            "app.providers.tomtom.routing.TomTomRoutingProvider.calculate_route"
         ) as mock_calculate:
             from app.routing.schemas import CalculateRouteResponse
 
@@ -143,7 +143,7 @@ class TestCalculateRouteEndpoint:
         }
 
         with patch(
-            "app.routing.providers.tomtom.TomTomProvider.calculate_route"
+            "app.providers.tomtom.routing.TomTomRoutingProvider.calculate_route"
         ) as mock_calculate:
             from app.routing.schemas import CalculateRouteResponse
 
@@ -240,7 +240,7 @@ class TestCalculateRouteEndpoint:
         }
 
         with patch(
-            "app.routing.providers.tomtom.TomTomProvider.calculate_route"
+            "app.providers.tomtom.routing.TomTomRoutingProvider.calculate_route"
         ) as mock_calculate:
             from app.routing.schemas import CalculateRouteResponse
 
@@ -277,7 +277,7 @@ class TestCalculateRouteEndpoint:
             },
         }
         with patch(
-            "app.routing.providers.tomtom.TomTomProvider.calculate_route",
+            "app.providers.tomtom.routing.TomTomRoutingProvider.calculate_route",
             new_callable=AsyncMock,
         ) as mock_calculate:
             from app.routing.exceptions import RoutingBadRequestError
@@ -308,7 +308,7 @@ class TestCalculateRouteEndpoint:
             },
         }
         with patch(
-            "app.routing.providers.tomtom.TomTomProvider.calculate_route",
+            "app.providers.tomtom.routing.TomTomRoutingProvider.calculate_route",
             new_callable=AsyncMock,
         ) as mock_calculate:
             from app.routing.exceptions import RoutingAuthenticationError
@@ -338,7 +338,7 @@ class TestCalculateRouteEndpoint:
             },
         }
         with patch(
-            "app.routing.providers.tomtom.TomTomProvider.calculate_route",
+            "app.providers.tomtom.routing.TomTomRoutingProvider.calculate_route",
             new_callable=AsyncMock,
         ) as mock_calculate:
             from app.routing.exceptions import RoutingRateLimitError
@@ -376,7 +376,7 @@ class TestDatetimeHandling:
         }
 
         with patch(
-            "app.routing.providers.tomtom.TomTomProvider.calculate_route"
+            "app.providers.tomtom.routing.TomTomRoutingProvider.calculate_route"
         ) as mock_calculate:
             from sqlmodel import Session
 
@@ -425,7 +425,7 @@ class TestDatetimeHandling:
         }
 
         with patch(
-            "app.routing.providers.tomtom.TomTomProvider.calculate_route"
+            "app.providers.tomtom.routing.TomTomRoutingProvider.calculate_route"
         ) as mock_calculate:
             from app.routing.schemas import CalculateRouteResponse
 
@@ -472,7 +472,7 @@ class TestDatetimeHandling:
         }
 
         with patch(
-            "app.routing.providers.tomtom.TomTomProvider.calculate_route"
+            "app.providers.tomtom.routing.TomTomRoutingProvider.calculate_route"
         ) as mock_calculate:
             from app.routing.schemas import CalculateRouteResponse
 

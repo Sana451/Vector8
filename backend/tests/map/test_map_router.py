@@ -17,9 +17,9 @@ from app.map.service import MapLayerService
 from app.providers.exceptions import ProviderUnavailableError
 from app.providers.here.poi import HerePoiProvider
 from app.providers.schemas import TrafficLayerData
+from app.providers.tomtom.routing import TomTomRoutingProvider
 from app.providers.tomtom.traffic import TomTomTrafficProvider
 from app.routing.exceptions import RoutingNoRouteFoundError
-from app.routing.providers.tomtom import TomTomProvider
 
 OVERVIEW_URL = "/api/v1/map/route-overview"
 
@@ -68,7 +68,7 @@ class TestRouteOverviewEndpoint:
     ):
         """Route succeeds while unconfigured layers degrade into errors."""
         with (
-            patch.object(TomTomProvider, "calculate_route") as mock_route,
+            patch.object(TomTomRoutingProvider, "calculate_route") as mock_route,
             patch.object(TomTomTrafficProvider, "get_traffic") as mock_traffic,
             patch.object(HerePoiProvider, "search_along_route") as mock_rest_areas,
         ):
@@ -123,7 +123,7 @@ class TestRouteOverviewEndpoint:
         """Requesting a subset skips the remaining layers."""
         overview_payload["layers"] = ["route", "fuel"]
 
-        with patch.object(TomTomProvider, "calculate_route") as mock_route:
+        with patch.object(TomTomRoutingProvider, "calculate_route") as mock_route:
             from app.routing.schemas import CalculateRouteResponse
 
             mock_route.return_value = CalculateRouteResponse.model_validate(
@@ -148,7 +148,7 @@ class TestRouteOverviewEndpoint:
         ``force_refresh`` bypasses the persistent route cache so the mocked
         provider is guaranteed to be called.
         """
-        with patch.object(TomTomProvider, "calculate_route") as mock_route:
+        with patch.object(TomTomRoutingProvider, "calculate_route") as mock_route:
             mock_route.side_effect = RoutingNoRouteFoundError(
                 "No route found",
                 provider="tomtom",
@@ -210,7 +210,7 @@ class TestRouteOverviewEndpoint:
 
         with (
             patch.object(TomTomGeocodingProvider, "search") as mock_geocode,
-            patch.object(TomTomProvider, "calculate_route") as mock_route,
+            patch.object(TomTomRoutingProvider, "calculate_route") as mock_route,
         ):
             from app.geocoding.schemas import GeocodingResult
             from app.providers.geo import GeoJSONPoint
@@ -255,7 +255,7 @@ class TestRouteOverviewEndpoint:
 
         with (
             patch.object(TomTomGeocodingProvider, "search") as mock_geocode,
-            patch.object(TomTomProvider, "calculate_route") as mock_route,
+            patch.object(TomTomRoutingProvider, "calculate_route") as mock_route,
         ):
             from app.geocoding.schemas import GeocodingResult
             from app.providers.geo import GeoJSONPoint
