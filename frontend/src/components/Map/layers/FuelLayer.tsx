@@ -15,9 +15,9 @@ import { useCallback, useEffect, useMemo } from "react"
 import type { FuelStationData } from "@/client"
 import { syncMapImages } from "@/lib/mapImages"
 import {
-  mapObjectZoom,
-  shouldShowClusters,
-  shouldShowMapObjects,
+  // mapObjectZoom,
+  // shouldShowClusters,
+  // shouldShowMapObjects,
   shouldShowObjectLabels,
 } from "@/lib/mapLayerInteraction"
 import { buildFuelFeatures } from "@/lib/mapLayers"
@@ -27,8 +27,8 @@ import { type LayerWithVisibility, useGeoJsonLayer } from "./useGeoJsonLayer"
 const SOURCE_ID = "fuel-stations"
 const DROP_LAYER_ID = "fuel-stations-drops"
 const LABEL_LAYER_ID = "fuel-stations-label"
-const CLUSTER_CIRCLE_LAYER_ID = "fuel-cluster-circle"
-const CLUSTER_TEXT_LAYER_ID = "fuel-cluster-text"
+// const CLUSTER_CIRCLE_LAYER_ID = "fuel-cluster-circle"
+// const CLUSTER_TEXT_LAYER_ID = "fuel-cluster-text"
 
 interface FuelLayerProps {
   mapInstance: MapLibreMap | null
@@ -167,43 +167,44 @@ export function FuelLayer({ mapInstance, stations }: FuelLayerProps) {
   const buildLayers = useCallback((sourceId: string): LayerWithVisibility[] => {
     const layers = [
       // Cluster circles for x2-x3
-      {
-        id: CLUSTER_CIRCLE_LAYER_ID,
-        type: "circle",
-        source: sourceId,
-        filter: ["has", "point_count"],
-        shouldBeVisible: shouldShowClusters,
-        paint: {
-          "circle-color": colorPalette.fuel.available,
-          "circle-radius": ["step", ["get", "point_count"], 18, 10, 20, 25, 22],
-          "circle-opacity": 0.8,
-          "circle-stroke-color": "#ffffff",
-          "circle-stroke-width": 2,
-        },
-      },
-      // Cluster count text for x2-x3
-      {
-        id: CLUSTER_TEXT_LAYER_ID,
-        type: "symbol",
-        source: sourceId,
-        filter: ["has", "point_count"],
-        shouldBeVisible: shouldShowClusters,
-        layout: {
-          "text-field": "{point_count_abbreviated}",
-          "text-size": 12,
-          "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
-        },
-        paint: {
-          "text-color": "#ffffff",
-        },
-      },
+      // {
+      //   id: CLUSTER_CIRCLE_LAYER_ID,
+      //   type: "circle",
+      //   source: sourceId,
+      //   filter: ["has", "point_count"],
+      //   shouldBeVisible: shouldShowClusters,
+      //   paint: {
+      //     "circle-color": colorPalette.fuel.available,
+      //     "circle-radius": ["step", ["get", "point_count"], 18, 10, 20, 25, 22],
+      //     "circle-opacity": 0.8,
+      //     "circle-stroke-color": "#ffffff",
+      //     "circle-stroke-width": 2,
+      //   },
+      // },
+      // // Cluster count text for x2-x3
+      // {
+      //   id: CLUSTER_TEXT_LAYER_ID,
+      //   type: "symbol",
+      //   source: sourceId,
+      //   filter: ["has", "point_count"],
+      //   shouldBeVisible: shouldShowClusters,
+      //   layout: {
+      //     "text-field": "{point_count_abbreviated}",
+      //     "text-size": 12,
+      //     "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+      //   },
+      //   paint: {
+      //     "text-color": "#ffffff",
+      //   },
+      // },
       // Individual drop markers from x2 and up
       {
         id: DROP_LAYER_ID,
         type: "symbol",
         source: sourceId,
         filter: ["!", ["has", "point_count"]],
-        shouldBeVisible: shouldShowMapObjects,
+        shouldBeVisible: () => true,
+        // shouldBeVisible: shouldShowMapObjects,
         layout: {
           "icon-image": [
             "case",
@@ -247,11 +248,11 @@ export function FuelLayer({ mapInstance, stations }: FuelLayerProps) {
     sourceId: SOURCE_ID,
     buildLayers,
     data,
-    clusterOptions: {
-      enabled: true,
-      radius: 30,
-      maxZoom: mapObjectZoom.clusterMax,
-    },
+    // clusterOptions: {
+    //   enabled: true,
+    //   radius: 30,
+    //   maxZoom: mapObjectZoom.clusterMax,
+    // },
   })
 
   useEffect(() => {
