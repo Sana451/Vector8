@@ -589,11 +589,11 @@ export type FuelStationData = {
     /**
      * Medium Truck Accessible
      */
-    medium_truck_accessible?: boolean;
+    medium_truck_accessible?: boolean | null;
     /**
      * Large Truck Accessible
      */
-    large_truck_accessible?: boolean;
+    large_truck_accessible?: boolean | null;
     /**
      * Raw
      */
@@ -965,6 +965,38 @@ export type ProgressPoint = {
      * Traveldurationinseconds
      */
     travelDurationInSeconds: number;
+};
+
+/**
+ * PumpPriceImportMobileResponse
+ *
+ * Summary of a synchronous PumpPrice import from mobile app run.
+ */
+export type PumpPriceImportMobileResponse = {
+    /**
+     * Source Provider
+     */
+    source_provider?: string;
+    /**
+     * Persisted Provider
+     */
+    persisted_provider?: string;
+    /**
+     * Stations Received
+     */
+    stations_received?: number;
+    /**
+     * Unique Stations
+     */
+    unique_stations?: number;
+    /**
+     * Duplicates Discarded
+     */
+    duplicates_discarded?: number;
+    /**
+     * Persisted Stations
+     */
+    persisted_stations?: number;
 };
 
 /**
@@ -2638,6 +2670,22 @@ export type fuelImportPumppriceFuelResponses = {
 };
 
 export type fuelImportPumppriceFuelResponse = fuelImportPumppriceFuelResponses[keyof fuelImportPumppriceFuelResponses];
+
+export type fuelImportPumppriceMobileData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/fuel/import/pumpprice/mobile';
+};
+
+export type fuelImportPumppriceMobileResponses = {
+    /**
+     * Successful Response
+     */
+    200: PumpPriceImportMobileResponse;
+};
+
+export type fuelImportPumppriceMobileResponse = fuelImportPumppriceMobileResponses[keyof fuelImportPumppriceMobileResponses];
 
 export type fuelOptimizationCalculateFuelOptimizationData = {
     body: FuelOptimizationCalculateRequest;

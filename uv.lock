@@ -72,6 +72,7 @@ dependencies = [
     { name = "email-validator" },
     { name = "emails" },
     { name = "fastapi", extra = ["standard"] },
+    { name = "flexpolyline" },
     { name = "geoalchemy2" },
     { name = "httpx" },
     { name = "jinja2" },
@@ -103,6 +104,7 @@ requires-dist = [
     { name = "email-validator", specifier = ">=2.1.0.post1,<3.0.0.0" },
     { name = "emails", specifier = ">=1.1.2,<2.0" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.141.1,<1.0.0" },
+    { name = "flexpolyline", specifier = ">=0.1.0" },
     { name = "geoalchemy2", specifier = ">=0.14.0,<1.0.0" },
     { name = "httpx", specifier = ">=0.25.1,<1.0.0" },
     { name = "jinja2", specifier = ">=3.1.4,<4.0.0" },
@@ -579,6 +581,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/83/18/7a7c15657a3da5569b26fc51cde6a80f8d84cb54b3b1aea6d74a103db4ad/fastar-0.11.0-cp314-cp314t-win32.whl", hash = "sha256:5744551bc67c6fc6581cbd0e34a0fd6e2cd0bd30b43e94b1c3119cf35064b162", size = 453601, upload-time = "2026-04-13T17:11:53.726Z" },
     { url = "https://files.pythonhosted.org/packages/6d/d8/331b59a6de279f3ad75c10c02c40a12f21d64a437d9c3d6f1af2dcbd7a76/fastar-0.11.0-cp314-cp314t-win_amd64.whl", hash = "sha256:f4ce44e3b56c47cf38244b98d29f269b259740a580c47a2552efa5b96a5458fb", size = 486436, upload-time = "2026-04-13T17:11:40.089Z" },
     { url = "https://files.pythonhosted.org/packages/6b/fd/5390ec4f49100f3ecb9968a392f9e6d039f1e3fe0ecd28443716ff01e589/fastar-0.11.0-cp314-cp314t-win_arm64.whl", hash = "sha256:76c1359314355eafbc6989f20fb1ad565a3d10200117923b9da765a17e2f6f11", size = 461049, upload-time = "2026-04-13T17:11:25.918Z" },
+]
+
+[[package]]
+name = "flexpolyline"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/4d/04/ad15ba222feeeea012919eccbec65d86a91e94024541ed8ebb549b4784e0/flexpolyline-0.1.0.tar.gz", hash = "sha256:69dde225ff91c66c0f6f80044c5fa3e82d905d725608cb99d087c2bb3aeedbbd", size = 6269, upload-time = "2020-11-21T15:39:39.962Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/91/2e/fb9266e90483bdbd4f94bd3467732ae99828e21963901adafe6e43f62327/flexpolyline-0.1.0-py3-none-any.whl", hash = "sha256:3f346fb44e40f9d977b0c9609e73aa5a20431d6584644943ca70b365c9558a99", size = 7094, upload-time = "2020-11-21T15:39:38.12Z" },
 ]
 
 [[package]]

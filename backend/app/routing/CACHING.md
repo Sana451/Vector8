@@ -561,7 +561,7 @@ curl -X POST http://localhost:8000/api/v1/routing/routes/calculate \
 ```python
 class Settings(BaseSettings):
     # ...
-    ROUTING_PROVIDER: str = "tomtom"
+    ROUTING_PROVIDER: Literal["tomtom", "here"] = "here"
     ROUTE_CALCULATION_CACHE_TTL_SECONDS: int = 3600  # 1 час
 ```
 

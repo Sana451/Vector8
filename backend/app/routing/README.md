@@ -98,7 +98,7 @@ Add to `.env`:
 
 ```env
 # Routing provider (currently: tomtom)
-ROUTING_PROVIDER=tomtom
+ROUTING_PROVIDER: Literal["tomtom", "here"] = "here"
 
 # TomTom API configuration
 TOMTOM_API_KEY=your-api-key-here
@@ -291,7 +291,7 @@ Each exception preserves:
 1. Create `app/routing/providers/new_provider.py`:
 
 ```python
-from app.routing.providers.base import RoutingProvider
+from app.providers.base import RoutingProvider
 from app.routing.schemas import CalculateRouteRequest, CalculateRouteResponse
 
 

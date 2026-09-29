@@ -3,7 +3,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.deps import SessionDep, get_current_active_superuser
-from app.fuel.schemas import PumpPriceImportRequest, PumpPriceImportResponse
+from app.fuel.schemas import (
+    PumpPriceImportMobileResponse,
+    PumpPriceImportRequest,
+    PumpPriceImportResponse,
+)
 from app.fuel.service import PumpPriceImportService
 from app.map.repository import FuelStationRepository
 from app.providers.exceptions import ProviderAuthenticationError, ProviderError
@@ -24,6 +28,38 @@ async def import_pumpprice_fuel(
     service = PumpPriceImportService(FuelStationRepository(session))
     try:
         return await service.import_prices(request)
+    except ProviderAuthenticationError as exc:
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "message": exc.message,
+                "provider": exc.provider,
+                "provider_code": exc.provider_code,
+            },
+        ) from exc
+    except ProviderError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "message": exc.message,
+                "provider": exc.provider,
+                "provider_code": exc.provider_code,
+            },
+        ) from exc
+
+
+@router.post(
+    "/import/pumpprice/mobile",
+    response_model=PumpPriceImportMobileResponse,
+    dependencies=[Depends(get_current_active_superuser)],
+)
+async def import_pumpprice_mobile(
+    session: SessionDep,
+) -> PumpPriceImportMobileResponse:
+    """Synchronously import PumpPrice mobile fuel prices into cached internal stations."""
+    service = PumpPriceImportService(FuelStationRepository(session))
+    try:
+        return await service.import_prices_mobile()
     except ProviderAuthenticationError as exc:
         raise HTTPException(
             status_code=401,

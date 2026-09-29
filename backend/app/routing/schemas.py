@@ -1,14 +1,10 @@
 """
-Routing schemas and data models.
+Provider-independent routing models.
 
-This module defines typed request and response models for the routing API,
-following the TomTom Calculate Route API v3 structure with full feature support.
+These schemas represent the application's canonical routing contract.
 
-Key design principles:
-- coordinates are [longitude, latitude] (GeoJSON standard)
-- All models use Pydantic for validation
-- Optional fields for provider-specific features
-- No direct TomTom dependency - these are application schemas
+Routing providers (TomTom, HERE, etc.) transform their native API formats
+into these models.
 """
 
 import uuid
@@ -16,7 +12,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # GeoJSON models are shared across all map layer domains and live in
 # app.providers.geo. They are imported here so that existing
@@ -347,9 +343,10 @@ class ProgressPoint(BaseModel):
     distance_in_meters: int = Field(alias="distanceInMeters")
     travel_duration_in_seconds: int = Field(alias="travelDurationInSeconds")
 
-    class Config:
-        extra = "ignore"  # Allow additional TomTom fields
-        populate_by_name = True
+    model_config = ConfigDict(
+        extra="ignore",  # Allow additional TomTom fields
+        populate_by_name=True,
+    )
 
 
 class DeviationPoint(BaseModel):
@@ -358,9 +355,10 @@ class DeviationPoint(BaseModel):
     point: GeoJSONPoint
     path_index: int = Field(alias="pathIndex")
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(
+        extra="ignore",
+        populate_by_name=True,
+    )
 
 
 class TrafficCause(BaseModel):
@@ -369,9 +367,10 @@ class TrafficCause(BaseModel):
     main_cause_code: str | None = Field(None, alias="mainCauseCode")
     sub_cause_code: str | None = Field(None, alias="subCauseCode")
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(
+        extra="ignore",
+        populate_by_name=True,
+    )
 
 
 class Tec(BaseModel):
@@ -380,9 +379,10 @@ class Tec(BaseModel):
     effect_code: str | None = Field(None, alias="effectCode")
     causes: list[TrafficCause] | None = None
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(
+        extra="ignore",
+        populate_by_name=True,
+    )
 
 
 class TrafficSection(BaseModel):
@@ -399,9 +399,10 @@ class TrafficSection(BaseModel):
     tec: Tec | None = None
     event_id: int | None = Field(None, alias="eventId")
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(
+        extra="ignore",
+        populate_by_name=True,
+    )
 
 
 class SpeedRestriction(BaseModel):
@@ -410,9 +411,10 @@ class SpeedRestriction(BaseModel):
     type: str | None = None
     in_kilometers_per_hour: int | None = Field(None, alias="inKilometersPerHour")
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(
+        extra="ignore",
+        populate_by_name=True,
+    )
 
 
 class SpeedLimitSection(BaseModel):
@@ -424,9 +426,10 @@ class SpeedLimitSection(BaseModel):
         None, alias="speedRestrictions"
     )
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(
+        extra="ignore",
+        populate_by_name=True,
+    )
 
 
 class CountrySection(BaseModel):
@@ -436,9 +439,10 @@ class CountrySection(BaseModel):
     end_path_index: int = Field(alias="endPathIndex")
     country_code_iso2: str | None = Field(None, alias="countryCodeISO2")
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(
+        extra="ignore",
+        populate_by_name=True,
+    )
 
 
 class Section(BaseModel):
@@ -449,9 +453,10 @@ class Section(BaseModel):
     sectionType: str | None = None
 
     # Allow all provider-specific fields
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(
+        extra="ignore",
+        populate_by_name=True,
+    )
 
 
 class RouteSummary(BaseModel):
@@ -474,9 +479,10 @@ class RouteSummary(BaseModel):
     deviation_point: DeviationPoint | None = Field(None, alias="deviationPoint")
     progress_points: list[ProgressPoint] | None = Field(None, alias="progressPoints")
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(
+        extra="ignore",
+        populate_by_name=True,
+    )
 
 
 class Leg(BaseModel):
@@ -485,9 +491,10 @@ class Leg(BaseModel):
     summary: RouteSummary
     path: GeoJSONLineString | None = None
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(
+        extra="ignore",
+        populate_by_name=True,
+    )
 
 
 class Route(BaseModel):
@@ -530,9 +537,10 @@ class Route(BaseModel):
                 data["sections"] = flattened_sections
         return data
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(
+        extra="ignore",
+        populate_by_name=True,
+    )
 
 
 class CalculateRouteResponse(BaseModel):
@@ -545,6 +553,7 @@ class CalculateRouteResponse(BaseModel):
     routes: list[Route]
     format_version: str | None = Field(None, alias="formatVersion")
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(
+        extra="ignore",
+        populate_by_name=True,
+    )

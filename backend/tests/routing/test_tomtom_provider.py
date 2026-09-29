@@ -174,6 +174,7 @@ class TestTomTomProviderCalculateRoute:
         """Test successful route calculation."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 200
+        mock_response.headers = httpx.Headers()
         mock_response.json.return_value = tomtom_success_response
 
         with patch.object(httpx, "AsyncClient") as mock_client_class:
@@ -195,6 +196,7 @@ class TestTomTomProviderCalculateRoute:
         mock_client = AsyncMock(spec=httpx.AsyncClient)
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 200
+        mock_response.headers = httpx.Headers()
         mock_response.json.return_value = tomtom_success_response
         mock_client.post.return_value = mock_response
 
@@ -222,6 +224,7 @@ class TestTomTomProviderCalculateRoute:
         """Test 400 error handling."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 400
+        mock_response.headers = httpx.Headers()
         mock_response.json.return_value = tomtom_error_response
 
         with patch.object(httpx, "AsyncClient") as mock_client_class:
@@ -239,6 +242,7 @@ class TestTomTomProviderCalculateRoute:
         """Test 403 authentication error handling."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 403
+        mock_response.headers = httpx.Headers()
         mock_response.json.return_value = {"message": "Invalid API key"}
 
         with patch.object(httpx, "AsyncClient") as mock_client_class:
@@ -256,6 +260,7 @@ class TestTomTomProviderCalculateRoute:
         """Test 429 rate limit handling."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 429
+        mock_response.headers = httpx.Headers()
         mock_response.json.return_value = {"message": "Rate limit exceeded"}
 
         with patch.object(httpx, "AsyncClient") as mock_client_class:
@@ -273,6 +278,7 @@ class TestTomTomProviderCalculateRoute:
         """Test 503 unavailable error handling."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 503
+        mock_response.headers = httpx.Headers()
         mock_response.json.return_value = {"message": "Service unavailable"}
 
         with patch.object(httpx, "AsyncClient") as mock_client_class:
