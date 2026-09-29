@@ -66,6 +66,9 @@ services:
       HERE_FUEL_BASE_URL: ${HERE_FUEL_BASE_URL:-https://fuel.hereapi.com}
       HERE_FUEL_CORRIDOR_WIDTH: ${HERE_FUEL_CORRIDOR_WIDTH:-1000}
       HERE_FUEL_LIMIT: ${HERE_FUEL_LIMIT:-1000}
+      HERE_ROUTING_BASE_URL: ${HERE_ROUTING_BASE_URL:-https://router.hereapi.com}
+      PUMPPRICE_MOBILE_EMAIL: ${PUMPPRICE_MOBILE_EMAIL:-}
+      PUMPPRICE_MOBILE_PASSWORD: ${PUMPPRICE_MOBILE_PASSWORD:-}
     labels:
       # Route HTTPS traffic for this domain
       - traefik.http.routers.backend-https.rule=Host(`${DOMAIN:?Variable not set}`)
