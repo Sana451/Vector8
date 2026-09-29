@@ -6,18 +6,33 @@ Tests HTTP API endpoints and request/response handling.
 
 import json
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlmodel import select
 
 from app.main import app
+from app.routing.schemas import CalculateRouteResponse
 
 
 @pytest.fixture
 def client():
     """Create test client."""
     return TestClient(app)
+
+
+@pytest.fixture
+def mock_routing_provider():
+    """Provide a mocked routing provider for endpoint tests."""
+    from app.routing.dependencies import get_routing_provider
+
+    provider = AsyncMock()
+    app.dependency_overrides[get_routing_provider] = lambda: provider
+
+    yield provider
+
+    app.dependency_overrides.pop(get_routing_provider, None)
 
 
 @pytest.fixture
@@ -30,13 +45,13 @@ def clear_cache():
 
     # Clear cache
     with Session(engine) as session:
-        for record in session.query(RouteCalculation).all():
+        for record in session.exec(select(RouteCalculation)).all():
             session.delete(record)
         session.commit()
     yield
     # Cleanup
     with Session(engine) as session:
-        for record in session.query(RouteCalculation).all():
+        for record in session.exec(select(RouteCalculation)).all():
             session.delete(record)
         session.commit()
 
@@ -52,7 +67,12 @@ def tomtom_success_response():
 class TestCalculateRouteEndpoint:
     """Test POST /api/v1/routing/routes/calculate endpoint."""
 
-    def test_calculate_route_basic_request(self, client, tomtom_success_response):
+    def test_calculate_route_basic_request(
+        self,
+        client,
+        tomtom_success_response,
+        mock_routing_provider,
+    ):
         """Test basic route calculation request."""
         request_body = {
             "route_planning_locations": {
@@ -67,25 +87,20 @@ class TestCalculateRouteEndpoint:
             },
         }
 
-        with patch(
-            "app.routing.providers.tomtom.TomTomProvider.calculate_route"
-        ) as mock_calculate:
-            from app.routing.schemas import CalculateRouteResponse
+        mock_response = CalculateRouteResponse.model_validate(tomtom_success_response)
+        mock_routing_provider.calculate_route.return_value = mock_response
 
-            mock_response = CalculateRouteResponse.model_validate(
-                tomtom_success_response
-            )
-            mock_calculate.return_value = mock_response
+        response = client.post("/api/v1/routing/routes/calculate", json=request_body)
+        assert response.status_code == 200
+        mock_routing_provider.calculate_route.assert_awaited_once()
 
-            response = client.post(
-                "/api/v1/routing/routes/calculate", json=request_body
-            )
-            assert response.status_code == 200
-            data = response.json()
-            assert "routes" in data
-            assert len(data["routes"]) > 0
+        data = response.json()
+        assert "routes" in data
+        assert len(data["routes"]) > 0
 
-    def test_calculate_route_with_waypoints(self, client, tomtom_success_response):
+    def test_calculate_route_with_waypoints(
+        self, client, tomtom_success_response, mock_routing_provider
+    ):
         """Test route calculation with waypoints."""
         request_body = {
             "route_planning_locations": {
@@ -107,22 +122,16 @@ class TestCalculateRouteEndpoint:
             },
         }
 
-        with patch(
-            "app.routing.providers.tomtom.TomTomProvider.calculate_route"
-        ) as mock_calculate:
-            from app.routing.schemas import CalculateRouteResponse
+        mock_response = CalculateRouteResponse.model_validate(tomtom_success_response)
+        mock_routing_provider.calculate_route.return_value = mock_response
 
-            mock_response = CalculateRouteResponse.model_validate(
-                tomtom_success_response
-            )
-            mock_calculate.return_value = mock_response
+        response = client.post("/api/v1/routing/routes/calculate", json=request_body)
+        assert response.status_code == 200
+        mock_routing_provider.calculate_route.assert_awaited_once()
 
-            response = client.post(
-                "/api/v1/routing/routes/calculate", json=request_body
-            )
-            assert response.status_code == 200
-
-    def test_calculate_route_with_options(self, client, tomtom_success_response):
+    def test_calculate_route_with_options(
+        self, client, tomtom_success_response, mock_routing_provider
+    ):
         """Test route calculation with various options."""
         request_body = {
             "route_planning_locations": {
@@ -142,20 +151,12 @@ class TestCalculateRouteEndpoint:
             "vehicle_max_speed_in_kilometers_per_hour": 100,
         }
 
-        with patch(
-            "app.routing.providers.tomtom.TomTomProvider.calculate_route"
-        ) as mock_calculate:
-            from app.routing.schemas import CalculateRouteResponse
+        mock_response = CalculateRouteResponse.model_validate(tomtom_success_response)
+        mock_routing_provider.calculate_route.return_value = mock_response
 
-            mock_response = CalculateRouteResponse.model_validate(
-                tomtom_success_response
-            )
-            mock_calculate.return_value = mock_response
-
-            response = client.post(
-                "/api/v1/routing/routes/calculate", json=request_body
-            )
-            assert response.status_code == 200
+        response = client.post("/api/v1/routing/routes/calculate", json=request_body)
+        assert response.status_code == 200
+        mock_routing_provider.calculate_route.assert_awaited_once()
 
     def test_calculate_route_invalid_coordinates(self, client):
         """Test request with invalid coordinates."""
@@ -222,7 +223,7 @@ class TestCalculateRouteEndpoint:
         response = client.post("/api/v1/routing/routes/calculate", json=request_body)
         assert response.status_code == 422  # Validation error
 
-    def test_endpoint_exists(self, client):
+    def test_endpoint_exists(self, client, mock_routing_provider):
         """Test that endpoint exists and has correct path."""
         # This test just verifies the endpoint is registered
         # A proper request should return either 200 or 422 (validation), not 404
@@ -239,30 +240,28 @@ class TestCalculateRouteEndpoint:
             },
         }
 
-        with patch(
-            "app.routing.providers.tomtom.TomTomProvider.calculate_route"
-        ) as mock_calculate:
-            from app.routing.schemas import CalculateRouteResponse
-
-            # Create a minimal success response
-            mock_response = CalculateRouteResponse(
-                routes=[
-                    {
-                        "summary": {
-                            "length_in_meters": 100,
-                            "travel_duration_in_seconds": 60,
-                        }
+        # Create a minimal success response
+        mock_response = CalculateRouteResponse(
+            routes=[
+                {
+                    "summary": {
+                        "length_in_meters": 100,
+                        "travel_duration_in_seconds": 60,
                     }
-                ]
-            )
-            mock_calculate.return_value = mock_response
+                }
+            ]
+        )
+        mock_routing_provider.calculate_route.return_value = mock_response
 
-            response = client.post(
-                "/api/v1/routing/routes/calculate", json=request_body
-            )
-            assert response.status_code != 404
+        response = client.post("/api/v1/routing/routes/calculate", json=request_body)
+        assert response.status_code != 404
 
-    def test_calculate_route_bad_request_error(self, client, clear_cache):
+    def test_calculate_route_bad_request_error(
+        self,
+        client,
+        clear_cache,
+        mock_routing_provider,
+    ):
         """Test handling of RoutingBadRequestError."""
         request_body = {
             "route_planning_locations": {
@@ -276,24 +275,21 @@ class TestCalculateRouteEndpoint:
                 },
             },
         }
-        with patch(
-            "app.routing.providers.tomtom.TomTomProvider.calculate_route",
-            new_callable=AsyncMock,
-        ) as mock_calculate:
-            from app.routing.exceptions import RoutingBadRequestError
 
-            mock_calculate.side_effect = RoutingBadRequestError(
-                "No route found",
-                provider="tomtom",
-                provider_code="NO_ROUTE_FOUND",
-                status_code=400,
-            )
-            response = client.post(
-                "/api/v1/routing/routes/calculate", json=request_body
-            )
-            assert response.status_code == 400
+        from app.routing.exceptions import RoutingBadRequestError
 
-    def test_calculate_route_authentication_error(self, client, clear_cache):
+        mock_routing_provider.calculate_route.side_effect = RoutingBadRequestError(
+            "No route found",
+            provider="test",
+            provider_code="NO_ROUTE_FOUND",
+            status_code=400,
+        )
+        response = client.post("/api/v1/routing/routes/calculate", json=request_body)
+        assert response.status_code == 400
+
+    def test_calculate_route_authentication_error(
+        self, client, clear_cache, mock_routing_provider
+    ):
         """Test handling of RoutingAuthenticationError."""
         request_body = {
             "route_planning_locations": {
@@ -307,23 +303,20 @@ class TestCalculateRouteEndpoint:
                 },
             },
         }
-        with patch(
-            "app.routing.providers.tomtom.TomTomProvider.calculate_route",
-            new_callable=AsyncMock,
-        ) as mock_calculate:
-            from app.routing.exceptions import RoutingAuthenticationError
 
-            mock_calculate.side_effect = RoutingAuthenticationError(
-                "Invalid API key",
-                provider="tomtom",
-                status_code=403,
-            )
-            response = client.post(
-                "/api/v1/routing/routes/calculate", json=request_body
-            )
-            assert response.status_code == 403
+        from app.routing.exceptions import RoutingAuthenticationError
 
-    def test_calculate_route_rate_limit_error(self, client, clear_cache):
+        mock_routing_provider.calculate_route.side_effect = RoutingAuthenticationError(
+            "Invalid API key",
+            provider="test",
+            status_code=403,
+        )
+        response = client.post("/api/v1/routing/routes/calculate", json=request_body)
+        assert response.status_code == 403
+
+    def test_calculate_route_rate_limit_error(
+        self, client, clear_cache, mock_routing_provider
+    ):
         """Test handling of RoutingRateLimitError."""
         request_body = {
             "route_planning_locations": {
@@ -337,28 +330,22 @@ class TestCalculateRouteEndpoint:
                 },
             },
         }
-        with patch(
-            "app.routing.providers.tomtom.TomTomProvider.calculate_route",
-            new_callable=AsyncMock,
-        ) as mock_calculate:
-            from app.routing.exceptions import RoutingRateLimitError
+        from app.routing.exceptions import RoutingRateLimitError
 
-            mock_calculate.side_effect = RoutingRateLimitError(
-                "Rate limit exceeded",
-                provider="tomtom",
-                status_code=429,
-            )
-            response = client.post(
-                "/api/v1/routing/routes/calculate", json=request_body
-            )
-            assert response.status_code == 429
+        mock_routing_provider.calculate_route.side_effect = RoutingRateLimitError(
+            "Rate limit exceeded",
+            provider="test",
+            status_code=429,
+        )
+        response = client.post("/api/v1/routing/routes/calculate", json=request_body)
+        assert response.status_code == 429
 
 
 class TestDatetimeHandling:
     """Test timezone-aware datetime handling in route calculations."""
 
     def test_created_at_is_timezone_aware(
-        self, client, clear_cache, tomtom_success_response
+        self, client, clear_cache, tomtom_success_response, mock_routing_provider
     ):
         """Test that created_at is stored as timezone-aware datetime."""
 
@@ -375,40 +362,40 @@ class TestDatetimeHandling:
             },
         }
 
-        with patch(
-            "app.routing.providers.tomtom.TomTomProvider.calculate_route"
-        ) as mock_calculate:
-            from sqlmodel import Session
+        from sqlmodel import Session
 
-            from app.core.db import engine
-            from app.routing.models import RouteCalculation
-            from app.routing.schemas import CalculateRouteResponse
+        from app.core.db import engine
+        from app.routing.models import RouteCalculation
 
-            mock_response = CalculateRouteResponse.model_validate(
-                tomtom_success_response
+        mock_response = CalculateRouteResponse.model_validate(tomtom_success_response)
+        mock_routing_provider.calculate_route.return_value = mock_response
+
+        response = client.post(
+            "/api/v1/routing/routes/calculate",
+            json=request_body,
+        )
+        assert response.status_code == 200
+        assert mock_routing_provider.calculate_route.call_count == 1
+
+        # Verify stored record has timezone-aware datetime
+        with Session(engine) as session:
+            records = session.exec(select(RouteCalculation)).all()
+            assert len(records) > 0
+            record = records[0]
+            # Check that created_at has timezone info
+            assert record.created_at.tzinfo is not None, (
+                "created_at must be timezone-aware"
             )
-            mock_calculate.return_value = mock_response
-
-            response = client.post(
-                "/api/v1/routing/routes/calculate", json=request_body
+            assert record.expires_at.tzinfo is not None, (
+                "expires_at must be timezone-aware"
             )
-            assert response.status_code == 200
-
-            # Verify stored record has timezone-aware datetime
-            with Session(engine) as session:
-                records = session.query(RouteCalculation).all()
-                assert len(records) > 0
-                record = records[0]
-                # Check that created_at has timezone info
-                assert record.created_at.tzinfo is not None, (
-                    "created_at must be timezone-aware"
-                )
-                assert record.expires_at.tzinfo is not None, (
-                    "expires_at must be timezone-aware"
-                )
 
     def test_cache_hit_on_second_request(
-        self, client, clear_cache, tomtom_success_response
+        self,
+        client,
+        clear_cache,
+        tomtom_success_response,
+        mock_routing_provider,
     ):
         """Test that second identical request uses cache (doesn't call provider again)."""
         request_body = {
@@ -424,38 +411,25 @@ class TestDatetimeHandling:
             },
         }
 
-        with patch(
-            "app.routing.providers.tomtom.TomTomProvider.calculate_route"
-        ) as mock_calculate:
-            from app.routing.schemas import CalculateRouteResponse
+        mock_response = CalculateRouteResponse.model_validate(tomtom_success_response)
+        mock_routing_provider.calculate_route.return_value = mock_response
 
-            mock_response = CalculateRouteResponse.model_validate(
-                tomtom_success_response
-            )
-            mock_calculate.return_value = mock_response
+        # First request - should call provider
+        response1 = client.post("/api/v1/routing/routes/calculate", json=request_body)
+        assert response1.status_code == 200
+        assert mock_routing_provider.calculate_route.call_count == 1
 
-            # First request - should call provider
-            response1 = client.post(
-                "/api/v1/routing/routes/calculate", json=request_body
-            )
-            assert response1.status_code == 200
-            assert mock_calculate.call_count == 1
+        # Second request - should use cache (not call provider)
+        response2 = client.post("/api/v1/routing/routes/calculate", json=request_body)
+        assert response2.status_code == 200
+        # Should still be 1 call (not incremented)
+        assert mock_routing_provider.calculate_route.call_count == 1
 
-            # Second request - should use cache (not call provider)
-            response2 = client.post(
-                "/api/v1/routing/routes/calculate", json=request_body
-            )
-            assert response2.status_code == 200
-            # Should still be 1 call (not incremented)
-            assert mock_calculate.call_count == 1, (
-                "Provider should not be called again for cached request"
-            )
-
-            # Responses should be identical
-            assert response1.json() == response2.json()
+        # Responses should be identical
+        assert response1.json() == response2.json()
 
     def test_force_refresh_bypasses_cache(
-        self, client, clear_cache, tomtom_success_response
+        self, client, clear_cache, tomtom_success_response, mock_routing_provider
     ):
         """Test that force_refresh=true bypasses cache and calls provider."""
         request_body = {
@@ -471,28 +445,17 @@ class TestDatetimeHandling:
             },
         }
 
-        with patch(
-            "app.routing.providers.tomtom.TomTomProvider.calculate_route"
-        ) as mock_calculate:
-            from app.routing.schemas import CalculateRouteResponse
+        mock_response = CalculateRouteResponse.model_validate(tomtom_success_response)
+        mock_routing_provider.calculate_route.return_value = mock_response
 
-            mock_response = CalculateRouteResponse.model_validate(
-                tomtom_success_response
-            )
-            mock_calculate.return_value = mock_response
+        # First request - calls provider
+        response1 = client.post("/api/v1/routing/routes/calculate", json=request_body)
+        assert response1.status_code == 200
+        assert mock_routing_provider.calculate_route.call_count == 1
 
-            # First request - calls provider
-            response1 = client.post(
-                "/api/v1/routing/routes/calculate", json=request_body
-            )
-            assert response1.status_code == 200
-            assert mock_calculate.call_count == 1
-
-            # Second request with force_refresh=true - should call provider again
-            response2 = client.post(
-                "/api/v1/routing/routes/calculate?force_refresh=true", json=request_body
-            )
-            assert response2.status_code == 200
-            assert mock_calculate.call_count == 2, (
-                "Provider should be called again with force_refresh=true"
-            )
+        # Second request with force_refresh=true - should call provider again
+        response2 = client.post(
+            "/api/v1/routing/routes/calculate?force_refresh=true", json=request_body
+        )
+        assert response2.status_code == 200
+        assert mock_routing_provider.calculate_route.call_count == 2

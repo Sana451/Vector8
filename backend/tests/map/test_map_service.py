@@ -222,7 +222,7 @@ class TestMapLayerServiceSuccess:
 
         assert result.route is not None
         assert result.route.id == route_id
-        assert result.route.provider == "tomtom"
+        assert result.route.provider == settings.ROUTING_PROVIDER
         assert result.configured_providers.route == settings.ROUTING_PROVIDER
         assert len(result.route.routes) == 1
         assert result.traffic is not None

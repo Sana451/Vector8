@@ -6,20 +6,23 @@ Verifies partial degradation semantics: optional layer failures are reported in
 """
 
 import uuid
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.geocoding.providers.tomtom import TomTomGeocodingProvider
+from app.geocoding.schemas import GeocodingResult
+from app.main import app
 from app.map.service import MapLayerService
 from app.providers.exceptions import ProviderUnavailableError
+from app.providers.geo import GeoJSONPoint
 from app.providers.here.poi import HerePoiProvider
 from app.providers.schemas import TrafficLayerData
 from app.providers.tomtom.traffic import TomTomTrafficProvider
 from app.routing.exceptions import RoutingNoRouteFoundError
-from app.routing.providers.tomtom import TomTomProvider
+from app.routing.schemas import CalculateRouteResponse
 
 OVERVIEW_URL = "/api/v1/map/route-overview"
 
@@ -46,6 +49,42 @@ TOMTOM_ROUTE_RESPONSE = {
     ]
 }
 
+ROUTE_RESPONSE = {
+    "routes": [
+        {
+            "summary": {"lengthInMeters": 1200, "travelDurationInSeconds": 300},
+            "legs": [
+                {
+                    "summary": {
+                        "lengthInMeters": 1200,
+                        "travelDurationInSeconds": 300,
+                    },
+                    "path": {
+                        "type": "LineString",
+                        "coordinates": [
+                            [-74.006, 40.7128],
+                            [-73.9855, 40.758],
+                        ],
+                    },
+                }
+            ],
+        }
+    ]
+}
+
+
+@pytest.fixture
+def mock_routing_provider():
+    """Provide a mocked routing provider for map endpoint tests."""
+    from app.routing.dependencies import get_routing_provider
+
+    provider = AsyncMock()
+    app.dependency_overrides[get_routing_provider] = lambda: provider
+
+    yield provider
+
+    app.dependency_overrides.pop(get_routing_provider, None)
+
 
 @pytest.fixture
 def overview_payload() -> dict:
@@ -64,19 +103,18 @@ class TestRouteOverviewEndpoint:
     """Aggregated endpoint behaviour."""
 
     def test_returns_route_and_reports_unconfigured_layers(
-        self, client: TestClient, overview_payload: dict
+        self, client: TestClient, overview_payload: dict, mock_routing_provider
     ):
         """Route succeeds while unconfigured layers degrade into errors."""
+
+        mock_routing_provider.calculate_route.return_value = (
+            CalculateRouteResponse.model_validate(ROUTE_RESPONSE)
+        )
+
         with (
-            patch.object(TomTomProvider, "calculate_route") as mock_route,
             patch.object(TomTomTrafficProvider, "get_traffic") as mock_traffic,
             patch.object(HerePoiProvider, "search_along_route") as mock_rest_areas,
         ):
-            from app.routing.schemas import CalculateRouteResponse
-
-            mock_route.return_value = CalculateRouteResponse.model_validate(
-                TOMTOM_ROUTE_RESPONSE
-            )
             mock_traffic.return_value = TrafficLayerData(provider="tomtom")
             mock_rest_areas.side_effect = ProviderUnavailableError(
                 "HERE_API_KEY is not configured",
@@ -95,8 +133,8 @@ class TestRouteOverviewEndpoint:
         assert data["route"] is not None
         assert data["route"]["id"] is not None
         assert uuid.UUID(data["route"]["id"])
-        assert data["route"]["provider"] == "tomtom"
-        assert data["configured_providers"]["route"] == "tomtom"
+        assert data["route"]["provider"] == settings.ROUTING_PROVIDER
+        assert data["configured_providers"]["route"] == settings.ROUTING_PROVIDER
         assert data["configured_providers"]["traffic"] == settings.TRAFFIC_PROVIDER
         assert data["configured_providers"]["fuel"] == settings.FUEL_PROVIDER
         assert len(data["route"]["routes"]) == 1
@@ -118,19 +156,16 @@ class TestRouteOverviewEndpoint:
         assert data["rest_areas"]["type"] == "FeatureCollection"
 
     def test_layer_subset_limits_resolution(
-        self, client: TestClient, overview_payload: dict
+        self, client: TestClient, overview_payload: dict, mock_routing_provider
     ):
         """Requesting a subset skips the remaining layers."""
         overview_payload["layers"] = ["route", "fuel"]
 
-        with patch.object(TomTomProvider, "calculate_route") as mock_route:
-            from app.routing.schemas import CalculateRouteResponse
+        mock_routing_provider.calculate_route.return_value = (
+            CalculateRouteResponse.model_validate(ROUTE_RESPONSE)
+        )
 
-            mock_route.return_value = CalculateRouteResponse.model_validate(
-                TOMTOM_ROUTE_RESPONSE
-            )
-
-            response = client.post(OVERVIEW_URL, json=overview_payload)
+        response = client.post(OVERVIEW_URL, json=overview_payload)
 
         assert response.status_code == 200
         data = response.json()
@@ -141,30 +176,32 @@ class TestRouteOverviewEndpoint:
         assert data["traffic"] is None
 
     def test_routing_failure_returns_502(
-        self, client: TestClient, overview_payload: dict
+        self,
+        client: TestClient,
+        overview_payload: dict,
+        mock_routing_provider,
     ):
         """A mandatory route failure aborts the request.
 
         ``force_refresh`` bypasses the persistent route cache so the mocked
         provider is guaranteed to be called.
         """
-        with patch.object(TomTomProvider, "calculate_route") as mock_route:
-            mock_route.side_effect = RoutingNoRouteFoundError(
-                "No route found",
-                provider="tomtom",
-                provider_code="NO_ROUTE_FOUND",
-            )
+        mock_routing_provider.calculate_route.side_effect = RoutingNoRouteFoundError(
+            "No route found",
+            provider="test",
+            provider_code="NO_ROUTE_FOUND",
+        )
 
-            response = client.post(
-                OVERVIEW_URL,
-                json=overview_payload,
-                params={"force_refresh": "true"},
-            )
+        response = client.post(
+            OVERVIEW_URL,
+            json=overview_payload,
+            params={"force_refresh": "true"},
+        )
 
         assert response.status_code == 502
         detail = response.json()["detail"]
         assert detail["message"] == "No route found"
-        assert detail["provider"] == "tomtom"
+        assert detail["provider"] == "test"
 
     def test_invalid_coordinates_return_422(self, client: TestClient):
         """Coordinate validation happens before any provider call."""
@@ -201,21 +238,25 @@ class TestRouteOverviewEndpoint:
         assert response.status_code == 500
         assert response.json()["detail"] == "Internal server error"
 
-    def test_accepts_address_payload(self, client: TestClient):
+    def test_accepts_address_payload(
+        self,
+        client: TestClient,
+        mock_routing_provider,
+    ):
         """Modern request format supports free-form addresses."""
         payload = {
             "pickup": {"address": "1521 Hickory Trail Allen TX 75002"},
             "delivery": {"address": "3660 Gateway Street Springfield OR 97477"},
         }
 
-        with (
-            patch.object(TomTomGeocodingProvider, "search") as mock_geocode,
-            patch.object(TomTomProvider, "calculate_route") as mock_route,
-        ):
-            from app.geocoding.schemas import GeocodingResult
-            from app.providers.geo import GeoJSONPoint
-            from app.routing.schemas import CalculateRouteResponse
+        mock_routing_provider.calculate_route.return_value = (
+            CalculateRouteResponse.model_validate(ROUTE_RESPONSE)
+        )
 
+        with patch.object(
+            TomTomGeocodingProvider,
+            "search",
+        ) as mock_geocode:
             mock_geocode.side_effect = [
                 GeocodingResult(
                     formatted_address="1521 Hickory Trail, Allen, TX 75002",
@@ -226,9 +267,6 @@ class TestRouteOverviewEndpoint:
                     location=GeoJSONPoint(coordinates=(-123.0463, 44.0860)),
                 ),
             ]
-            mock_route.return_value = CalculateRouteResponse.model_validate(
-                TOMTOM_ROUTE_RESPONSE
-            )
 
             response = client.post(
                 OVERVIEW_URL,
@@ -241,7 +279,11 @@ class TestRouteOverviewEndpoint:
         assert data["route"] is not None
         assert mock_geocode.call_count == 2
 
-    def test_accepts_mixed_payload(self, client: TestClient):
+    def test_accepts_mixed_payload(
+        self,
+        client: TestClient,
+        mock_routing_provider,
+    ):
         """Modern request format supports address + coordinate pairs."""
         payload = {
             "pickup": {"address": "1521 Hickory Trail Allen TX 75002"},
@@ -253,20 +295,17 @@ class TestRouteOverviewEndpoint:
             },
         }
 
-        with (
-            patch.object(TomTomGeocodingProvider, "search") as mock_geocode,
-            patch.object(TomTomProvider, "calculate_route") as mock_route,
-        ):
-            from app.geocoding.schemas import GeocodingResult
-            from app.providers.geo import GeoJSONPoint
-            from app.routing.schemas import CalculateRouteResponse
+        mock_routing_provider.calculate_route.return_value = (
+            CalculateRouteResponse.model_validate(ROUTE_RESPONSE)
+        )
 
+        with patch.object(
+            TomTomGeocodingProvider,
+            "search",
+        ) as mock_geocode:
             mock_geocode.return_value = GeocodingResult(
                 formatted_address="1521 Hickory Trail, Allen, TX 75002",
                 location=GeoJSONPoint(coordinates=(-96.6705, 33.1032)),
-            )
-            mock_route.return_value = CalculateRouteResponse.model_validate(
-                TOMTOM_ROUTE_RESPONSE
             )
 
             response = client.post(

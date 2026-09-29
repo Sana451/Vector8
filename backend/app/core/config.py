@@ -70,7 +70,7 @@ class Settings(BaseSettings):
 
     # Map layer providers (one vendor may serve several domains)
     GEOCODING_PROVIDER: Literal["tomtom"] = "tomtom"
-    ROUTING_PROVIDER: Literal["tomtom"] = "tomtom"
+    ROUTING_PROVIDER: Literal["tomtom", "here"] = "here"
     TRAFFIC_PROVIDER: Literal["tomtom", "off"] = "tomtom"
     FUEL_PROVIDER: Literal["internal", "here", "off"] = "internal"
     TRUCK_RESTRICTION_PROVIDER: Literal["internal"] = "internal"
@@ -97,6 +97,8 @@ class Settings(BaseSettings):
     # PumpPrice import API (admin ingest only)
     PUMPPRICE_BASE_URL: str = "https://www.pumpprice.co"
     PUMPPRICE_TIMEOUT_SECONDS: int = 30
+    PUMPPRICE_MOBILE_EMAIL: str | None = None
+    PUMPPRICE_MOBILE_PASSWORD: str | None = None
 
     # Internal truck restriction API
     TRUCK_RESTRICTION_API_BASE_URL: str | None = None
@@ -111,6 +113,7 @@ class Settings(BaseSettings):
     HERE_POI_LIMIT: int = 100
     HERE_POI_CACHE_TTL_SECONDS: int = 86400
     HERE_POI_USE_EXCURSION_DISTANCE_RANKING: bool = False
+    HERE_ROUTING_BASE_URL: str = "https://router.hereapi.com"
 
     # Per-domain cache TTLs (lazy invalidation on read)
     GEOCODING_CACHE_TTL_SECONDS: int = 2_592_000  # 30 days

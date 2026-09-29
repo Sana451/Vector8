@@ -21,3 +21,9 @@ class PumpPriceImportResponse(BaseModel):
     unique_stations: int = Field(default=0, ge=0)
     duplicates_discarded: int = Field(default=0, ge=0)
     persisted_stations: int = Field(default=0, ge=0)
+
+
+class PumpPriceImportMobileResponse(PumpPriceImportResponse):
+    """Summary of a synchronous PumpPrice import from mobile app run."""
+
+    source_provider: str = "pumpprice-mobile"

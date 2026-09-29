@@ -89,7 +89,7 @@ This makes mixed configurations possible without touching business logic:
 
 ```env
 GEOCODING_PROVIDER=tomtom
-ROUTING_PROVIDER=tomtom
+ROUTING_PROVIDER: Literal["tomtom", "here"] = "here"
 TRAFFIC_PROVIDER=tomtom
 FUEL_PROVIDER=internal
 TRUCK_RESTRICTION_PROVIDER=internal

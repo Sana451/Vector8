@@ -114,14 +114,21 @@ class ProviderHTTPClient:
             )
 
             logger.info(
-                "Provider response received",
+                "Provider response headers received",
                 provider=self.provider,
                 status_code=response.status_code,
+                content_length=response.headers.get("content-length"),
+                transfer_encoding=response.headers.get("transfer-encoding"),
                 tracking_id=tracking_id,
             )
 
             if response.status_code >= 400:
                 self.handle_error_response(response, tracking_id=tracking_id)
+
+            logger.info(
+                "Reading provider response body",
+                provider=self.provider,
+            )
 
             return response.json()
 
@@ -166,9 +173,9 @@ class ProviderHTTPClient:
 
         if self._client is not None:
             send = getattr(self._client, method.lower())
-            return await send(url, timeout=self.timeout, **kwargs)
+            return await send(url, timeout=self._timeout(), **kwargs)
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with httpx.AsyncClient(timeout=self._timeout()) as client:
             send = getattr(client, method.lower())
             return await send(url, **kwargs)
 
@@ -249,3 +256,11 @@ class ProviderHTTPClient:
                     return str(data[key])
 
         return f"HTTP {response.status_code}"
+
+    def _timeout(self) -> httpx.Timeout:
+        return httpx.Timeout(
+            connect=10.0,
+            read=float(self.timeout),
+            write=10.0,
+            pool=10.0,
+        )

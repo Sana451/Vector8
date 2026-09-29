@@ -56,3 +56,5 @@ jobs:
           FUEL_PROVIDER: ${{ vars.FUEL_PROVIDER }}
           TOMTOM_API_KEY: ${{ secrets.TOMTOM_API_KEY }}
           HERE_API_KEY: ${{ secrets.HERE_API_KEY }}
+          PUMPPRICE_MOBILE_EMAIL: ${{ secrets.PUMPPRICE_MOBILE_EMAIL }}
+          PUMPPRICE_MOBILE_PASSWORD: ${{ secrets.PUMPPRICE_MOBILE_PASSWORD }}

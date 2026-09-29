@@ -9,17 +9,12 @@ All coordinates follow the GeoJSON standard: ``[longitude, latitude]`` in WGS84.
 import math
 from typing import Literal
 
+from flexpolyline import decode, encode  # type: ignore[import-untyped]
 from pydantic import BaseModel, Field, field_validator
 
 Coordinate = tuple[float, float]
 
 MAX_WAYPOINTS = 150
-_FLEXIBLE_POLYLINE_ENCODING_TABLE = (
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
-)
-_FLEXIBLE_POLYLINE_DECODING_TABLE = {
-    char: index for index, char in enumerate(_FLEXIBLE_POLYLINE_ENCODING_TABLE)
-}
 
 
 def validate_lon_lat(longitude: float, latitude: float) -> Coordinate:
@@ -134,97 +129,31 @@ def point_to_wkt(longitude: float, latitude: float, srid: int = 4326) -> str:
     return f"SRID={srid};POINT({longitude} {latitude})"
 
 
-def _flexpoly_encode_unsigned(value: int) -> str:
-    chunks: list[str] = []
-    while value >= 0x20:
-        chunks.append(_FLEXIBLE_POLYLINE_ENCODING_TABLE[(value & 0x1F) | 0x20])
-        value >>= 5
-    chunks.append(_FLEXIBLE_POLYLINE_ENCODING_TABLE[value])
-    return "".join(chunks)
-
-
-def _flexpoly_decode_unsigned(value: str, index: int) -> tuple[int, int]:
-    result = 0
-    shift = 0
-
-    while True:
-        if index >= len(value):
-            raise ValueError("Invalid flexible polyline payload")
-        chunk = _FLEXIBLE_POLYLINE_DECODING_TABLE.get(value[index])
-        if chunk is None:
-            raise ValueError("Invalid flexible polyline character")
-        index += 1
-        result |= (chunk & 0x1F) << shift
-        if (chunk & 0x20) == 0:
-            break
-        shift += 5
-
-    return result, index
-
-
-def _flexpoly_encode_signed(value: int) -> str:
-    encoded = value << 1
-    if value < 0:
-        encoded = ~encoded
-    return _flexpoly_encode_unsigned(encoded)
-
-
-def _flexpoly_decode_signed(value: int) -> int:
-    return ~(value >> 1) if value & 1 else value >> 1
-
-
 def encode_flexible_polyline(
     coordinates: list[Coordinate],
     *,
     precision: int = 5,
 ) -> str:
     """Encode GeoJSON coordinates into a HERE flexible polyline."""
+
     if precision < 0 or precision > 15:
         raise ValueError("Flexible polyline precision must be between 0 and 15")
+
     if len(coordinates) < 2:
         raise ValueError("Flexible polyline requires at least 2 coordinates")
 
-    factor = 10**precision
-    encoded = [_flexpoly_encode_unsigned(1), _flexpoly_encode_unsigned(precision)]
-    previous_lat = 0
-    previous_lon = 0
-
-    for lon, lat in coordinates:
-        scaled_lat = int(round(lat * factor))
-        scaled_lon = int(round(lon * factor))
-        encoded.append(_flexpoly_encode_signed(scaled_lat - previous_lat))
-        encoded.append(_flexpoly_encode_signed(scaled_lon - previous_lon))
-        previous_lat = scaled_lat
-        previous_lon = scaled_lon
-
-    return "".join(encoded)
+    return encode(
+        [(lat, lon) for lon, lat in coordinates],
+        precision=precision,
+    )
 
 
-def decode_flexible_polyline(value: str) -> list[Coordinate]:
-    """Decode a HERE flexible polyline into GeoJSON coordinates."""
-    version, index = _flexpoly_decode_unsigned(value, 0)
-    if version != 1:
-        raise ValueError(f"Unsupported flexible polyline version: {version}")
+def decode_flexible_polyline(encoded: str) -> list[Coordinate]:
+    """Decode HERE flexible polyline into (lon, lat)."""
 
-    header, index = _flexpoly_decode_unsigned(value, index)
-    precision = header & 15
-    third_dimension = (header >> 4) & 7
-    if third_dimension != 0:
-        raise ValueError("3D flexible polylines are not supported")
+    decoded = decode(encoded)
 
-    factor = 10**precision
-    current_lat = 0
-    current_lon = 0
-    coordinates: list[Coordinate] = []
-
-    while index < len(value):
-        lat_delta_raw, index = _flexpoly_decode_unsigned(value, index)
-        lon_delta_raw, index = _flexpoly_decode_unsigned(value, index)
-        current_lat += _flexpoly_decode_signed(lat_delta_raw)
-        current_lon += _flexpoly_decode_signed(lon_delta_raw)
-        coordinates.append((current_lon / factor, current_lat / factor))
-
-    return coordinates
+    return [(lon, lat) for lat, lon in decoded]
 
 
 def _dedupe_consecutive_coordinates(coordinates: list[Coordinate]) -> list[Coordinate]:

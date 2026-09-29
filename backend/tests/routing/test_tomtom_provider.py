@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
+from app.providers.tomtom.routing import TomTomRoutingProvider
 from app.routing.exceptions import (
     RoutingAuthenticationError,
     RoutingNoRouteFoundError,
@@ -18,7 +19,6 @@ from app.routing.exceptions import (
     RoutingTimeoutError,
     RoutingUnavailableError,
 )
-from app.routing.providers.tomtom import TomTomProvider
 from app.routing.schemas import (
     CalculateRouteRequest,
     GeoJSONPoint,
@@ -29,7 +29,7 @@ from app.routing.schemas import (
 @pytest.fixture
 def tomtom_provider():
     """Create TomTom provider instance."""
-    return TomTomProvider()
+    return TomTomRoutingProvider()
 
 
 @pytest.fixture
@@ -64,7 +64,7 @@ class TestTomTomProviderInit:
 
     def test_init_with_defaults(self):
         """Test initialization with default settings."""
-        provider = TomTomProvider()
+        provider = TomTomRoutingProvider()
         assert provider.api_key is not None
         assert provider.base_url == "https://api.tomtom.com"
         assert provider.api_version == "3"
@@ -73,7 +73,7 @@ class TestTomTomProviderInit:
     def test_init_with_client(self):
         """Test initialization with provided client."""
         client = AsyncMock(spec=httpx.AsyncClient)
-        provider = TomTomProvider(client=client)
+        provider = TomTomRoutingProvider(client=client)
         assert provider.client == client
 
 
@@ -174,6 +174,7 @@ class TestTomTomProviderCalculateRoute:
         """Test successful route calculation."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 200
+        mock_response.headers = httpx.Headers()
         mock_response.json.return_value = tomtom_success_response
 
         with patch.object(httpx, "AsyncClient") as mock_client_class:
@@ -195,10 +196,11 @@ class TestTomTomProviderCalculateRoute:
         mock_client = AsyncMock(spec=httpx.AsyncClient)
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 200
+        mock_response.headers = httpx.Headers()
         mock_response.json.return_value = tomtom_success_response
         mock_client.post.return_value = mock_response
 
-        provider = TomTomProvider(client=mock_client)
+        provider = TomTomRoutingProvider(client=mock_client)
         result = await provider.calculate_route(basic_route_request)
 
         assert result is not None
@@ -222,6 +224,7 @@ class TestTomTomProviderCalculateRoute:
         """Test 400 error handling."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 400
+        mock_response.headers = httpx.Headers()
         mock_response.json.return_value = tomtom_error_response
 
         with patch.object(httpx, "AsyncClient") as mock_client_class:
@@ -239,6 +242,7 @@ class TestTomTomProviderCalculateRoute:
         """Test 403 authentication error handling."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 403
+        mock_response.headers = httpx.Headers()
         mock_response.json.return_value = {"message": "Invalid API key"}
 
         with patch.object(httpx, "AsyncClient") as mock_client_class:
@@ -256,6 +260,7 @@ class TestTomTomProviderCalculateRoute:
         """Test 429 rate limit handling."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 429
+        mock_response.headers = httpx.Headers()
         mock_response.json.return_value = {"message": "Rate limit exceeded"}
 
         with patch.object(httpx, "AsyncClient") as mock_client_class:
@@ -273,6 +278,7 @@ class TestTomTomProviderCalculateRoute:
         """Test 503 unavailable error handling."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 503
+        mock_response.headers = httpx.Headers()
         mock_response.json.return_value = {"message": "Service unavailable"}
 
         with patch.object(httpx, "AsyncClient") as mock_client_class:

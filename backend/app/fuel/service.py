@@ -11,15 +11,13 @@ import httpx
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.fuel.schemas import (
+    PumpPriceImportMobileResponse,
     PumpPriceImportRequest,
     PumpPriceImportResponse,
 )
 from app.map.repository import FuelStationRepository
 from app.map.services import FuelService
-from app.providers.exceptions import (
-    ProviderAuthenticationError,
-    ProviderError,
-)
+from app.providers.exceptions import ProviderAuthenticationError, ProviderError
 from app.providers.geo import GeoJSONPoint
 from app.providers.http import ProviderHTTPClient
 from app.providers.schemas import FuelStationData
@@ -33,7 +31,11 @@ METERS_PER_MILE = 1609.344
 NATIONAL_SEARCH_MILES = 2000
 NATIONAL_SEARCH_CENTER = (39.8283, -98.5795)
 
-DEFAULT_HEADERS = {
+PUMPPRICE_MOBILE_PROVIDER_NAME = "pumpprice-mobile"
+PUMPPRICE_MOBILE_NEARBY_PATH = "/find_all_nearby_gas_locations"
+PUMPPRICE_MOBILE_AUTHENTICATE_PATH = "/authenticate"
+
+DESKTOP_HEADERS = {
     "accept": "application/json",
     "accept-language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
     "cache-control": "no-cache",
@@ -54,6 +56,16 @@ DEFAULT_HEADERS = {
 }
 
 
+MOBILE_HEADERS = {
+    "accept": "application/json",
+    "content-type": "application/json",
+    "connection": "Keep-Alive",
+    "user-agent": "okhttp/3.12.1",
+}
+
+_mobile_api_key: str | None = None
+
+
 class PumpPriceImportService:
     """Synchronously import PumpPrice fuel stations into the local cache table."""
 
@@ -61,12 +73,20 @@ class PumpPriceImportService:
         self, repository: FuelStationRepository, client: httpx.AsyncClient | None = None
     ):
         self.repository = repository
-        self.http = ProviderHTTPClient(
+        self.http_desktop = ProviderHTTPClient(
             provider=PUMPPRICE_PROVIDER_NAME,
             base_url=settings.PUMPPRICE_BASE_URL,
             timeout=settings.PUMPPRICE_TIMEOUT_SECONDS,
             client=client,
-            default_headers=DEFAULT_HEADERS,
+            default_headers=DESKTOP_HEADERS,
+            error_handler=self._log_error_response,
+        )
+        self.http_mobile = ProviderHTTPClient(
+            provider=PUMPPRICE_MOBILE_PROVIDER_NAME,
+            base_url=settings.PUMPPRICE_BASE_URL,
+            timeout=settings.PUMPPRICE_TIMEOUT_SECONDS,
+            client=client,
+            default_headers=MOBILE_HEADERS,
             error_handler=self._log_error_response,
         )
 
@@ -87,30 +107,22 @@ class PumpPriceImportService:
             longitude=longitude,
             miles=NATIONAL_SEARCH_MILES,
         )
-        try:
-            payload = await self.http.request_json(
-                "GET",
-                PUMPPRICE_FUEL_PRICES_PATH,
-                params={
-                    "miles": NATIONAL_SEARCH_MILES,
-                    "lat": latitude,
-                    "lng": longitude,
-                },
-                headers={
-                    "Cookie": self._cookie_header(
-                        request.fuel_analytics_session,
-                    )
-                },
-                tracking_id="continental_us",
-            )
-        except ProviderAuthenticationError as exc:
-            raise ProviderAuthenticationError(
-                "PumpPrice session is invalid or expired; provide a fresh _fuel_analytics_session cookie",
-                provider=PUMPPRICE_PROVIDER_NAME,
-                status_code=exc.status_code,
-            ) from exc
-        except ProviderError:
-            payload = None
+
+        payload = await self.http_desktop.request_json(
+            "GET",
+            PUMPPRICE_FUEL_PRICES_PATH,
+            params={
+                "miles": NATIONAL_SEARCH_MILES,
+                "lat": latitude,
+                "lng": longitude,
+            },
+            headers={
+                "Cookie": self._cookie_header(
+                    request.fuel_analytics_session,
+                )
+            },
+            tracking_id="continental_us",
+        )
 
         if payload is not None:
             raw_stations = self._extract_prices(payload)
@@ -147,6 +159,163 @@ class PumpPriceImportService:
             persisted_stations=persisted_stations,
         )
 
+    async def import_prices_mobile(
+        self,
+    ) -> PumpPriceImportMobileResponse:
+        """Run a synchronous nationwide PumpPrice import and persist unique stations."""
+        latitude, longitude = NATIONAL_SEARCH_CENTER
+        imported_at = datetime.now(UTC)
+        unique_stations: dict[str, FuelStationData] = {}
+        duplicates_discarded = 0
+        stations_received = 0
+
+        logger.info(
+            "Fetching PumpPrice fuel prices",
+            latitude=latitude,
+            longitude=longitude,
+            miles=NATIONAL_SEARCH_MILES,
+        )
+
+        payload = await self._request_mobile_prices(
+            latitude=latitude,
+            longitude=longitude,
+        )
+
+        if payload is not None:
+            raw_stations = self._extract_mobile_prices(payload)
+            stations_received = len(raw_stations)
+
+            for raw in raw_stations:
+                station = self._normalize_station(raw)
+                if station is None:
+                    continue
+                dedupe_key = self._dedupe_key(raw, station)
+                existing = unique_stations.get(dedupe_key)
+                if existing is None:
+                    unique_stations[dedupe_key] = station
+                    continue
+                duplicates_discarded += 1
+                unique_stations[dedupe_key] = self._merge_station(existing, station)
+
+        persisted_stations = 0
+        if unique_stations:
+            persisted_stations = self.repository.upsert_many(
+                provider=PERSISTED_PROVIDER_NAME,
+                stations=[
+                    FuelService._to_row(station, last_imported_at=imported_at)
+                    for station in unique_stations.values()
+                ],
+                ttl_seconds=settings.FUEL_CACHE_TTL_SECONDS,
+                persist_internal=True,
+            )
+
+        return PumpPriceImportMobileResponse(
+            persisted_provider=PERSISTED_PROVIDER_NAME,
+            stations_received=stations_received,
+            unique_stations=len(unique_stations),
+            duplicates_discarded=duplicates_discarded,
+            persisted_stations=persisted_stations,
+        )
+
+    async def _request_mobile_prices(
+        self,
+        *,
+        latitude: float,
+        longitude: float,
+    ) -> Any:
+        global _mobile_api_key
+
+        if _mobile_api_key is None:
+            await self.get_auth_api_key_for_mobile_import()
+
+        try:
+            return await self._fetch_mobile_prices(
+                api_key=_mobile_api_key,
+                latitude=latitude,
+                longitude=longitude,
+            )
+        except ProviderAuthenticationError as exc:
+            if exc.status_code != 401:
+                raise
+
+            logger.warning(
+                "PumpPrice mobile API key rejected, re-authenticating",
+            )
+
+            _mobile_api_key = None
+            await self.get_auth_api_key_for_mobile_import()
+
+            return await self._fetch_mobile_prices(
+                api_key=_mobile_api_key,
+                latitude=latitude,
+                longitude=longitude,
+            )
+
+    async def _fetch_mobile_prices(
+        self,
+        *,
+        api_key: str | None,
+        latitude: float,
+        longitude: float,
+    ) -> Any:
+        if not api_key:
+            raise ProviderError("PumpPrice mobile API key is not available")
+
+        return await self.http_mobile.request_json(
+            "POST",
+            PUMPPRICE_MOBILE_NEARBY_PATH,
+            params={
+                "api_key": api_key,
+            },
+            json={
+                "range_in_miles": NATIONAL_SEARCH_MILES,
+                "current_latitude": latitude,
+                "current_longitude": longitude,
+            },
+            headers=MOBILE_HEADERS,
+        )
+
+    async def get_auth_api_key_for_mobile_import(self) -> str:
+        """Authenticate in PumpPrice mobile API and return API key."""
+        payload = await self.http_mobile.request_json(
+            "POST",
+            PUMPPRICE_MOBILE_AUTHENTICATE_PATH,
+            json={
+                "email": settings.PUMPPRICE_MOBILE_EMAIL,
+                "password": settings.PUMPPRICE_MOBILE_PASSWORD,
+            },
+            headers=MOBILE_HEADERS,
+        )
+
+        if not isinstance(payload, dict):
+            raise ProviderError("PumpPrice authentication returned invalid response")
+
+        status = payload.get("status")
+
+        if status != "SUCCESS":
+            errors = payload.get("errors")
+
+            if isinstance(errors, list):
+                message = "; ".join(str(error) for error in errors if error)
+            else:
+                message = (
+                    str(errors) if errors else "Unknown PumpPrice authentication error"
+                )
+
+            raise ProviderError(f"PumpPrice mobile authentication failed: {message}")
+
+        api_key = payload.get("api_key")
+
+        if not isinstance(api_key, str) or not api_key.strip():
+            raise ProviderError(
+                "PumpPrice authentication succeeded but API key is missing"
+            )
+
+        global _mobile_api_key
+        _mobile_api_key = api_key.strip()
+
+        return _mobile_api_key
+
     @staticmethod
     def _cookie_header(session_cookie: str) -> str:
         session_cookie = session_cookie.strip()
@@ -161,12 +330,21 @@ class PumpPriceImportService:
         logger.error(
             "PumpPrice provider returned error response",
             status_code=response.status_code,
-            request_url=str(response.request.url),
+            request_url=self._sanitize_request_url(response.request.url),
             request_headers=request_headers,
             response_headers=response_headers,
             response_json=self._response_json_for_logging(response),
             response_text=self._truncate_text(response.text),
         )
+
+    @staticmethod
+    def _sanitize_request_url(url: httpx.URL) -> str:
+        params = dict(url.params)
+
+        if "api_key" in params:
+            params["api_key"] = "<redacted>"
+
+        return str(url.copy_with(params=params))
 
     @staticmethod
     def _response_json_for_logging(response: httpx.Response) -> dict[str, Any] | None:
@@ -250,14 +428,15 @@ class PumpPriceImportService:
 
     @staticmethod
     def _external_id(raw: dict[str, Any]) -> str | None:
-        for key in ("remote_id", "id"):
-            value = raw.get(key)
-            if value is None:
-                continue
-            text = str(value).strip()
-            if text:
-                return f"pumpprice:{text}"
-        return None
+        value = raw.get("id")
+        if value is None:
+            return None
+
+        text = str(value).strip()
+        if not text:
+            return None
+
+        return f"pumpprice:{text}"
 
     @staticmethod
     def _address(raw: dict[str, Any]) -> str | None:
@@ -281,12 +460,10 @@ class PumpPriceImportService:
 
     @staticmethod
     def _dedupe_key(raw: dict[str, Any], station: FuelStationData) -> str:
-        remote_id = PumpPriceImportService._string(raw.get("remote_id"))
-        if remote_id:
-            return f"remote:{remote_id}"
         station_id = PumpPriceImportService._string(raw.get("id"))
         if station_id:
             return f"id:{station_id}"
+
         lon, lat = station.location.coordinates
         return f"coord:{lat:.5f}:{lon:.5f}:{station.name.strip().lower()}"
 
@@ -325,3 +502,12 @@ class PumpPriceImportService:
             return float(value)
         except TypeError, ValueError:
             return None
+
+    @staticmethod
+    def _extract_mobile_prices(payload: Any) -> list[dict[str, Any]]:
+        if not isinstance(payload, dict):
+            return []
+        data = payload.get("data")
+        if not isinstance(data, list):
+            return []
+        return [item for item in data if isinstance(item, dict)]
