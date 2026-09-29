@@ -115,11 +115,14 @@ async def test_pumpprice_import_deduplicates_and_persists(
     assert response.duplicates_discarded == 1
     assert response.persisted_stations == 2
     assert len(rows) == 2
-    assert {row.external_id for row in rows} == {"pumpprice:alpha", "pumpprice:beta"}
+    assert {row.external_id for row in rows} == {
+        "pumpprice:1",
+        "pumpprice:2",
+    }
     assert {row.provider for row in rows} == {"internal"}
     assert all(row.last_imported_at is not None for row in rows)
 
-    alpha = next(row for row in rows if row.external_id == "pumpprice:alpha")
+    alpha = next(row for row in rows if row.external_id == "pumpprice:1")
     assert alpha.diesel_price == pytest.approx(5.92)
 
     db.exec(delete(FuelStation))

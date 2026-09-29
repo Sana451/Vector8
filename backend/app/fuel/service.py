@@ -460,12 +460,10 @@ class PumpPriceImportService:
 
     @staticmethod
     def _dedupe_key(raw: dict[str, Any], station: FuelStationData) -> str:
-        remote_id = PumpPriceImportService._string(raw.get("remote_id"))
-        if remote_id:
-            return f"remote:{remote_id}"
         station_id = PumpPriceImportService._string(raw.get("id"))
         if station_id:
             return f"id:{station_id}"
+
         lon, lat = station.location.coordinates
         return f"coord:{lat:.5f}:{lon:.5f}:{station.name.strip().lower()}"
 
