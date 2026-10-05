@@ -8,13 +8,17 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-const PendingItems = () => (
+const PendingVehicles = () => (
   <Table>
     <TableHeader>
       <TableRow>
         <TableHead>ID</TableHead>
-        <TableHead>Title</TableHead>
-        <TableHead>Description</TableHead>
+        <TableHead>Unit #</TableHead>
+        <TableHead>Name</TableHead>
+        <TableHead>Type</TableHead>
+        <TableHead>Status</TableHead>
+        <TableHead>Make / Model / Year</TableHead>
+        <TableHead>Fuel Profile</TableHead>
         <TableHead>
           <span className="sr-only">Actions</span>
         </TableHead>
@@ -27,10 +31,22 @@ const PendingItems = () => (
             <Skeleton className="h-4 w-64 font-mono" />
           </TableCell>
           <TableCell>
+            <Skeleton className="h-4 w-20" />
+          </TableCell>
+          <TableCell>
             <Skeleton className="h-4 w-32" />
           </TableCell>
           <TableCell>
-            <Skeleton className="h-4 w-48" />
+            <Skeleton className="h-4 w-16" />
+          </TableCell>
+          <TableCell>
+            <Skeleton className="h-4 w-20" />
+          </TableCell>
+          <TableCell>
+            <Skeleton className="h-4 w-40" />
+          </TableCell>
+          <TableCell>
+            <Skeleton className="h-4 w-32" />
           </TableCell>
           <TableCell>
             <div className="flex justify-end">
@@ -43,4 +59,4 @@ const PendingItems = () => (
   </Table>
 )
 
-export default PendingItems
+export default PendingVehicles

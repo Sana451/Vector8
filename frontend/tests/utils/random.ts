@@ -17,3 +17,9 @@ export const randomItemTitle = () =>
 
 export const randomItemDescription = () =>
   `Description ${Math.random().toString(36).substring(7)}`
+
+export const randomVehicleName = () =>
+  `Vehicle ${Math.random().toString(36).substring(7)}`
+
+export const randomVehicleUnitNumber = () =>
+  `UNIT-${Math.random().toString(36).substring(7).toUpperCase()}`
