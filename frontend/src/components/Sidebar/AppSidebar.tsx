@@ -1,4 +1,4 @@
-import { Briefcase, HelpCircle, Home, MapIcon, Users } from "lucide-react"
+import { HelpCircle, Home, MapIcon, Truck, Users } from "lucide-react"
 
 import { SidebarAppearance } from "@/components/Common/Appearance"
 import { Logo } from "@/components/Common/Logo"
@@ -15,7 +15,6 @@ import { User } from "./User"
 const baseItems: Item[] = [
   { icon: Home, title: "Dashboard", path: "/" },
   { icon: MapIcon, title: "Map", path: "/map" },
-  { icon: Briefcase, title: "Items", path: "/items" },
   { icon: HelpCircle, title: "How It Works", path: "/how-it-works" },
 ]
 
@@ -23,7 +22,11 @@ export function AppSidebar() {
   const { user: currentUser } = useAuth()
 
   const items = currentUser?.is_superuser
-    ? [...baseItems, { icon: Users, title: "Admin", path: "/admin" }]
+    ? [
+        ...baseItems,
+        { icon: Truck, title: "Fleet", path: "/fleet" },
+        { icon: Users, title: "Admin", path: "/admin" },
+      ]
     : baseItems
 
   return (
@@ -36,7 +39,7 @@ export function AppSidebar() {
               Dispatch shell
             </p>
             <p className="text-sm leading-6 text-[var(--slate-text-dim)]">
-              Routes, items and admin tools arranged for daily operations.
+              Routes, fleet and admin tools arranged for daily operations.
             </p>
           </div>
         </div>
