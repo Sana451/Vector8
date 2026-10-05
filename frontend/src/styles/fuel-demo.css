@@ -1,0 +1,483 @@
+.fuel-demo {
+  --violet: #a78bfa;
+  padding: 8px 4px 24px;
+  color: var(--foreground);
+  font-family: var(--font-ui);
+}
+
+.fuel-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.fuel-header .mark {
+  font-size: 28px;
+}
+.fuel-header .name {
+  font-weight: 800;
+  font-size: 21px;
+  letter-spacing: -0.01em;
+}
+.fuel-header .sub {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--muted-foreground);
+  margin-top: 2px;
+}
+
+.fuel-truck-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  margin-bottom: 20px;
+}
+.fuel-truck-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+.fuel-truck-stats div {
+  display: inline-flex;
+  flex-direction: row;
+  gap: 2px;
+  align-items: baseline;
+}
+.fuel-truck-stats div:not(:last-child)::after {
+  content: "•";
+  color: var(--muted-foreground);
+  margin-left: 8px;
+  margin-right: 4px;
+}
+.fuel-truck-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+.fuel-truck-stats span {
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.fuel-truck-stats b {
+  font-family: var(--font-mono);
+  font-size: 17px;
+}
+
+.fuel-tracks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.fuel-track-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.fuel-track-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 40px;
+}
+.fuel-track-title {
+  font-weight: 700;
+  font-size: 14px;
+}
+.fuel-track-sub {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+.fuel-stage {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px 6px;
+  margin-bottom: 14px;
+}
+
+.fuel-track {
+  position: relative;
+  height: 2px;
+  background: var(--border);
+  margin: 10px 6px 30px 6px;
+}
+
+.fuel-track-block .fuel-reach {
+  position: absolute;
+  top: -6px;
+  height: 14px;
+  background: rgba(47, 169, 107, 0.14);
+  border: 1px dashed rgba(47, 169, 107, 0.5);
+  border-radius: 4px;
+  transition:
+    width 0.5s ease,
+    left 0.5s ease;
+}
+
+.fuel-point {
+  position: absolute;
+  top: -26px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.fuel-point.start {
+  left: 0;
+}
+.fuel-point.end {
+  right: 0;
+  left: auto;
+  text-align: right;
+}
+
+.fuel-tick {
+  position: absolute;
+  top: 6px;
+  width: 1px;
+  height: 6px;
+  background: var(--border);
+}
+.fuel-tick-label {
+  position: absolute;
+  top: 15px;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted-foreground);
+}
+.fuel-tick-label.start {
+  transform: translateX(0);
+}
+
+.fuel-mile-tag {
+  position: absolute;
+  top: 6px;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--primary);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  transition: left 0.9s ease;
+  white-space: nowrap;
+}
+
+.fuel-station {
+  position: absolute;
+  top: -40px;
+  transform: translateX(-50%);
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.fuel-station .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted-foreground);
+  margin: 6px auto 0;
+  border: 2px solid var(--background);
+}
+.fuel-station.visited .dot {
+  background: var(--primary);
+  box-shadow: 0 0 0 4px rgba(217, 142, 43, 0.2);
+}
+.fuel-station.cheapest .price {
+  color: var(--teal-500);
+}
+
+.fuel-truck {
+  position: absolute;
+  top: -15px;
+  font-size: 22px;
+  transform: translateX(-50%);
+  transition: left 0.9s ease;
+}
+.fuel-truck-flip {
+  display: inline-block;
+  transform: scaleX(-1);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+}
+
+.fuel-gaugewrap {
+  margin-top: 12px;
+}
+.fuel-gaugelabel {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted-foreground);
+  margin-bottom: 4px;
+}
+.fuel-gaugelabel.dist {
+  margin-top: 6px;
+  margin-bottom: 0;
+}
+.fuel-gaugelabel b {
+  color: var(--foreground);
+}
+.fuel-gauge {
+  height: 10px;
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.fuel-gaugefill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), #ffd27a);
+  transition: width 0.9s ease;
+}
+
+.fuel-decision {
+  background: transparent;
+  border: none;
+  border-left: 3px solid var(--primary);
+  border-radius: 0;
+  padding: 0 0 2px 8px;
+  margin: 8px 0 0 -8px;
+  border-top: 1px solid var(--border);
+}
+.fuel-decision-head {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--primary);
+  letter-spacing: 0.02em;
+  margin-bottom: 4px;
+  margin-top: 2px;
+}
+.fuel-decision-body {
+  font-size: 11px;
+  line-height: 1.2;
+}
+.fuel-figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.fuel-figures div {
+  display: flex;
+  gap: 2px;
+  align-items: baseline;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+}
+.fuel-figures div:not(:last-child)::after {
+  content: "•";
+  color: var(--muted-foreground);
+  margin-left: 4px;
+}
+.fuel-figures span {
+  display: inline;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  margin-bottom: 0;
+}
+.fuel-figures b.highlight {
+  color: var(--primary);
+}
+
+.fuel-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.fuel-btn {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 14px;
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.02);
+  color: var(--foreground);
+  cursor: pointer;
+}
+.fuel-btn.primary {
+  background: var(--primary);
+  color: #1a1400;
+  border: none;
+}
+.fuel-btn.primary:hover {
+  filter: brightness(1.08);
+}
+.fuel-btn.ghost {
+  background: transparent;
+}
+.fuel-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.fuel-compare {
+  margin-top: 16px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+.fuel-compare h2 {
+  font-size: 17px;
+  margin: 0 0 10px;
+  font-weight: 700;
+}
+.fuel-bar-row {
+  display: grid;
+  grid-template-columns: 230px 1fr 90px;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--muted-foreground);
+  margin-bottom: 8px;
+}
+.fuel-bar {
+  height: 16px;
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.fuel-bar-fill {
+  height: 100%;
+  width: 0%;
+  transition: width 1s ease;
+}
+.fuel-bar-fill.naive {
+  background: var(--danger);
+}
+.fuel-bar-fill.naive-full {
+  background: var(--violet);
+}
+.fuel-bar-fill.greedy {
+  background: #2da971;
+}
+.fuel-bar-row b {
+  font-family: var(--font-mono);
+  color: var(--foreground);
+  text-align: right;
+}
+.fuel-save {
+  margin-top: 8px;
+  background: linear-gradient(
+    135deg,
+    rgba(62, 110, 118, 0.12),
+    rgba(62, 110, 118, 0.03)
+  );
+  border: 1px solid rgba(62, 110, 118, 0.3);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.fuel-save span {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--teal-500);
+  letter-spacing: 0.05em;
+}
+.fuel-save b {
+  font-size: 32px;
+  color: var(--teal-500);
+  font-family: var(--font-mono);
+}
+
+/* Variant styles for different strategies */
+.fuel-track-block.variant-naive .fuel-stage {
+  border-color: rgba(224, 103, 74, 0.45);
+}
+
+.fuel-track-block.variant-naive .fuel-gaugefill {
+  background: linear-gradient(90deg, var(--danger), #ff9c86);
+}
+.fuel-track-block.variant-naive .fuel-mile-tag {
+  color: var(--danger);
+}
+.fuel-track-block.variant-naive .fuel-reach {
+  background: rgba(224, 103, 74, 0.12);
+  border-color: rgba(224, 103, 74, 0.45);
+}
+.fuel-track-block.variant-naive .fuel-decision {
+  border-left-color: var(--danger);
+  border-top-color: var(--danger);
+}
+.fuel-track-block.variant-naive .fuel-decision-head {
+  color: var(--danger);
+}
+.fuel-track-block.variant-naive .fuel-figures b.highlight {
+  color: var(--danger);
+}
+
+.fuel-track-block.variant-naive-full .fuel-stage {
+  border-color: rgba(167, 139, 250, 0.45);
+}
+
+.fuel-track-block.variant-naive-full .fuel-gaugefill {
+  background: linear-gradient(90deg, var(--violet), #d5c7fc);
+}
+.fuel-track-block.variant-naive-full .fuel-mile-tag {
+  color: var(--violet);
+}
+.fuel-track-block.variant-naive-full .fuel-reach {
+  background: rgba(167, 139, 250, 0.12);
+  border-color: rgba(167, 139, 250, 0.45);
+}
+.fuel-track-block.variant-naive-full .fuel-decision {
+  border-left-color: var(--violet);
+  border-top-color: var(--violet);
+}
+.fuel-track-block.variant-naive-full .fuel-decision-head {
+  color: var(--violet);
+}
+.fuel-track-block.variant-naive-full .fuel-figures b.highlight {
+  color: var(--violet);
+}
+
+.fuel-track-block.variant-greedy .fuel-stage {
+  border-color: rgba(45, 169, 113, 0.45);
+}
+
+.fuel-track-block.variant-greedy .fuel-gaugefill {
+  background: linear-gradient(90deg, #2da971, #5ec98f);
+}
+.fuel-track-block.variant-greedy .fuel-mile-tag {
+  color: #2da971;
+}
+.fuel-track-block.variant-greedy .fuel-reach {
+  background: rgba(45, 169, 113, 0.14);
+  border-color: rgba(45, 169, 113, 0.45);
+}
+.fuel-track-block.variant-greedy .fuel-decision {
+  border-left-color: #2da971;
+  border-top-color: #2da971;
+}
+.fuel-track-block.variant-greedy .fuel-decision-head {
+  color: #2da971;
+}
+.fuel-track-block.variant-greedy .fuel-figures b.highlight {
+  color: #2da971;
+}
+
+@media (max-width: 600px) {
+  .fuel-truck-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .fuel-figures {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .fuel-bar-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}
