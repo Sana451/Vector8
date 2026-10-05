@@ -44,12 +44,12 @@ export default function FuelTrack({
 
   return (
     <div className={`fuel-track-block${variant ? ` variant-${variant}` : ""}`}>
-      <div className="fuel-track-head">
-        <span className="fuel-track-title">{title}</span>
-        <span className="fuel-track-sub">{subtitle}</span>
-      </div>
-
       <section className="fuel-stage">
+        <div className="fuel-track-head">
+          <span className="fuel-track-title">{title}</span>
+          <span className="fuel-track-sub">{subtitle}</span>
+        </div>
+
         <div className="fuel-track">
           <div
             className="fuel-reach"
@@ -111,28 +111,28 @@ export default function FuelTrack({
             <b>{(TOTAL - truckDist).toFixed(0)}</b> mi remaining
           </div>
         </div>
-      </section>
 
-      {decision && (
-        <section className="fuel-decision">
-          <div className="fuel-decision-head">{decision.head}</div>
-          <div className="fuel-decision-body">
-            <div>{decision.note}</div>
-            {decision.figures && (
-              <div className="fuel-figures">
-                {decision.figures.map(([label, value, highlight]) => (
-                  <div key={label}>
-                    <span>{label}</span>
-                    <b className={highlight ? "highlight" : undefined}>
-                      {value}
-                    </b>
-                  </div>
-                ))}
-              </div>
-            )}
+        {decision && (
+          <div className="fuel-decision">
+            <div className="fuel-decision-head">{decision.head}</div>
+            <div className="fuel-decision-body">
+              <div>{decision.note}</div>
+              {decision.figures && (
+                <div className="fuel-figures">
+                  {decision.figures.map(([label, value, highlight]) => (
+                    <div key={label}>
+                      <span>{label}:</span>
+                      <b className={highlight ? "highlight" : undefined}>
+                        {value}
+                      </b>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </section>
-      )}
+        )}
+      </section>
     </div>
   )
 }

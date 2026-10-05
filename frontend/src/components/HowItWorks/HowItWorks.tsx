@@ -3,9 +3,9 @@ import FuelDemo from "./FuelDemo"
 
 export function HowItWorks() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Вводная секция */}
-      <div className="space-y-4">
+      <div className="space-y-2">
         <div className="flex items-start gap-3">
           <AlertCircle className="h-6 w-6 text-amber-500 flex-shrink-0 mt-1" />
           <div>
@@ -17,9 +17,9 @@ export function HowItWorks() {
           </div>
         </div>
 
-        <div className="bg-card border border-border/50 rounded-lg p-6 space-y-4">
+        <div className="bg-card border border-border/50 rounded-lg p-4 space-y-3">
           <div>
-            <h2 className="font-semibold text-base mb-2">
+            <h2 className="font-semibold text-base mb-1">
               The Smart Optimization Algorithm
             </h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
@@ -31,8 +31,8 @@ export function HowItWorks() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-            <div className="space-y-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+            <div className="space-y-1">
               <h3 className="font-medium text-sm flex items-center gap-2">
                 <span className="text-green-600">✓</span> Smart Strategy
               </h3>
@@ -42,7 +42,7 @@ export function HowItWorks() {
               </p>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1">
               <h3 className="font-medium text-sm flex items-center gap-2">
                 <span className="text-red-600">✗</span> Naive Approaches
               </h3>
@@ -54,7 +54,7 @@ export function HowItWorks() {
             </div>
           </div>
 
-          <div className="pt-2 border-t border-border/50">
+          <div className="pt-1 border-t border-border/50">
             <p className="text-xs text-muted-foreground">
               <strong>Interactive Demo:</strong> Below you'll see the same truck
               traveling the same route using three different strategies. Watch

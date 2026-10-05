@@ -36,6 +36,20 @@ interface Decision {
   figures: Array<[string, string, boolean?]> | null
 }
 
+// Initial decision for the starting point (idx = -1)
+function getInitialDecision(): Decision {
+  return {
+    head: "START — Ready to depart",
+    note: "Begin the journey with a full tank. Different strategies will make different decisions at each stop along the way.",
+    figures: [
+      ["Current fuel", gal(START_FUEL)],
+      ["Remaining trip", `${TOTAL} mi`],
+      ["Reserve kept", gal(RESERVE)],
+      ["Purchase", gal(0), true],
+    ],
+  }
+}
+
 function decisionForGreedy(step: Step): Decision {
   if (step.isDest) {
     return {
@@ -182,9 +196,14 @@ export default function FuelDemo() {
   const [fuels, setFuels] = useState(() =>
     Object.fromEntries(STRATEGIES.map((s) => [s.key, START_FUEL])),
   )
-  const [decisions, setDecisions] = useState(() =>
-    Object.fromEntries(STRATEGIES.map((s) => [s.key, null])),
-  )
+  const [decisions, setDecisions] = useState(() => {
+    // Initialize decisions for the starting point (idx = -1)
+    const initialDecisions: Record<string, Decision | null> = {}
+    for (const r of results) {
+      initialDecisions[r.key] = getInitialDecision()
+    }
+    return initialDecisions
+  })
   const [visitedMap, setVisitedMap] = useState(() =>
     Object.fromEntries(STRATEGIES.map((s) => [s.key, new Set()])),
   )
@@ -204,7 +223,12 @@ export default function FuelDemo() {
     setIdx(-1)
     setTruckDist(0)
     setFuels(Object.fromEntries(STRATEGIES.map((s) => [s.key, START_FUEL])))
-    setDecisions(Object.fromEntries(STRATEGIES.map((s) => [s.key, null])))
+    // Reset decisions to initial state
+    const initialDecisions: Record<string, Decision | null> = {}
+    for (const r of results) {
+      initialDecisions[r.key] = getInitialDecision()
+    }
+    setDecisions(initialDecisions)
     setVisitedMap(Object.fromEntries(STRATEGIES.map((s) => [s.key, new Set()])))
   }
 
@@ -344,16 +368,14 @@ export default function FuelDemo() {
       </div>
 
       <div className="fuel-controls">
-        {idx > -1 && (
-          <button
-            type="button"
-            className="fuel-btn ghost"
-            onClick={handleBack}
-            disabled={busy}
-          >
-            ← Back
-          </button>
-        )}
+        <button
+          type="button"
+          className="fuel-btn ghost"
+          onClick={handleBack}
+          disabled={busy || idx === -1}
+        >
+          ← Back
+        </button>
         {!isDone && (
           <button
             type="button"
@@ -361,19 +383,17 @@ export default function FuelDemo() {
             onClick={handleNext}
             disabled={busy}
           >
-            {idx === -1 ? "▶ Run all three strategies" : "Next →"}
+            Next →
           </button>
         )}
-        {idx > -1 && (
-          <button
-            type="button"
-            className="fuel-btn ghost"
-            onClick={handleReplay}
-            disabled={busy}
-          >
-            ↺ Replay
-          </button>
-        )}
+        <button
+          type="button"
+          className="fuel-btn ghost"
+          onClick={handleReplay}
+          disabled={busy || idx === -1}
+        >
+          ↺ Replay
+        </button>
       </div>
 
       {isDone && (
