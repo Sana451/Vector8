@@ -60,7 +60,6 @@ const formSchema = z
       .min(1, { message: "Fuel profile name is required" }),
     tank_capacity_gallons: numericString("Tank capacity is required"),
     consumption_mpg: numericString("Consumption is required"),
-    reserve_gallons: numericString("Reserve is required"),
     min_refuel_gallons: z.string().optional(),
     max_refuel_gallons: z.string().optional(),
   })
@@ -93,7 +92,6 @@ const AddVehicle = () => {
       fuel_profile_name: "",
       tank_capacity_gallons: "",
       consumption_mpg: "",
-      reserve_gallons: "",
       min_refuel_gallons: "",
       max_refuel_gallons: "",
     },
@@ -127,7 +125,6 @@ const AddVehicle = () => {
         name: data.fuel_profile_name,
         tank_capacity_gallons: data.tank_capacity_gallons,
         consumption_mpg: data.consumption_mpg,
-        reserve_gallons: data.reserve_gallons,
         min_refuel_gallons: data.min_refuel_gallons || undefined,
         max_refuel_gallons: data.max_refuel_gallons || undefined,
       },
@@ -360,22 +357,6 @@ const AddVehicle = () => {
                           </FormLabel>
                           <FormControl>
                             <Input placeholder="6.8" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="reserve_gallons"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>
-                            Reserve (gal){" "}
-                            <span className="text-destructive">*</span>
-                          </FormLabel>
-                          <FormControl>
-                            <Input placeholder="20" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

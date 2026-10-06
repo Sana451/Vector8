@@ -60,7 +60,6 @@ const formSchema = z
       .min(1, { message: "Fuel profile name is required" }),
     tank_capacity_gallons: numericString("Tank capacity is required"),
     consumption_mpg: numericString("Consumption is required"),
-    reserve_gallons: numericString("Reserve is required"),
     min_refuel_gallons: z.string().optional(),
     max_refuel_gallons: z.string().optional(),
   })
@@ -98,7 +97,6 @@ const EditVehicle = ({ vehicle, onSuccess }: EditVehicleProps) => {
       fuel_profile_name: vehicle.fuel_profile.name,
       tank_capacity_gallons: String(vehicle.fuel_profile.tank_capacity_gallons),
       consumption_mpg: String(vehicle.fuel_profile.consumption_mpg),
-      reserve_gallons: String(vehicle.fuel_profile.reserve_gallons),
       min_refuel_gallons: vehicle.fuel_profile.min_refuel_gallons
         ? String(vehicle.fuel_profile.min_refuel_gallons)
         : "",
@@ -125,7 +123,6 @@ const EditVehicle = ({ vehicle, onSuccess }: EditVehicleProps) => {
             name: data.fuel_profile_name,
             tank_capacity_gallons: data.tank_capacity_gallons,
             consumption_mpg: data.consumption_mpg,
-            reserve_gallons: data.reserve_gallons,
             min_refuel_gallons: data.min_refuel_gallons || undefined,
             max_refuel_gallons: data.max_refuel_gallons || undefined,
           },
@@ -368,22 +365,6 @@ const EditVehicle = ({ vehicle, onSuccess }: EditVehicleProps) => {
                         <FormItem>
                           <FormLabel>
                             Consumption (MPG){" "}
-                            <span className="text-destructive">*</span>
-                          </FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="reserve_gallons"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>
-                            Reserve (gal){" "}
                             <span className="text-destructive">*</span>
                           </FormLabel>
                           <FormControl>

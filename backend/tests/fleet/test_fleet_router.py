@@ -28,9 +28,7 @@ class TestVehicleRouter:
                     "name": "Sleeper profile",
                     "fuel_type": "truck_diesel",
                     "tank_capacity_gallons": "150",
-                    "usable_tank_capacity_gallons": "145",
                     "consumption_mpg": "6.8",
-                    "reserve_gallons": "20",
                 },
             },
         )
@@ -38,6 +36,8 @@ class TestVehicleRouter:
         vehicle = create_response.json()
         assert vehicle["unit_number"] == "TRK-001"
         assert vehicle["fuel_profile"]["consumption_mpg"] == "6.800"
+        # usable_tank_capacity_gallons should be automatically calculated as 95% of tank capacity
+        assert vehicle["fuel_profile"]["usable_tank_capacity_gallons"] == "142.500000"
 
         vehicle_id = vehicle["id"]
         list_response = client.get(
@@ -59,13 +59,13 @@ class TestVehicleRouter:
             headers=superuser_token_headers,
             json={
                 "status": "maintenance",
-                "fuel_profile": {"reserve_gallons": "25"},
+                "fuel_profile": {"consumption_mpg": "7.0"},
             },
         )
         assert patch_response.status_code == 200
         patched = patch_response.json()
         assert patched["status"] == "maintenance"
-        assert patched["fuel_profile"]["reserve_gallons"] == "25.0000"
+        assert patched["fuel_profile"]["consumption_mpg"] == "7.000"
 
         delete_response = client.delete(
             f"/api/v1/vehicles/{vehicle_id}",

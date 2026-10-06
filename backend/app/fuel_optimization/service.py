@@ -303,7 +303,6 @@ class OptimizeFuelUseCase:
                 tank_capacity_gallons=fuel_profile_row.tank_capacity_gallons,
                 usable_tank_capacity_gallons=fuel_profile_row.usable_tank_capacity_gallons,
                 consumption_mpg=fuel_profile_row.consumption_mpg,
-                reserve_gallons=fuel_profile_row.reserve_gallons,
                 min_refuel_gallons=fuel_profile_row.min_refuel_gallons,
                 max_refuel_gallons=fuel_profile_row.max_refuel_gallons,
             ),
@@ -314,7 +313,7 @@ class OptimizeFuelUseCase:
                 request.constraints.reserve_gallons
                 if request.constraints
                 and request.constraints.reserve_gallons is not None
-                else vehicle.fuel_profile.reserve_gallons
+                else Decimal("0")  # Default to 0 if not specified
             ),
             max_allowed_detour_meters=(
                 request.constraints.max_allowed_detour_meters
@@ -338,7 +337,6 @@ class OptimizeFuelUseCase:
                 "tank_capacity_gallons": vehicle.fuel_profile.tank_capacity_gallons,
                 "usable_tank_capacity_gallons": vehicle.fuel_profile.usable_tank_capacity_gallons,
                 "consumption_mpg": vehicle.fuel_profile.consumption_mpg,
-                "reserve_gallons": vehicle.fuel_profile.reserve_gallons,
                 "min_refuel_gallons": vehicle.fuel_profile.min_refuel_gallons,
                 "max_refuel_gallons": vehicle.fuel_profile.max_refuel_gallons,
             }

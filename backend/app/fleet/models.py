@@ -37,7 +37,6 @@ class VehicleFuelProfileBase(SQLModel):
         sa_column=Column(Numeric(10, 4), nullable=False)
     )
     consumption_mpg: Decimal = Field(sa_column=Column(Numeric(8, 3), nullable=False))
-    reserve_gallons: Decimal = Field(sa_column=Column(Numeric(10, 4), nullable=False))
     min_refuel_gallons: Decimal | None = Field(
         default=None,
         sa_column=Column(Numeric(10, 4), nullable=True),
@@ -61,12 +60,6 @@ class VehicleFuelProfileBase(SQLModel):
             raise ValueError("usable_tank_capacity_gallons must be greater than 0")
         if self.consumption_mpg <= 0:
             raise ValueError("consumption_mpg must be greater than 0")
-        if self.reserve_gallons < 0:
-            raise ValueError("reserve_gallons must be greater than or equal to 0")
-        if self.reserve_gallons >= usable:
-            raise ValueError(
-                "reserve_gallons must be less than usable_tank_capacity_gallons"
-            )
         if self.min_refuel_gallons is not None and self.min_refuel_gallons < 0:
             raise ValueError("min_refuel_gallons must be greater than or equal to 0")
         if self.max_refuel_gallons is not None and self.max_refuel_gallons <= 0:

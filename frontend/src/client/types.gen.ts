@@ -1718,10 +1718,6 @@ export type VehicleFuelProfileCreate = {
      */
     consumption_mpg: number | string;
     /**
-     * Reserve Gallons
-     */
-    reserve_gallons: number | string;
-    /**
      * Min Refuel Gallons
      */
     min_refuel_gallons?: number | string | null;
@@ -1752,10 +1748,6 @@ export type VehicleFuelProfilePublic = {
      * Consumption Mpg
      */
     consumption_mpg: string;
-    /**
-     * Reserve Gallons
-     */
-    reserve_gallons: string;
     /**
      * Min Refuel Gallons
      */
@@ -1797,10 +1789,6 @@ export type VehicleFuelProfileUpdate = {
      * Consumption Mpg
      */
     consumption_mpg?: number | string | null;
-    /**
-     * Reserve Gallons
-     */
-    reserve_gallons?: number | string | null;
     /**
      * Min Refuel Gallons
      */
@@ -1939,10 +1927,6 @@ export type VehicleFuelProfilePublicWritable = {
      * Consumption Mpg
      */
     consumption_mpg: string;
-    /**
-     * Reserve Gallons
-     */
-    reserve_gallons: string;
     /**
      * Min Refuel Gallons
      */
