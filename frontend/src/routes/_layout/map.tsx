@@ -27,6 +27,7 @@ import {
 import TomTomMap, { type TomTomMapHandle } from "@/components/Map/TomTomMap"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { VehicleSelector } from "@/components/VehicleSelector"
 import useCustomToast from "@/hooks/useCustomToast"
 import { extractOverviewCoordinates } from "@/lib/mapLayers"
 import {
@@ -581,24 +582,11 @@ function MapPage() {
       {routeId && (
         <div className="flex-shrink-0 border-b border-border/50 bg-background p-2">
           <div className="flex flex-wrap gap-2 items-end">
-            <div className="flex-1 min-w-[200px]">
-              <label htmlFor="vehicle-select" className="text-xs font-medium">
-                Vehicle
-              </label>
-              <select
-                id="vehicle-select"
-                value={selectedVehicleId}
-                onChange={(e) => setSelectedVehicleId(e.target.value)}
-                className="w-full text-xs h-8 px-2 rounded border border-border bg-background"
-              >
-                <option value="">Select a vehicle...</option>
-                {vehicles.map((vehicle) => (
-                  <option key={vehicle.id} value={vehicle.id}>
-                    {vehicle.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <VehicleSelector
+              vehicles={vehicles}
+              selectedVehicleId={selectedVehicleId}
+              onSelectVehicle={setSelectedVehicleId}
+            />
 
             <div className="flex-1 min-w-[150px]">
               <label htmlFor="initial-fuel" className="text-xs font-medium">
