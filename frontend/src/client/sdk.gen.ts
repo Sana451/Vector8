@@ -2,7 +2,7 @@
 
 import { type Client, type Options as Options2, type TDataShape, urlSearchParamsBodySerializer } from './client';
 import { client } from './client.gen';
-import type { fuelImportPumppriceFuelData, fuelImportPumppriceFuelErrors, fuelImportPumppriceFuelResponses, fuelImportPumppriceMobileData, fuelImportPumppriceMobileResponses, fuelOptimizationCalculateFuelOptimizationData, fuelOptimizationCalculateFuelOptimizationErrors, fuelOptimizationCalculateFuelOptimizationResponses, geocodingSearchData, geocodingSearchErrors, geocodingSearchResponses, itemsCreateItemData, itemsCreateItemErrors, itemsCreateItemResponses, itemsDeleteItemData, itemsDeleteItemErrors, itemsDeleteItemResponses, itemsReadItemData, itemsReadItemErrors, itemsReadItemResponses, itemsReadItemsData, itemsReadItemsErrors, itemsReadItemsResponses, itemsUpdateItemData, itemsUpdateItemErrors, itemsUpdateItemResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, mapRouteOverviewData, mapRouteOverviewErrors, mapRouteOverviewResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, routingCalculateRouteData, routingCalculateRouteErrors, routingCalculateRouteResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses, vehiclesCreateVehicleData, vehiclesCreateVehicleErrors, vehiclesCreateVehicleResponses, vehiclesDeleteVehicleData, vehiclesDeleteVehicleErrors, vehiclesDeleteVehicleResponses, vehiclesGetVehicleData, vehiclesGetVehicleErrors, vehiclesGetVehicleResponses, vehiclesListVehiclesData, vehiclesListVehiclesErrors, vehiclesListVehiclesResponses, vehiclesUpdateVehicleData, vehiclesUpdateVehicleErrors, vehiclesUpdateVehicleResponses } from './types.gen';
+import type { fuelImportPumppriceFuelData, fuelImportPumppriceFuelErrors, fuelImportPumppriceFuelResponses, fuelImportPumppriceMobileData, fuelImportPumppriceMobileResponses, fuelOptimizationCalculateFuelOptimizationData, fuelOptimizationCalculateFuelOptimizationErrors, fuelOptimizationCalculateFuelOptimizationResponses, geocodingSearchData, geocodingSearchErrors, geocodingSearchResponses, itemsCreateItemData, itemsCreateItemErrors, itemsCreateItemResponses, itemsDeleteItemData, itemsDeleteItemErrors, itemsDeleteItemResponses, itemsReadItemData, itemsReadItemErrors, itemsReadItemResponses, itemsReadItemsData, itemsReadItemsErrors, itemsReadItemsResponses, itemsUpdateItemData, itemsUpdateItemErrors, itemsUpdateItemResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, mapGetAllFuelStationsData, mapGetAllFuelStationsErrors, mapGetAllFuelStationsResponses, mapRouteOverviewData, mapRouteOverviewErrors, mapRouteOverviewResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, routingCalculateRouteData, routingCalculateRouteErrors, routingCalculateRouteResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses, vehiclesCreateVehicleData, vehiclesCreateVehicleErrors, vehiclesCreateVehicleResponses, vehiclesDeleteVehicleData, vehiclesDeleteVehicleErrors, vehiclesDeleteVehicleResponses, vehiclesGetVehicleData, vehiclesGetVehicleErrors, vehiclesGetVehicleResponses, vehiclesListVehiclesData, vehiclesListVehiclesErrors, vehiclesListVehiclesResponses, vehiclesUpdateVehicleData, vehiclesUpdateVehicleErrors, vehiclesUpdateVehicleResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -576,6 +576,29 @@ export class RoutingService {
 }
 
 export class MapService {
+    /**
+     * Get All Fuel Stations
+     *
+     * Get all available fuel stations from cache.
+     *
+     * Returns all non-expired fuel stations currently stored in the database,
+     * regardless of location.
+     *
+     * Args:
+     * session: Database session.
+     * limit: Maximum number of stations to return (default 3000).
+     *
+     * Returns:
+     * List of fuel station data objects.
+     */
+    public static getAllFuelStations<ThrowOnError extends boolean = true>(options?: Options<mapGetAllFuelStationsData, ThrowOnError>) {
+        return (options?.client ?? client).get<mapGetAllFuelStationsResponses, mapGetAllFuelStationsErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/api/v1/map/fuel-stations',
+            ...options
+        });
+    }
+    
     /**
      * Route Overview
      *

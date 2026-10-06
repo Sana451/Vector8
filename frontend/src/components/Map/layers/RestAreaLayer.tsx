@@ -23,6 +23,13 @@ import { buildRestAreaFeatures } from "@/lib/mapLayers"
 import { colorPalette, markerIcons, restAreaIcons } from "@/lib/mapMarkerIcons"
 import { type LayerWithVisibility, useGeoJsonLayer } from "./useGeoJsonLayer"
 
+// Memoize cluster options to prevent unnecessary layer recreation
+const CLUSTER_OPTIONS = {
+  enabled: true,
+  radius: 30,
+  maxZoom: mapObjectZoom.clusterMax,
+}
+
 const SOURCE_ID = "vector8-rest-areas-source"
 const CIRCLE_LAYER_ID = "vector8-rest-areas-circle-layer"
 const LABEL_LAYER_ID = "vector8-rest-areas-label-layer"
@@ -257,11 +264,7 @@ export function RestAreaLayer({ mapInstance, restAreas }: RestAreaLayerProps) {
     sourceId: SOURCE_ID,
     buildLayers,
     data,
-    clusterOptions: {
-      enabled: true,
-      radius: 30,
-      maxZoom: mapObjectZoom.clusterMax,
-    },
+    clusterOptions: CLUSTER_OPTIONS,
   })
 
   useEffect(() => {
@@ -270,6 +273,9 @@ export function RestAreaLayer({ mapInstance, restAreas }: RestAreaLayerProps) {
     }
 
     let popup: Popup | null = null
+    let handlersAttached = false
+    let retryCount = 0
+    const MAX_RETRIES = 5
 
     const showPopup = (event: MapLayerMouseEvent) => {
       const feature = event.features?.[0] as MapGeoJSONFeature | undefined
@@ -298,25 +304,69 @@ export function RestAreaLayer({ mapInstance, restAreas }: RestAreaLayerProps) {
       mapInstance.getCanvas().style.cursor = ""
     }
 
-    const attachHandlers = (layerId: string) => {
+    const attachHandlers = (layerId: string): boolean => {
       const layer = mapInstance.getLayer(layerId)
       if (!layer) {
         console.warn(`[RestAreaLayer] Layer not found: ${layerId}`)
-        return
+        return false
       }
-      console.info(`[RestAreaLayer] Attaching handlers to layer: ${layerId}`)
-      mapInstance.on("click", layerId, showPopup)
-      mapInstance.on("mouseenter", layerId, onMouseEnter)
-      mapInstance.on("mouseleave", layerId, onMouseLeave)
+      try {
+        console.info(`[RestAreaLayer] Attaching handlers to layer: ${layerId}`)
+        mapInstance.on("click", layerId, showPopup)
+        mapInstance.on("mouseenter", layerId, onMouseEnter)
+        mapInstance.on("mouseleave", layerId, onMouseLeave)
+        return true
+      } catch (error) {
+        console.error(
+          `[RestAreaLayer] Failed to attach handlers to ${layerId}:`,
+          error,
+        )
+        return false
+      }
     }
 
-    // Use setTimeout to ensure layers are added to the map first
-    const timeoutId = setTimeout(() => {
-      attachHandlers(CIRCLE_LAYER_ID)
-    }, 0)
+    const tryAttachHandlers = (): boolean => {
+      if (handlersAttached) {
+        return true
+      }
+
+      retryCount++
+      const hasCircleLayer = !!mapInstance.getLayer(CIRCLE_LAYER_ID)
+
+      console.log(
+        `[RestAreaLayer] Try #${retryCount}: CIRCLE=${hasCircleLayer}`,
+      )
+
+      if (!hasCircleLayer) {
+        if (retryCount < MAX_RETRIES) {
+          console.log(
+            `[RestAreaLayer] Circle layer not found, retrying (${retryCount}/${MAX_RETRIES})...`,
+          )
+          return false
+        }
+        console.error(`[RestAreaLayer] Max retries reached, layer not found`)
+        return true
+      }
+
+      if (attachHandlers(CIRCLE_LAYER_ID)) {
+        handlersAttached = true
+        console.log(`[RestAreaLayer] Successfully attached handlers`)
+        return true
+      }
+
+      return false
+    }
+
+    // Use recursive retry mechanism
+    const scheduleRetry = () => {
+      if (!tryAttachHandlers()) {
+        setTimeout(scheduleRetry, 100)
+      }
+    }
+
+    scheduleRetry()
 
     return () => {
-      clearTimeout(timeoutId)
       popup?.remove()
       if (mapInstance.getLayer(CIRCLE_LAYER_ID)) {
         mapInstance.off("click", CIRCLE_LAYER_ID, showPopup)

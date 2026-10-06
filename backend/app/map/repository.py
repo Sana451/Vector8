@@ -250,6 +250,32 @@ class FuelStationRepository(_SpatialLayerRepository):
             rows.append(station)
         return rows
 
+    def find_all_valid(
+        self,
+        provider: str | None = None,
+        limit: int | None = None,
+    ) -> list[FuelStation]:
+        """Find all non-expired fuel stations.
+
+        Args:
+            provider: Optional provider filter.
+            limit: Optional limit on number of results.
+
+        Returns:
+            List of valid (non-expired) fuel stations.
+        """
+        statement = select(FuelStation).where(
+            FuelStation.expires_at >= get_datetime_utc()
+        )
+
+        if provider is not None:
+            statement = statement.where(FuelStation.provider == provider)
+
+        if limit is not None:
+            statement = statement.limit(limit)
+
+        return list(self.session.exec(statement).all())
+
     def upsert_many(
         self,
         provider: str,

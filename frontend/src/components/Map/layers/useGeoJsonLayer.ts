@@ -161,10 +161,19 @@ export function useGeoJsonLayer({
             const visibility: "visible" | "none" = shouldShow
               ? "visible"
               : "none"
-            mapInstance.setLayoutProperty(layer.id, "visibility", visibility)
-            console.log(
-              `[useGeoJsonLayer] Set ${layer.id} visibility to ${visibility} (zoom=${currentZoom})`,
-            )
+
+            // Always set visibility to ensure layer is interactive
+            try {
+              mapInstance.setLayoutProperty(layer.id, "visibility", visibility)
+              console.log(
+                `[useGeoJsonLayer] Set ${layer.id} visibility to ${visibility} (zoom=${currentZoom})`,
+              )
+            } catch (error) {
+              console.error(
+                `[useGeoJsonLayer] Failed to set visibility for ${layer.id}:`,
+                error,
+              )
+            }
           }
         }
       } catch (error) {

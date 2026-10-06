@@ -27,6 +27,13 @@ const OCTAGON_LAYER_ID = "truck-restrictions-octagons"
 const CLUSTER_CIRCLE_LAYER_ID = "truck-restrictions-cluster-circle"
 const CLUSTER_TEXT_LAYER_ID = "truck-restrictions-cluster-text"
 
+// Memoize cluster options to prevent unnecessary layer recreation
+const CLUSTER_OPTIONS = {
+  enabled: true,
+  radius: 30,
+  maxZoom: mapObjectZoom.clusterMax,
+}
+
 interface TruckRestrictionLayerProps {
   mapInstance: MapLibreMap | null
   restrictions: Array<TruckRestrictionData> | undefined
@@ -145,11 +152,7 @@ export function TruckRestrictionLayer({
     sourceId: SOURCE_ID,
     buildLayers,
     data,
-    clusterOptions: {
-      enabled: true,
-      radius: 30,
-      maxZoom: mapObjectZoom.clusterMax,
-    },
+    clusterOptions: CLUSTER_OPTIONS,
   })
 
   return null

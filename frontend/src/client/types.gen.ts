@@ -536,6 +536,12 @@ export type FuelStationData = {
      */
     external_id: string;
     /**
+     * Station Id
+     *
+     * Internal station UUID for optimization correlation
+     */
+    station_id?: string | null;
+    /**
      * Name
      */
     name: string;
@@ -2775,6 +2781,40 @@ export type routingCalculateRouteResponses = {
 };
 
 export type routingCalculateRouteResponse = routingCalculateRouteResponses[keyof routingCalculateRouteResponses];
+
+export type mapGetAllFuelStationsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Limit
+         *
+         * Maximum number of fuel stations to return
+         */
+        limit?: number;
+    };
+    url: '/api/v1/map/fuel-stations';
+};
+
+export type mapGetAllFuelStationsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type mapGetAllFuelStationsError = mapGetAllFuelStationsErrors[keyof mapGetAllFuelStationsErrors];
+
+export type mapGetAllFuelStationsResponses = {
+    /**
+     * Response Map-Get All Fuel Stations
+     *
+     * Successful Response
+     */
+    200: Array<FuelStationData>;
+};
+
+export type mapGetAllFuelStationsResponse = mapGetAllFuelStationsResponses[keyof mapGetAllFuelStationsResponses];
 
 export type mapRouteOverviewData = {
     body: MapOverviewRequest;

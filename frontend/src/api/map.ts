@@ -5,6 +5,7 @@
  * restrictions in a single call.
  */
 
+import type { FuelStationData } from "@/client"
 import {
   type GeocodingSearchResponse,
   GeocodingService,
@@ -12,6 +13,24 @@ import {
   MapService,
 } from "@/client"
 import type { MapOverviewResponse } from "@/client/types.gen"
+
+/**
+ * Fetch all available fuel stations from cache.
+ *
+ * @param limit - Maximum number of stations to return (default 3000)
+ * @returns List of fuel station data objects
+ */
+export async function getAllFuelStations(
+  limit: number = 3000,
+): Promise<FuelStationData[]> {
+  const response = await MapService.getAllFuelStations({
+    query: {
+      limit,
+    },
+  })
+
+  return response.data as FuelStationData[]
+}
 
 /**
  * Fetch the aggregated map overview for a route.

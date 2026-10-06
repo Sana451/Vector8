@@ -64,10 +64,12 @@ export function buildRouteFeature(
  * Build a point FeatureCollection for fuel stations.
  *
  * @param stations - Fuel stations from the map overview response
+ * @param activeFuelStationIds - Set of fuel station IDs (UUIDs) that are active (used in optimization)
  * @returns GeoJSON FeatureCollection or null when there are no stations
  */
 export function buildFuelFeatures(
   stations: Array<FuelStationData> | undefined,
+  activeFuelStationIds?: Set<string>,
 ): FeatureCollection | null {
   if (!stations || stations.length === 0) {
     return null
@@ -78,7 +80,8 @@ export function buildFuelFeatures(
     features: stations.map((station) => ({
       type: "Feature",
       properties: {
-        id: station.external_id,
+        externalId: station.external_id,
+        stationId: station.station_id,
         name: station.name,
         brand: station.brand ?? "",
         address: station.address ?? "",
@@ -95,6 +98,13 @@ export function buildFuelFeatures(
         hasAdblue: station.has_adblue ?? false,
         mediumTruckAccessible: station.medium_truck_accessible ?? true,
         largeTruckAccessible: station.large_truck_accessible ?? true,
+        // If no optimization has run yet (empty set), show all as active
+        // Otherwise only show those in the optimization results as active
+        isActive:
+          activeFuelStationIds?.size === 0 ||
+          (station.station_id &&
+            activeFuelStationIds?.has(station.station_id)) ||
+          false,
       },
       geometry: {
         type: "Point",

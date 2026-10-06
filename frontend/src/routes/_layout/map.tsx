@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useEffect, useRef, useState } from "react"
 import { calculateFuelOptimization } from "@/api/fuelOptimization"
-import { getRouteOverview, searchAddress } from "@/api/map"
+import { getAllFuelStations, getRouteOverview, searchAddress } from "@/api/map"
 import { listVehicles } from "@/api/vehicles"
 import type {
   FuelStationData,
@@ -99,6 +99,9 @@ function MapPage() {
   )
   const [traffic, setTraffic] = useState<TrafficLayerData | null>(null)
   const [fuelStations, setFuelStations] = useState<Array<FuelStationData>>([])
+  const [activeFuelStationIds, setActiveFuelStationIds] = useState<Set<string>>(
+    new Set(),
+  )
   const [truckRestrictions, setTruckRestrictions] = useState<
     Array<TruckRestrictionData>
   >([])
@@ -118,10 +121,24 @@ function MapPage() {
     queryFn: listVehicles,
   })
 
+  // Fetch all fuel stations on component mount
+  useEffect(() => {
+    const loadFuelStations = async () => {
+      try {
+        const stations = await getAllFuelStations(3000)
+        setFuelStations(stations)
+        console.info("[Map] Loaded", stations.length, "fuel stations on mount")
+      } catch (error) {
+        console.error("[Map] Failed to load fuel stations:", error)
+      }
+    }
+    loadFuelStations()
+  }, [])
+
   const resetLayers = () => {
     setRouteCoordinates(null)
     setTraffic(null)
-    setFuelStations([])
+    setActiveFuelStationIds(new Set())
     setTruckRestrictions([])
     setRestAreas(null)
     setRouteInfo(null)
@@ -221,7 +238,7 @@ function MapPage() {
 
       setRouteCoordinates(coordinates)
       setTraffic(data.traffic ?? null)
-      setFuelStations(data.fuel_stations ?? [])
+      // Do NOT touch fuel stations on calculate - they stay as loaded on mount
       setTruckRestrictions(data.truck_restrictions ?? [])
       setRestAreas(data.rest_areas ?? null)
 
@@ -308,6 +325,11 @@ function MapPage() {
       })
     },
     onSuccess: (data) => {
+      // Extract station IDs from optimization stops (used fuel stations)
+      const usedStationIds = new Set(
+        (data.stops ?? []).map((stop) => stop.station_id),
+      )
+      setActiveFuelStationIds(usedStationIds)
       showSuccessToast("Fuel optimization calculated successfully")
       console.log("Fuel optimization result:", data)
     },
@@ -582,7 +604,11 @@ function MapPage() {
           <TrafficLayer mapInstance={mapInstance} traffic={traffic} />
         )}
         {visibleLayers.has("fuel") && (
-          <FuelLayer mapInstance={mapInstance} stations={fuelStations} />
+          <FuelLayer
+            mapInstance={mapInstance}
+            stations={fuelStations}
+            activeFuelStationIds={activeFuelStationIds}
+          />
         )}
         {visibleLayers.has("truck-restrictions") && (
           <TruckRestrictionLayer

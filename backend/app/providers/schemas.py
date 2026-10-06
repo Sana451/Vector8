@@ -125,6 +125,9 @@ class FuelStationData(BaseModel):
     """Fuel station along the route."""
 
     external_id: str = Field(description="Stable provider identifier")
+    station_id: str | None = Field(
+        default=None, description="Internal station UUID for optimization correlation"
+    )
     name: str
     brand: str | None = None
     address: str | None = None
