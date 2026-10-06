@@ -121,7 +121,7 @@ function MapPage() {
     queryFn: listVehicles,
   })
 
-  // Fetch all fuel stations on component mount
+  // Fetch all available fuel stations on component mount
   useEffect(() => {
     const loadFuelStations = async () => {
       try {
@@ -138,6 +138,7 @@ function MapPage() {
   const resetLayers = () => {
     setRouteCoordinates(null)
     setTraffic(null)
+    // Do NOT reset fuel stations - they are loaded once on mount and persist
     setActiveFuelStationIds(new Set())
     setTruckRestrictions([])
     setRestAreas(null)
@@ -238,7 +239,7 @@ function MapPage() {
 
       setRouteCoordinates(coordinates)
       setTraffic(data.traffic ?? null)
-      // Do NOT touch fuel stations on calculate - they stay as loaded on mount
+      // Do NOT update fuel stations - they are loaded once on mount and persist
       setTruckRestrictions(data.truck_restrictions ?? [])
       setRestAreas(data.rest_areas ?? null)
 
@@ -253,7 +254,6 @@ function MapPage() {
           count: i.estimated_percent_congestion,
         })),
       )
-      console.info("Fuel stations:", data.fuel_stations?.length ?? 0)
       console.info("Truck restrictions:", data.truck_restrictions?.length ?? 0)
       console.table(
         (data.truck_restrictions ?? []).slice(0, 5).map((r: any) => ({
@@ -325,13 +325,88 @@ function MapPage() {
       })
     },
     onSuccess: (data) => {
-      // Extract station IDs from optimization stops (used fuel stations)
-      const usedStationIds = new Set(
-        (data.stops ?? []).map((stop) => stop.station_id),
-      )
-      setActiveFuelStationIds(usedStationIds)
-      showSuccessToast("Fuel optimization calculated successfully")
-      console.log("Fuel optimization result:", data)
+      // Check optimization status
+      if (data.status === "infeasible") {
+        // Optimization is not possible
+        const explanation = data.explanation
+
+        // Build error message: "Optimization is infeasible." + outcome + all key_points
+        let toastMessage = "Optimization is infeasible."
+
+        if (explanation.outcome) {
+          toastMessage += `\n${explanation.outcome}`
+        }
+
+        if (explanation.key_points && explanation.key_points.length > 0) {
+          toastMessage += `\n\n${explanation.key_points.join("\n")}`
+        }
+
+        // Show error in toast
+        showErrorToast(toastMessage)
+
+        // Build detailed message for console with all details
+        let consoleMessage = "Optimization is infeasible."
+
+        if (explanation.outcome) {
+          consoleMessage += `\n\nOutcome: ${explanation.outcome}`
+        }
+
+        if (explanation.key_points && explanation.key_points.length > 0) {
+          consoleMessage += `\n\nKey Points:\n${explanation.key_points.join("\n")}`
+        }
+
+        // Add information about filtered out stations
+        if (
+          explanation.skipped_station_stats &&
+          explanation.skipped_station_stats.length > 0
+        ) {
+          const stationStats = explanation.skipped_station_stats[0]
+          if (stationStats.count > 0) {
+            consoleMessage += `\n\n⚠️ ${stationStats.count} station(s) were excluded: ${stationStats.description}`
+            if (
+              stationStats.sample_points &&
+              stationStats.sample_points.length > 0
+            ) {
+              consoleMessage +=
+                "\n   Examples: " +
+                stationStats.sample_points
+                  .slice(0, 3)
+                  .map((s) => s.name)
+                  .join(", ")
+            }
+          }
+        }
+
+        // Log full details for debugging
+        console.warn("[Fuel Optimization] Infeasible", consoleMessage, {
+          summary: explanation.summary,
+          outcome: explanation.outcome,
+          warnings: explanation.warnings,
+          allKeyPoints: explanation.key_points,
+          skippedStations: explanation.skipped_station_stats,
+        })
+
+        return
+      }
+
+      // Optimization succeeded
+      if (data.status === "success") {
+        // Extract station IDs from optimization stops (used fuel stations)
+        const usedStationIds = new Set(
+          (data.stops ?? []).map((stop) => stop.station_id),
+        )
+        setActiveFuelStationIds(usedStationIds)
+
+        // Build success message with summary
+        const summary = data.summary
+        let successMessage = "Fuel optimization calculated successfully"
+        if (summary) {
+          successMessage += ` — ${summary.number_of_stops} stops, $${summary.total_fuel_cost} cost`
+        }
+
+        showSuccessToast(successMessage)
+        console.log("Fuel optimization result:", data)
+      }
     },
     onError: handleError.bind(showErrorToast),
   })
