@@ -27,9 +27,7 @@ const fillRequiredFields = async (
     .getByLabel("Profile Name *", { exact: true })
     .fill("Standard Diesel")
   await page.getByLabel("Tank Capacity (gal) *", { exact: true }).fill("150")
-  await page.getByLabel("Usable Capacity (gal) *", { exact: true }).fill("145")
   await page.getByLabel("Consumption (MPG) *", { exact: true }).fill("6.8")
-  await page.getByLabel("Reserve (gal) *", { exact: true }).fill("20")
 }
 
 test.describe("Fleet management", () => {
