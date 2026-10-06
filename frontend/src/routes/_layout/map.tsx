@@ -17,6 +17,7 @@ import {
   type LayerType,
 } from "@/components/Map/LayerTogglePanel"
 import {
+  DetourLayer,
   FuelLayer,
   RestAreaLayer,
   RouteLayer,
@@ -26,6 +27,7 @@ import {
 import TomTomMap, { type TomTomMapHandle } from "@/components/Map/TomTomMap"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { VehicleSelector } from "@/components/VehicleSelector"
 import useCustomToast from "@/hooks/useCustomToast"
 import { extractOverviewCoordinates } from "@/lib/mapLayers"
 import {
@@ -52,7 +54,14 @@ function MapPage() {
 
   // Layer visibility state
   const [visibleLayers, setVisibleLayers] = useState<Set<LayerType>>(
-    new Set(["route", "traffic", "fuel", "truck-restrictions", "rest-areas"]),
+    new Set([
+      "route",
+      "detour",
+      "traffic",
+      "fuel",
+      "truck-restrictions",
+      "rest-areas",
+    ]),
   )
 
   const handleToggleLayer = (layer: LayerType) => {
@@ -121,7 +130,7 @@ function MapPage() {
     queryFn: listVehicles,
   })
 
-  // Fetch all fuel stations on component mount
+  // Fetch all available fuel stations on component mount
   useEffect(() => {
     const loadFuelStations = async () => {
       try {
@@ -138,6 +147,7 @@ function MapPage() {
   const resetLayers = () => {
     setRouteCoordinates(null)
     setTraffic(null)
+    // Do NOT reset fuel stations - they are loaded once on mount and persist
     setActiveFuelStationIds(new Set())
     setTruckRestrictions([])
     setRestAreas(null)
@@ -238,7 +248,7 @@ function MapPage() {
 
       setRouteCoordinates(coordinates)
       setTraffic(data.traffic ?? null)
-      // Do NOT touch fuel stations on calculate - they stay as loaded on mount
+      // Do NOT update fuel stations - they are loaded once on mount and persist
       setTruckRestrictions(data.truck_restrictions ?? [])
       setRestAreas(data.rest_areas ?? null)
 
@@ -253,7 +263,6 @@ function MapPage() {
           count: i.estimated_percent_congestion,
         })),
       )
-      console.info("Fuel stations:", data.fuel_stations?.length ?? 0)
       console.info("Truck restrictions:", data.truck_restrictions?.length ?? 0)
       console.table(
         (data.truck_restrictions ?? []).slice(0, 5).map((r: any) => ({
@@ -325,13 +334,88 @@ function MapPage() {
       })
     },
     onSuccess: (data) => {
-      // Extract station IDs from optimization stops (used fuel stations)
-      const usedStationIds = new Set(
-        (data.stops ?? []).map((stop) => stop.station_id),
-      )
-      setActiveFuelStationIds(usedStationIds)
-      showSuccessToast("Fuel optimization calculated successfully")
-      console.log("Fuel optimization result:", data)
+      // Check optimization status
+      if (data.status === "infeasible") {
+        // Optimization is not possible
+        const explanation = data.explanation
+
+        // Build error message: "Optimization is infeasible." + outcome + all key_points
+        let toastMessage = "Optimization is infeasible."
+
+        if (explanation.outcome) {
+          toastMessage += `\n${explanation.outcome}`
+        }
+
+        if (explanation.key_points && explanation.key_points.length > 0) {
+          toastMessage += `\n\n${explanation.key_points.join("\n")}`
+        }
+
+        // Show error in toast
+        showErrorToast(toastMessage)
+
+        // Build detailed message for console with all details
+        let consoleMessage = "Optimization is infeasible."
+
+        if (explanation.outcome) {
+          consoleMessage += `\n\nOutcome: ${explanation.outcome}`
+        }
+
+        if (explanation.key_points && explanation.key_points.length > 0) {
+          consoleMessage += `\n\nKey Points:\n${explanation.key_points.join("\n")}`
+        }
+
+        // Add information about filtered out stations
+        if (
+          explanation.skipped_station_stats &&
+          explanation.skipped_station_stats.length > 0
+        ) {
+          const stationStats = explanation.skipped_station_stats[0]
+          if (stationStats.count > 0) {
+            consoleMessage += `\n\n⚠️ ${stationStats.count} station(s) were excluded: ${stationStats.description}`
+            if (
+              stationStats.sample_points &&
+              stationStats.sample_points.length > 0
+            ) {
+              consoleMessage +=
+                "\n   Examples: " +
+                stationStats.sample_points
+                  .slice(0, 3)
+                  .map((s) => s.name)
+                  .join(", ")
+            }
+          }
+        }
+
+        // Log full details for debugging
+        console.warn("[Fuel Optimization] Infeasible", consoleMessage, {
+          summary: explanation.summary,
+          outcome: explanation.outcome,
+          warnings: explanation.warnings,
+          allKeyPoints: explanation.key_points,
+          skippedStations: explanation.skipped_station_stats,
+        })
+
+        return
+      }
+
+      // Optimization succeeded
+      if (data.status === "success") {
+        // Extract station IDs from optimization stops (used fuel stations)
+        const usedStationIds = new Set(
+          (data.stops ?? []).map((stop) => stop.station_id),
+        )
+        setActiveFuelStationIds(usedStationIds)
+
+        // Build success message with summary
+        const summary = data.summary
+        let successMessage = "Fuel optimization calculated successfully"
+        if (summary) {
+          successMessage += ` — ${summary.number_of_stops} stops, $${summary.total_fuel_cost} cost`
+        }
+
+        showSuccessToast(successMessage)
+        console.log("Fuel optimization result:", data)
+      }
     },
     onError: handleError.bind(showErrorToast),
   })
@@ -498,24 +582,11 @@ function MapPage() {
       {routeId && (
         <div className="flex-shrink-0 border-b border-border/50 bg-background p-2">
           <div className="flex flex-wrap gap-2 items-end">
-            <div className="flex-1 min-w-[200px]">
-              <label htmlFor="vehicle-select" className="text-xs font-medium">
-                Vehicle
-              </label>
-              <select
-                id="vehicle-select"
-                value={selectedVehicleId}
-                onChange={(e) => setSelectedVehicleId(e.target.value)}
-                className="w-full text-xs h-8 px-2 rounded border border-border bg-background"
-              >
-                <option value="">Select a vehicle...</option>
-                {vehicles.map((vehicle) => (
-                  <option key={vehicle.id} value={vehicle.id}>
-                    {vehicle.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <VehicleSelector
+              vehicles={vehicles}
+              selectedVehicleId={selectedVehicleId}
+              onSelectVehicle={setSelectedVehicleId}
+            />
 
             <div className="flex-1 min-w-[150px]">
               <label htmlFor="initial-fuel" className="text-xs font-medium">
@@ -545,18 +616,57 @@ function MapPage() {
               />
             </div>
 
-            <div className="flex-1 min-w-[160px]">
-              <label htmlFor="max-detour" className="text-xs font-medium">
-                Max Detour (m)
-              </label>
-              <Input
-                id="max-detour"
-                type="number"
-                value={maxDetourMeters}
-                onChange={(e) => setMaxDetourMeters(e.target.value)}
-                className="text-xs h-8"
-                placeholder="100000"
-              />
+            <div className="flex-1 min-w-[200px]">
+              <div className="flex justify-between items-center mb-1">
+                <label htmlFor="max-detour" className="text-xs font-medium">
+                  Max Detour (km)
+                </label>
+                <span className="text-xs font-semibold text-muted-foreground">
+                  {(parseInt(maxDetourMeters, 10) / 1000).toFixed(0)}km
+                </span>
+              </div>
+              <div className="flex gap-2 items-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const current = parseInt(maxDetourMeters, 10)
+                    const newValue = Math.max(0, current - 1000)
+                    setMaxDetourMeters(String(newValue))
+                  }}
+                  className="px-2 py-1 h-8 rounded border border-border bg-muted hover:bg-muted/80 text-xs font-medium transition-colors"
+                  disabled={parseInt(maxDetourMeters, 10) === 0}
+                  aria-label="Decrease detour distance"
+                >
+                  −
+                </button>
+                <input
+                  id="max-detour"
+                  type="range"
+                  min="0"
+                  max="100000"
+                  step="1000"
+                  value={maxDetourMeters}
+                  onChange={(e) => setMaxDetourMeters(e.target.value)}
+                  className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const current = parseInt(maxDetourMeters, 10)
+                    const newValue = Math.min(100000, current + 1000)
+                    setMaxDetourMeters(String(newValue))
+                  }}
+                  className="px-2 py-1 h-8 rounded border border-border bg-muted hover:bg-muted/80 text-xs font-medium transition-colors"
+                  disabled={parseInt(maxDetourMeters, 10) === 100000}
+                  aria-label="Increase detour distance"
+                >
+                  +
+                </button>
+              </div>
+              <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                <span>0</span>
+                <span>100km</span>
+              </div>
             </div>
 
             <div className="flex gap-2">
@@ -598,6 +708,13 @@ function MapPage() {
           <RouteLayer
             mapInstance={mapInstance}
             coordinates={routeCoordinates}
+          />
+        )}
+        {visibleLayers.has("detour") && (
+          <DetourLayer
+            mapInstance={mapInstance}
+            coordinates={routeCoordinates}
+            detourMeters={parseInt(maxDetourMeters, 10)}
           />
         )}
         {visibleLayers.has("traffic") && (

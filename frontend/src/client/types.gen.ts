@@ -1714,17 +1714,9 @@ export type VehicleFuelProfileCreate = {
      */
     tank_capacity_gallons: number | string;
     /**
-     * Usable Tank Capacity Gallons
-     */
-    usable_tank_capacity_gallons: number | string;
-    /**
      * Consumption Mpg
      */
     consumption_mpg: number | string;
-    /**
-     * Reserve Gallons
-     */
-    reserve_gallons: number | string;
     /**
      * Min Refuel Gallons
      */
@@ -1753,17 +1745,9 @@ export type VehicleFuelProfilePublic = {
      */
     tank_capacity_gallons: string;
     /**
-     * Usable Tank Capacity Gallons
-     */
-    usable_tank_capacity_gallons: string;
-    /**
      * Consumption Mpg
      */
     consumption_mpg: string;
-    /**
-     * Reserve Gallons
-     */
-    reserve_gallons: string;
     /**
      * Min Refuel Gallons
      */
@@ -1780,6 +1764,12 @@ export type VehicleFuelProfilePublic = {
      * Updated At
      */
     updated_at: string;
+    /**
+     * Usable Tank Capacity Gallons
+     *
+     * Usable tank capacity is always 95% of tank capacity.
+     */
+    readonly usable_tank_capacity_gallons: string;
 };
 
 /**
@@ -1796,17 +1786,9 @@ export type VehicleFuelProfileUpdate = {
      */
     tank_capacity_gallons?: number | string | null;
     /**
-     * Usable Tank Capacity Gallons
-     */
-    usable_tank_capacity_gallons?: number | string | null;
-    /**
      * Consumption Mpg
      */
     consumption_mpg?: number | string | null;
-    /**
-     * Reserve Gallons
-     */
-    reserve_gallons?: number | string | null;
     /**
      * Min Refuel Gallons
      */
@@ -1918,6 +1900,104 @@ export type VehiclesPublic = {
      * Data
      */
     data: Array<VehiclePublic>;
+    /**
+     * Count
+     */
+    count: number;
+};
+
+/**
+ * VehicleFuelProfilePublic
+ */
+export type VehicleFuelProfilePublicWritable = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    fuel_type: VehicleFuelType;
+    /**
+     * Tank Capacity Gallons
+     */
+    tank_capacity_gallons: string;
+    /**
+     * Consumption Mpg
+     */
+    consumption_mpg: string;
+    /**
+     * Min Refuel Gallons
+     */
+    min_refuel_gallons?: string | null;
+    /**
+     * Max Refuel Gallons
+     */
+    max_refuel_gallons?: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+};
+
+/**
+ * VehiclePublic
+ */
+export type VehiclePublicWritable = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Unit Number
+     */
+    unit_number: string;
+    status: VehicleStatus;
+    vehicle_type: VehicleType;
+    /**
+     * Make
+     */
+    make?: string | null;
+    /**
+     * Model
+     */
+    model?: string | null;
+    /**
+     * Year
+     */
+    year?: number | null;
+    /**
+     * Routing Profile Id
+     */
+    routing_profile_id?: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    fuel_profile: VehicleFuelProfilePublicWritable;
+};
+
+/**
+ * VehiclesPublic
+ */
+export type VehiclesPublicWritable = {
+    /**
+     * Data
+     */
+    data: Array<VehiclePublicWritable>;
     /**
      * Count
      */

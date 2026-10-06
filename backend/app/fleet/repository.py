@@ -39,7 +39,8 @@ class VehicleRepository:
 
     def create(self, vehicle_in: VehicleCreate) -> Vehicle:
         now = get_datetime_utc()
-        profile = VehicleFuelProfile.model_validate(vehicle_in.fuel_profile)
+        profile_data = vehicle_in.fuel_profile.model_dump()
+        profile = VehicleFuelProfile.model_validate(profile_data)
         profile.created_at = now
         profile.updated_at = now
         self.session.add(profile)
@@ -71,9 +72,8 @@ class VehicleRepository:
             profile = self.session.get(VehicleFuelProfile, vehicle.fuel_profile_id)
             if profile is None:
                 raise ValueError("Vehicle fuel profile not found")
-            profile.sqlmodel_update(
-                vehicle_in.fuel_profile.model_dump(exclude_unset=True)
-            )
+            profile_data = vehicle_in.fuel_profile.model_dump(exclude_unset=True)
+            profile.sqlmodel_update(profile_data)
             VehicleFuelProfile.model_validate(profile.model_dump())
             profile.updated_at = now
             self.session.add(profile)

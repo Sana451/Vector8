@@ -5,6 +5,7 @@
  * data it needs, so layers can be added or removed independently.
  */
 
+export { DetourLayer } from "./DetourLayer"
 export { FuelLayer } from "./FuelLayer"
 export { RestAreaLayer } from "./RestAreaLayer"
 export { RouteLayer } from "./RouteLayer"

@@ -303,7 +303,6 @@ class OptimizeFuelUseCase:
                 tank_capacity_gallons=fuel_profile_row.tank_capacity_gallons,
                 usable_tank_capacity_gallons=fuel_profile_row.usable_tank_capacity_gallons,
                 consumption_mpg=fuel_profile_row.consumption_mpg,
-                reserve_gallons=fuel_profile_row.reserve_gallons,
                 min_refuel_gallons=fuel_profile_row.min_refuel_gallons,
                 max_refuel_gallons=fuel_profile_row.max_refuel_gallons,
             ),
@@ -314,7 +313,7 @@ class OptimizeFuelUseCase:
                 request.constraints.reserve_gallons
                 if request.constraints
                 and request.constraints.reserve_gallons is not None
-                else vehicle.fuel_profile.reserve_gallons
+                else Decimal("0")  # Default to 0 if not specified
             ),
             max_allowed_detour_meters=(
                 request.constraints.max_allowed_detour_meters
@@ -338,7 +337,6 @@ class OptimizeFuelUseCase:
                 "tank_capacity_gallons": vehicle.fuel_profile.tank_capacity_gallons,
                 "usable_tank_capacity_gallons": vehicle.fuel_profile.usable_tank_capacity_gallons,
                 "consumption_mpg": vehicle.fuel_profile.consumption_mpg,
-                "reserve_gallons": vehicle.fuel_profile.reserve_gallons,
                 "min_refuel_gallons": vehicle.fuel_profile.min_refuel_gallons,
                 "max_refuel_gallons": vehicle.fuel_profile.max_refuel_gallons,
             }
@@ -724,13 +722,28 @@ class OptimizeFuelUseCase:
             if isinstance(reason, str) and reason != "candidate_included":
                 excluded_counts[reason] = excluded_counts.get(reason, 0) + 1
         if excluded_counts:
+            # Build filtered out stations message with better formatting and units
+            filtered_parts = []
+            for reason, count in sorted(excluded_counts.items()):
+                if reason == "detour_distance_limit_exceeded":
+                    # max_allowed_detour_meters represents the full detour buffer diameter shown on the map
+                    # The actual constraint is the distance from the route to a station
+                    if constraints.max_allowed_detour_meters is not None:
+                        max_detour_km = constraints.max_allowed_detour_meters / 1000
+                        # Half of the detour represents the actual distance constraint from the route
+                        max_distance_from_route_km = cls._fmt(
+                            constraints.max_allowed_detour_meters / 2000
+                        )
+                        filtered_parts.append(
+                            f"{reason}={count} stations (must be within {max_distance_from_route_km}km of route, half of {cls._fmt(max_detour_km)}k detour zone)"
+                        )
+                    else:
+                        filtered_parts.append(f"{reason}={count}")
+                else:
+                    filtered_parts.append(f"{reason}={count}")
+
             key_points.append(
-                "Filtered out stations: "
-                + ", ".join(
-                    f"{reason}={count}"
-                    for reason, count in sorted(excluded_counts.items())
-                )
-                + "."
+                "Filtered out stations: " + ", ".join(filtered_parts) + "."
             )
         warnings: list[str] = []
         warnings.append(
@@ -853,7 +866,7 @@ class OptimizeFuelUseCase:
             "unsupported_fuel_type": "Station fuel type does not match the required truck diesel fuel type.",
             "missing_diesel_price": "Station has no diesel price, so it cannot be used in a cost-aware fuel optimization run.",
             "not_truck_accessible": "Station is not marked as accessible for both medium and large trucks.",
-            "detour_distance_limit_exceeded": "Station was outside the allowed detour distance constraint.",
+            "detour_distance_limit_exceeded": "Station was too far from the route (distance from route exceeds half of the allowed detour zone).",
         }
         return descriptions.get(
             reason, "Station was filtered out by an optimization candidate rule."

@@ -6,6 +6,8 @@
  * simply yields null.
  */
 
+import buffer from "@turf/buffer"
+import { lineString } from "@turf/helpers"
 import type { Feature, FeatureCollection } from "geojson"
 import type {
   FuelStationData,
@@ -57,6 +59,38 @@ export function buildRouteFeature(
     type: "Feature",
     properties: {},
     geometry: { type: "LineString", coordinates },
+  }
+}
+
+/**
+ * Build a Polygon feature representing the detour zone around a route.
+ *
+ * Creates a buffer polygon around the route line by the specified distance in kilometers.
+ *
+ * @param coordinates - Array of [longitude, latitude] pairs
+ * @param detourDistanceKm - Buffer distance in kilometers
+ * @returns GeoJSON Feature (Polygon) or null when there are fewer than 2 points
+ */
+export function buildDetourFeature(
+  coordinates: Coordinate[] | null,
+  detourDistanceKm: number,
+): Feature | null {
+  if (!coordinates || coordinates.length < 2) {
+    return null
+  }
+
+  try {
+    // Create a LineString from route coordinates
+    const line = lineString(coordinates)
+
+    // Create a buffer (polygon) around the line
+    // The detourDistanceKm is in kilometers, turf buffer expects kilometers by default
+    const buffered = buffer(line, detourDistanceKm, { units: "kilometers" })
+
+    return buffered ?? null
+  } catch (error) {
+    console.error("[buildDetourFeature] Error creating detour buffer:", error)
+    return null
   }
 }
 

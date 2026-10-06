@@ -37,7 +37,6 @@ class VehicleFuelProfile:
     tank_capacity_gallons: Decimal
     usable_tank_capacity_gallons: Decimal
     consumption_mpg: Decimal
-    reserve_gallons: Decimal
     min_refuel_gallons: Decimal | None = None
     max_refuel_gallons: Decimal | None = None
 
@@ -57,14 +56,6 @@ class VehicleFuelProfile:
         if self.consumption_mpg <= ZERO:
             raise InvalidFuelOptimizationInputError(
                 "consumption_mpg must be greater than 0"
-            )
-        if self.reserve_gallons < ZERO:
-            raise InvalidFuelOptimizationInputError(
-                "reserve_gallons must be greater than or equal to 0"
-            )
-        if self.reserve_gallons >= self.usable_tank_capacity_gallons:
-            raise InvalidFuelOptimizationInputError(
-                "reserve_gallons must be less than usable_tank_capacity_gallons"
             )
 
 

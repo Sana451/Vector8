@@ -26,16 +26,15 @@ class DummyDetourCalculator:
         return Detour(distance_meters=distance_from_route_meters, time_seconds=60)
 
 
-def build_vehicle(
-    *, reserve: str = "20", usable: str = "145", mpg: str = "10"
-) -> Vehicle:
+def build_vehicle(*, usable: str = "142.5", mpg: str = "10") -> Vehicle:
+    # usable is automatically calculated as 95% of tank capacity (150 * 0.95 = 142.5)
+    # reserve is now handled via FuelOptimizationConstraints, not in VehicleFuelProfile
     profile = VehicleFuelProfile(
         id=uuid.uuid4(),
         fuel_type="truck_diesel",
         tank_capacity_gallons=Decimal("150"),
         usable_tank_capacity_gallons=Decimal(usable),
         consumption_mpg=Decimal(mpg),
-        reserve_gallons=Decimal(reserve),
     )
     return Vehicle(
         id=uuid.uuid4(),
@@ -83,10 +82,10 @@ def build_context(
     route_distance_miles: str,
     stations: list[FuelStationCandidate],
     reserve: str = "20",
-    usable: str = "145",
+    usable: str = "142.5",
     mpg: str = "10",
 ) -> FuelOptimizationContext:
-    vehicle = build_vehicle(reserve=reserve, usable=usable, mpg=mpg)
+    vehicle = build_vehicle(usable=usable, mpg=mpg)
     route = build_route(
         distance_meters=str(Decimal(route_distance_miles) * Decimal("1609.344"))
     )
@@ -103,6 +102,7 @@ def build_context(
 
 
 def test_vehicle_fuel_profile_validates_invariants() -> None:
+    # Test that usable_tank_capacity_gallons cannot exceed tank_capacity_gallons
     with pytest.raises(InvalidFuelOptimizationInputError):
         VehicleFuelProfile(
             id=uuid.uuid4(),
@@ -110,17 +110,16 @@ def test_vehicle_fuel_profile_validates_invariants() -> None:
             tank_capacity_gallons=Decimal("10"),
             usable_tank_capacity_gallons=Decimal("11"),
             consumption_mpg=Decimal("7"),
-            reserve_gallons=Decimal("1"),
         )
 
+    # Test that consumption_mpg must be positive
     with pytest.raises(InvalidFuelOptimizationInputError):
         VehicleFuelProfile(
             id=uuid.uuid4(),
             fuel_type="truck_diesel",
             tank_capacity_gallons=Decimal("10"),
-            usable_tank_capacity_gallons=Decimal("10"),
-            consumption_mpg=Decimal("7"),
-            reserve_gallons=Decimal("10"),
+            usable_tank_capacity_gallons=Decimal("9.5"),
+            consumption_mpg=Decimal("0"),
         )
 
 

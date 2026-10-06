@@ -13,6 +13,7 @@ export type LayerType =
   | "fuel"
   | "truck-restrictions"
   | "rest-areas"
+  | "detour"
 
 interface LayerConfig {
   id: LayerType
@@ -34,6 +35,12 @@ const LAYER_CONFIGS: LayerConfig[] = [
     label: "Route",
     icon: "━━",
     description: "Your calculated route",
+  },
+  {
+    id: "detour",
+    label: "Detour Zone",
+    icon: "◯",
+    description: "Allowed detour distance around route",
   },
   {
     id: "traffic",
