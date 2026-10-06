@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
+from pydantic import computed_field
 from sqlmodel import Field, SQLModel
 
 from app.fleet.models import VehicleFuelType, VehicleStatus, VehicleType
@@ -13,7 +14,6 @@ class VehicleFuelProfileCreate(SQLModel):
     name: str = Field(min_length=1, max_length=255)
     fuel_type: VehicleFuelType = VehicleFuelType.TRUCK_DIESEL
     tank_capacity_gallons: Decimal = Field(gt=0)
-    usable_tank_capacity_gallons: Decimal = Field(gt=0)
     consumption_mpg: Decimal = Field(gt=0)
     reserve_gallons: Decimal = Field(ge=0)
     min_refuel_gallons: Decimal | None = Field(default=None, ge=0)
@@ -24,7 +24,6 @@ class VehicleFuelProfileUpdate(SQLModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     fuel_type: VehicleFuelType | None = None
     tank_capacity_gallons: Decimal | None = Field(default=None, gt=0)
-    usable_tank_capacity_gallons: Decimal | None = Field(default=None, gt=0)
     consumption_mpg: Decimal | None = Field(default=None, gt=0)
     reserve_gallons: Decimal | None = Field(default=None, ge=0)
     min_refuel_gallons: Decimal | None = Field(default=None, ge=0)
@@ -36,13 +35,18 @@ class VehicleFuelProfilePublic(SQLModel):
     name: str
     fuel_type: VehicleFuelType
     tank_capacity_gallons: Decimal
-    usable_tank_capacity_gallons: Decimal
     consumption_mpg: Decimal
     reserve_gallons: Decimal
     min_refuel_gallons: Decimal | None = None
     max_refuel_gallons: Decimal | None = None
     created_at: datetime
     updated_at: datetime
+
+    @computed_field  # type: ignore[misc]
+    @property
+    def usable_tank_capacity_gallons(self) -> Decimal:
+        """Usable tank capacity is always 95% of tank capacity."""
+        return self.tank_capacity_gallons * Decimal("0.95")
 
 
 class VehicleCreate(SQLModel):

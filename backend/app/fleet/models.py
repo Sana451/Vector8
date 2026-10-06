@@ -36,9 +36,6 @@ class VehicleFuelProfileBase(SQLModel):
     tank_capacity_gallons: Decimal = Field(
         sa_column=Column(Numeric(10, 4), nullable=False)
     )
-    usable_tank_capacity_gallons: Decimal = Field(
-        sa_column=Column(Numeric(10, 4), nullable=False)
-    )
     consumption_mpg: Decimal = Field(sa_column=Column(Numeric(8, 3), nullable=False))
     reserve_gallons: Decimal = Field(sa_column=Column(Numeric(10, 4), nullable=False))
     min_refuel_gallons: Decimal | None = Field(
@@ -50,21 +47,23 @@ class VehicleFuelProfileBase(SQLModel):
         sa_column=Column(Numeric(10, 4), nullable=True),
     )
 
+    @property
+    def usable_tank_capacity_gallons(self) -> Decimal:
+        """Usable tank capacity is always 95% of tank capacity."""
+        return self.tank_capacity_gallons * Decimal("0.95")
+
     @model_validator(mode="after")
     def validate_invariants(self) -> VehicleFuelProfileBase:
         if self.tank_capacity_gallons <= 0:
             raise ValueError("tank_capacity_gallons must be greater than 0")
-        if self.usable_tank_capacity_gallons <= 0:
+        usable = self.usable_tank_capacity_gallons
+        if usable <= 0:
             raise ValueError("usable_tank_capacity_gallons must be greater than 0")
-        if self.usable_tank_capacity_gallons > self.tank_capacity_gallons:
-            raise ValueError(
-                "usable_tank_capacity_gallons must be less than or equal to tank_capacity_gallons"
-            )
         if self.consumption_mpg <= 0:
             raise ValueError("consumption_mpg must be greater than 0")
         if self.reserve_gallons < 0:
             raise ValueError("reserve_gallons must be greater than or equal to 0")
-        if self.reserve_gallons >= self.usable_tank_capacity_gallons:
+        if self.reserve_gallons >= usable:
             raise ValueError(
                 "reserve_gallons must be less than usable_tank_capacity_gallons"
             )
