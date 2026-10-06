@@ -34,6 +34,8 @@
     "@tanstack/react-router-devtools": "^1.167.0",
     "@tanstack/react-table": "^8.21.3",
     "@tomtom-org/maps-sdk": "^0.53.0",
+    "@turf/buffer": "^7.4.0",
+    "@turf/helpers": "^7.4.0",
     "axios": "1.18.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

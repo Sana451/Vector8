@@ -17,6 +17,7 @@ import {
   type LayerType,
 } from "@/components/Map/LayerTogglePanel"
 import {
+  DetourLayer,
   FuelLayer,
   RestAreaLayer,
   RouteLayer,
@@ -52,7 +53,14 @@ function MapPage() {
 
   // Layer visibility state
   const [visibleLayers, setVisibleLayers] = useState<Set<LayerType>>(
-    new Set(["route", "traffic", "fuel", "truck-restrictions", "rest-areas"]),
+    new Set([
+      "route",
+      "detour",
+      "traffic",
+      "fuel",
+      "truck-restrictions",
+      "rest-areas",
+    ]),
   )
 
   const handleToggleLayer = (layer: LayerType) => {
@@ -620,18 +628,57 @@ function MapPage() {
               />
             </div>
 
-            <div className="flex-1 min-w-[160px]">
-              <label htmlFor="max-detour" className="text-xs font-medium">
-                Max Detour (m)
-              </label>
-              <Input
-                id="max-detour"
-                type="number"
-                value={maxDetourMeters}
-                onChange={(e) => setMaxDetourMeters(e.target.value)}
-                className="text-xs h-8"
-                placeholder="100000"
-              />
+            <div className="flex-1 min-w-[200px]">
+              <div className="flex justify-between items-center mb-1">
+                <label htmlFor="max-detour" className="text-xs font-medium">
+                  Max Detour (km)
+                </label>
+                <span className="text-xs font-semibold text-muted-foreground">
+                  {(parseInt(maxDetourMeters, 10) / 1000).toFixed(0)}km
+                </span>
+              </div>
+              <div className="flex gap-2 items-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const current = parseInt(maxDetourMeters, 10)
+                    const newValue = Math.max(0, current - 1000)
+                    setMaxDetourMeters(String(newValue))
+                  }}
+                  className="px-2 py-1 h-8 rounded border border-border bg-muted hover:bg-muted/80 text-xs font-medium transition-colors"
+                  disabled={parseInt(maxDetourMeters, 10) === 0}
+                  aria-label="Decrease detour distance"
+                >
+                  −
+                </button>
+                <input
+                  id="max-detour"
+                  type="range"
+                  min="0"
+                  max="100000"
+                  step="1000"
+                  value={maxDetourMeters}
+                  onChange={(e) => setMaxDetourMeters(e.target.value)}
+                  className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const current = parseInt(maxDetourMeters, 10)
+                    const newValue = Math.min(100000, current + 1000)
+                    setMaxDetourMeters(String(newValue))
+                  }}
+                  className="px-2 py-1 h-8 rounded border border-border bg-muted hover:bg-muted/80 text-xs font-medium transition-colors"
+                  disabled={parseInt(maxDetourMeters, 10) === 100000}
+                  aria-label="Increase detour distance"
+                >
+                  +
+                </button>
+              </div>
+              <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                <span>0</span>
+                <span>100km</span>
+              </div>
             </div>
 
             <div className="flex gap-2">
@@ -673,6 +720,13 @@ function MapPage() {
           <RouteLayer
             mapInstance={mapInstance}
             coordinates={routeCoordinates}
+          />
+        )}
+        {visibleLayers.has("detour") && (
+          <DetourLayer
+            mapInstance={mapInstance}
+            coordinates={routeCoordinates}
+            detourMeters={parseInt(maxDetourMeters, 10)}
           />
         )}
         {visibleLayers.has("traffic") && (
