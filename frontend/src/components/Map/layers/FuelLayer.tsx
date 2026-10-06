@@ -33,6 +33,7 @@ const LABEL_LAYER_ID = "fuel-stations-label"
 interface FuelLayerProps {
   mapInstance: MapLibreMap | null
   stations: Array<FuelStationData> | undefined
+  activeFuelStationIds?: Set<string>
 }
 
 function escapeHtml(value: string): string {
@@ -147,8 +148,15 @@ function buildPopupHtml(properties: Record<string, unknown>): string {
 /**
  * Fuel station layer with drop markers.
  */
-export function FuelLayer({ mapInstance, stations }: FuelLayerProps) {
-  const data = useMemo(() => buildFuelFeatures(stations), [stations])
+export function FuelLayer({
+  mapInstance,
+  stations,
+  activeFuelStationIds = new Set(),
+}: FuelLayerProps) {
+  const data = useMemo(
+    () => buildFuelFeatures(stations, activeFuelStationIds),
+    [stations, activeFuelStationIds],
+  )
 
   // Load drop images on mount
   useEffect(() => {
@@ -160,6 +168,10 @@ export function FuelLayer({ mapInstance, stations }: FuelLayerProps) {
       {
         id: "fuel-drop-unavailable",
         svg: markerIcons.fuelDrop(colorPalette.fuel.unavailable),
+      },
+      {
+        id: "fuel-drop-inactive",
+        svg: markerIcons.fuelDrop("#9ca3af"),
       },
     ])
   }, [mapInstance])
@@ -208,6 +220,8 @@ export function FuelLayer({ mapInstance, stations }: FuelLayerProps) {
         layout: {
           "icon-image": [
             "case",
+            ["!", ["get", "isActive"]],
+            "fuel-drop-inactive",
             ["all", ["get", "hasPriceData"], ["get", "largeTruckAccessible"]],
             "fuel-drop-available",
             "fuel-drop-unavailable",
@@ -257,12 +271,19 @@ export function FuelLayer({ mapInstance, stations }: FuelLayerProps) {
 
   useEffect(() => {
     if (!mapInstance || !data) {
+      console.log(
+        `[FuelLayer] useEffect dependency missing: mapInstance=${!!mapInstance}, data=${!!data}`,
+      )
       return
     }
 
     let popup: Popup | null = null
+    let handlersAttached = false
+    let retryCount = 0
+    const MAX_RETRIES = 5
 
     const showPopup = (event: MapLayerMouseEvent) => {
+      console.log(`[FuelLayer] Popup opened for:`, event)
       const feature = event.features?.[0] as MapGeoJSONFeature | undefined
       if (feature?.geometry.type !== "Point") {
         return
@@ -289,29 +310,104 @@ export function FuelLayer({ mapInstance, stations }: FuelLayerProps) {
       mapInstance.getCanvas().style.cursor = ""
     }
 
-    const attachHandlers = (layerId: string) => {
+    const attachHandlers = (layerId: string): boolean => {
       const layer = mapInstance.getLayer(layerId)
       if (!layer) {
-        return
+        console.warn(`[FuelLayer] Layer not found: ${layerId}`)
+        return false
       }
-      mapInstance.on("click", layerId, showPopup)
-      mapInstance.on("mouseenter", layerId, onMouseEnter)
-      mapInstance.on("mouseleave", layerId, onMouseLeave)
+
+      try {
+        // Verify the layer is actually visible before attaching
+        const visibility = mapInstance.getLayoutProperty(layerId, "visibility")
+        console.log(
+          `[FuelLayer] Attaching handlers to ${layerId}, visibility=${visibility}`,
+        )
+
+        mapInstance.on("click", layerId, showPopup)
+        mapInstance.on("mouseenter", layerId, onMouseEnter)
+        mapInstance.on("mouseleave", layerId, onMouseLeave)
+        console.log(`[FuelLayer] Successfully attached handlers to ${layerId}`)
+        return true
+      } catch (error) {
+        console.error(
+          `[FuelLayer] Failed to attach handlers to ${layerId}:`,
+          error,
+        )
+        return false
+      }
     }
 
-    const timeoutId = setTimeout(() => {
-      attachHandlers(DROP_LAYER_ID)
-      attachHandlers(LABEL_LAYER_ID)
-    }, 0)
+    const tryAttachHandlers = () => {
+      if (handlersAttached) {
+        console.log(`[FuelLayer] Handlers already attached`)
+        return true
+      }
+
+      retryCount++
+      const hasDropLayer = !!mapInstance.getLayer(DROP_LAYER_ID)
+      const hasLabelLayer = !!mapInstance.getLayer(LABEL_LAYER_ID)
+
+      console.log(
+        `[FuelLayer] Try #${retryCount}: DROP=${hasDropLayer}, LABEL=${hasLabelLayer}`,
+      )
+
+      if (!hasDropLayer && !hasLabelLayer) {
+        if (retryCount < MAX_RETRIES) {
+          console.log(
+            `[FuelLayer] No layers found yet, retrying (${retryCount}/${MAX_RETRIES})...`,
+          )
+          return false
+        }
+        console.error(`[FuelLayer] Max retries reached, layers not found`)
+        return true // Stop retrying
+      }
+
+      let anyAttached = false
+
+      if (hasDropLayer) {
+        if (attachHandlers(DROP_LAYER_ID)) {
+          anyAttached = true
+        }
+      }
+
+      if (hasLabelLayer) {
+        if (attachHandlers(LABEL_LAYER_ID)) {
+          anyAttached = true
+        }
+      }
+
+      if (anyAttached) {
+        handlersAttached = true
+        console.log(`[FuelLayer] Successfully attached handlers to layers`)
+        return true
+      }
+
+      return false
+    }
+
+    // Try to attach handlers with retries
+    const scheduleRetry = () => {
+      if (!tryAttachHandlers()) {
+        setTimeout(scheduleRetry, 100)
+      }
+    }
+
+    // Start immediately
+    scheduleRetry()
 
     return () => {
-      clearTimeout(timeoutId)
       popup?.remove()
       for (const layerId of [DROP_LAYER_ID, LABEL_LAYER_ID]) {
-        if (mapInstance.getLayer(layerId)) {
-          mapInstance.off("click", layerId, showPopup)
-          mapInstance.off("mouseenter", layerId, onMouseEnter)
-          mapInstance.off("mouseleave", layerId, onMouseLeave)
+        try {
+          if (mapInstance.getLayer(layerId)) {
+            mapInstance.off("click", layerId, showPopup)
+            mapInstance.off("mouseenter", layerId, onMouseEnter)
+            mapInstance.off("mouseleave", layerId, onMouseLeave)
+            console.log(`[FuelLayer] Cleanup: removed handlers from ${layerId}`)
+          }
+        } catch (error) {
+          console.error(`[FuelLayer] Cleanup failed for ${layerId}:`, error)
         }
       }
     }

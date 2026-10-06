@@ -7,10 +7,14 @@ restrictions and HERE rest areas into a single response.
 
 from fastapi import APIRouter, HTTPException, Query
 
+from app.api.deps import SessionDep
 from app.core.logging import get_logger
 from app.map.dependencies import MapLayerServiceDep
+from app.map.repository import FuelStationRepository
 from app.map.schemas import MapOverviewRequest, MapOverviewResponse
+from app.map.services import FuelService
 from app.providers.exceptions import ProviderError
+from app.providers.schemas import FuelStationData
 
 logger = get_logger(__name__)
 
@@ -18,6 +22,33 @@ router = APIRouter(
     prefix="/map",
     tags=["map"],
 )
+
+
+@router.get("/fuel-stations", response_model=list[FuelStationData])
+async def get_all_fuel_stations(
+    session: SessionDep,
+    limit: int = Query(
+        3000,
+        ge=1,
+        le=5000,
+        description="Maximum number of fuel stations to return",
+    ),
+) -> list[FuelStationData]:
+    """Get all available fuel stations from cache.
+
+    Returns all non-expired fuel stations currently stored in the database,
+    regardless of location.
+
+    Args:
+        session: Database session.
+        limit: Maximum number of stations to return (default 3000).
+
+    Returns:
+        List of fuel station data objects.
+    """
+    repository = FuelStationRepository(session)
+    rows = repository.find_all_valid(limit=limit)
+    return [FuelService._from_row(row) for row in rows]
 
 
 @router.post("/route-overview", response_model=MapOverviewResponse)

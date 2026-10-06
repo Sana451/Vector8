@@ -250,9 +250,12 @@ class FuelService:
         """Rebuild a provider DTO from a cached row."""
         station = FuelStationData.model_validate(row.payload)
         distance = getattr(row, "distance_to_route_meters", None)
-        if not isinstance(distance, int | float):
-            return station
-        return station.model_copy(update={"distance_meters": float(distance)})
+        update_data: dict = {}
+        if isinstance(distance, int | float):
+            update_data["distance_meters"] = float(distance)
+        # Add station UUID ID for fuel optimization correlation
+        update_data["station_id"] = str(row.id)
+        return station.model_copy(update=update_data) if update_data else station
 
 
 class TruckRestrictionService:
