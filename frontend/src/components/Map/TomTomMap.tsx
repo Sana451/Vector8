@@ -9,6 +9,12 @@ const DEFAULT_US_MAP_ZOOM = 3.5
 export interface TomTomMapHandle {
   getMapInstance: () => MapLibreMap | null
   fitBounds: (bbox: [number, number, number, number], padding?: number) => void
+  /**
+   * Pan/ease the map to a new center while explicitly preserving the
+   * current zoom level. Used by the fuel optimization walkthrough so that
+   * stepping between stops doesn't change the map scale.
+   */
+  panTo: (center: [number, number]) => void
 }
 
 /**
@@ -58,12 +64,22 @@ const TomTomMap = forwardRef<TomTomMapHandle>(
           fitBounds: (bbox: [number, number, number, number], padding = 50) => {
             mapInstanceRef.current?.fitBounds(bbox, { padding })
           },
+          panTo: (center: [number, number]) => {
+            const map = mapInstanceRef.current
+            if (!map) return
+            map.easeTo({ center, zoom: map.getZoom() })
+          },
         })
       } else if (ref) {
         ref.current = {
           getMapInstance: () => mapInstanceRef.current,
           fitBounds: (bbox: [number, number, number, number], padding = 50) => {
             mapInstanceRef.current?.fitBounds(bbox, { padding })
+          },
+          panTo: (center: [number, number]) => {
+            const map = mapInstanceRef.current
+            if (!map) return
+            map.easeTo({ center, zoom: map.getZoom() })
           },
         }
       }

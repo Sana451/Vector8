@@ -15,8 +15,6 @@ class VehicleFuelProfileCreate(SQLModel):
     fuel_type: VehicleFuelType = VehicleFuelType.TRUCK_DIESEL
     tank_capacity_gallons: Decimal = Field(gt=0)
     consumption_mpg: Decimal = Field(gt=0)
-    min_refuel_gallons: Decimal | None = Field(default=None, ge=0)
-    max_refuel_gallons: Decimal | None = Field(default=None, gt=0)
 
 
 class VehicleFuelProfileUpdate(SQLModel):
@@ -24,8 +22,6 @@ class VehicleFuelProfileUpdate(SQLModel):
     fuel_type: VehicleFuelType | None = None
     tank_capacity_gallons: Decimal | None = Field(default=None, gt=0)
     consumption_mpg: Decimal | None = Field(default=None, gt=0)
-    min_refuel_gallons: Decimal | None = Field(default=None, ge=0)
-    max_refuel_gallons: Decimal | None = Field(default=None, gt=0)
 
 
 class VehicleFuelProfilePublic(SQLModel):
@@ -34,8 +30,6 @@ class VehicleFuelProfilePublic(SQLModel):
     fuel_type: VehicleFuelType
     tank_capacity_gallons: Decimal
     consumption_mpg: Decimal
-    min_refuel_gallons: Decimal | None = None
-    max_refuel_gallons: Decimal | None = None
     created_at: datetime
     updated_at: datetime
 

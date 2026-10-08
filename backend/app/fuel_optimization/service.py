@@ -303,8 +303,6 @@ class OptimizeFuelUseCase:
                 tank_capacity_gallons=fuel_profile_row.tank_capacity_gallons,
                 usable_tank_capacity_gallons=fuel_profile_row.usable_tank_capacity_gallons,
                 consumption_mpg=fuel_profile_row.consumption_mpg,
-                min_refuel_gallons=fuel_profile_row.min_refuel_gallons,
-                max_refuel_gallons=fuel_profile_row.max_refuel_gallons,
             ),
         )
         route = self._build_route(route_row)
@@ -314,6 +312,12 @@ class OptimizeFuelUseCase:
                 if request.constraints
                 and request.constraints.reserve_gallons is not None
                 else Decimal("0")  # Default to 0 if not specified
+            ),
+            min_refuel_gallons=(
+                request.constraints.min_refuel_gallons if request.constraints else None
+            ),
+            max_refuel_gallons=(
+                request.constraints.max_refuel_gallons if request.constraints else None
             ),
             max_allowed_detour_meters=(
                 request.constraints.max_allowed_detour_meters
@@ -337,8 +341,6 @@ class OptimizeFuelUseCase:
                 "tank_capacity_gallons": vehicle.fuel_profile.tank_capacity_gallons,
                 "usable_tank_capacity_gallons": vehicle.fuel_profile.usable_tank_capacity_gallons,
                 "consumption_mpg": vehicle.fuel_profile.consumption_mpg,
-                "min_refuel_gallons": vehicle.fuel_profile.min_refuel_gallons,
-                "max_refuel_gallons": vehicle.fuel_profile.max_refuel_gallons,
             }
         )
         debug["route"] = self._serialize_debug(
@@ -354,6 +356,8 @@ class OptimizeFuelUseCase:
         debug["effective_constraints"] = self._serialize_debug(
             {
                 "reserve_gallons": constraints.reserve_gallons,
+                "min_refuel_gallons": constraints.min_refuel_gallons,
+                "max_refuel_gallons": constraints.max_refuel_gallons,
                 "max_allowed_detour_meters": constraints.max_allowed_detour_meters,
             }
         )
@@ -839,7 +843,8 @@ class OptimizeFuelUseCase:
         for reason, entries in sorted(
             grouped.items(), key=lambda item: (-len(item[1]), item[0])
         ):
-            sample_entries = entries[:5]
+            # MVP: return every skipped station (no sampling cap) so the
+            # frontend can highlight all rejected stations on the map.
             stats.append(
                 FuelOptimizationSkippedStationStatPublic(
                     reason=reason,
@@ -851,10 +856,11 @@ class OptimizeFuelUseCase:
                             name=entry["name"],
                             latitude=entry["latitude"],
                             longitude=entry["longitude"],
+                            route_offset_meters=entry["route_offset_meters"],
                         )
-                        for entry in sample_entries
+                        for entry in entries
                     ],
-                    omitted_points_count=max(0, len(entries) - len(sample_entries)),
+                    omitted_points_count=0,
                 )
             )
         return stats

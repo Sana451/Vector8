@@ -60,8 +60,6 @@ const formSchema = z
       .min(1, { message: "Fuel profile name is required" }),
     tank_capacity_gallons: numericString("Tank capacity is required"),
     consumption_mpg: numericString("Consumption is required"),
-    min_refuel_gallons: z.string().optional(),
-    max_refuel_gallons: z.string().optional(),
   })
   .refine(
     (data) =>
@@ -92,8 +90,6 @@ const AddVehicle = () => {
       fuel_profile_name: "",
       tank_capacity_gallons: "",
       consumption_mpg: "",
-      min_refuel_gallons: "",
-      max_refuel_gallons: "",
     },
   })
 
@@ -125,8 +121,6 @@ const AddVehicle = () => {
         name: data.fuel_profile_name,
         tank_capacity_gallons: data.tank_capacity_gallons,
         consumption_mpg: data.consumption_mpg,
-        min_refuel_gallons: data.min_refuel_gallons || undefined,
-        max_refuel_gallons: data.max_refuel_gallons || undefined,
       },
     }
     mutation.mutate(payload)
@@ -357,34 +351,6 @@ const AddVehicle = () => {
                           </FormLabel>
                           <FormControl>
                             <Input placeholder="6.8" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="min_refuel_gallons"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Min Refuel (gal)</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Optional" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="max_refuel_gallons"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Max Refuel (gal)</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Optional" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
