@@ -418,6 +418,10 @@ export type FuelOptimizationSkippedStationPointPublic = {
      * Longitude
      */
     longitude: string;
+    /**
+     * Route Offset Meters
+     */
+    route_offset_meters: string;
 };
 
 /**

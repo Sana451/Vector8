@@ -843,7 +843,8 @@ class OptimizeFuelUseCase:
         for reason, entries in sorted(
             grouped.items(), key=lambda item: (-len(item[1]), item[0])
         ):
-            sample_entries = entries[:5]
+            # MVP: return every skipped station (no sampling cap) so the
+            # frontend can highlight all rejected stations on the map.
             stats.append(
                 FuelOptimizationSkippedStationStatPublic(
                     reason=reason,
@@ -855,10 +856,11 @@ class OptimizeFuelUseCase:
                             name=entry["name"],
                             latitude=entry["latitude"],
                             longitude=entry["longitude"],
+                            route_offset_meters=entry["route_offset_meters"],
                         )
-                        for entry in sample_entries
+                        for entry in entries
                     ],
-                    omitted_points_count=max(0, len(entries) - len(sample_entries)),
+                    omitted_points_count=0,
                 )
             )
         return stats

@@ -1,10 +1,11 @@
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { calculateFuelOptimization } from "@/api/fuelOptimization"
 import { getAllFuelStations, getRouteOverview, searchAddress } from "@/api/map"
 import { listVehicles } from "@/api/vehicles"
 import type {
+  FuelOptimizationCalculateResponse,
   FuelStationData,
   GeocodingSearchResponse,
   TrafficLayerData,
@@ -19,16 +20,20 @@ import {
 import {
   DetourLayer,
   FuelLayer,
+  OptimizationRejectedStationsLayer,
+  OptimizationStopsLayer,
   RestAreaLayer,
   RouteLayer,
   TrafficLayer,
   TruckRestrictionLayer,
 } from "@/components/Map/layers"
+import { OptimizationWalkthrough } from "@/components/Map/OptimizationWalkthrough"
 import TomTomMap, { type TomTomMapHandle } from "@/components/Map/TomTomMap"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { VehicleSelector } from "@/components/VehicleSelector"
 import useCustomToast from "@/hooks/useCustomToast"
+import { buildOptimizationSteps } from "@/lib/fuelOptimizationWalkthrough"
 import { extractOverviewCoordinates } from "@/lib/mapLayers"
 import {
   type AddressSelection,
@@ -61,6 +66,7 @@ function MapPage() {
       "fuel",
       "truck-restrictions",
       "rest-areas",
+      "optimization-stops",
     ]),
   )
 
@@ -123,6 +129,9 @@ function MapPage() {
   const [maxDetourMeters, setMaxDetourMeters] = useState("100000")
   const [initialFuelGallons, setInitialFuelGallons] = useState("42")
   const [reserveGallons, setReserveGallons] = useState("3")
+  const [optimizationResult, setOptimizationResult] =
+    useState<FuelOptimizationCalculateResponse | null>(null)
+  const [activeStepIndex, setActiveStepIndex] = useState(0)
 
   // Fetch vehicles list
   const { data: vehicles = [] } = useQuery<VehiclePublic[]>({
@@ -153,6 +162,8 @@ function MapPage() {
     setRestAreas(null)
     setRouteInfo(null)
     setRouteId(null)
+    setOptimizationResult(null)
+    setActiveStepIndex(0)
   }
 
   useEffect(() => {
@@ -334,6 +345,11 @@ function MapPage() {
       })
     },
     onSuccess: (data) => {
+      // Always keep the full result so rejected stations can be highlighted
+      // on the map, even when the optimization itself is infeasible.
+      setOptimizationResult(data)
+      setActiveStepIndex(0)
+
       // Check optimization status
       if (data.status === "infeasible") {
         // Optimization is not possible
@@ -426,6 +442,30 @@ function MapPage() {
       return
     }
     fuelOptimizationMutation.mutate()
+  }
+
+  // Walkthrough steps: start -> each refuel stop (in order) -> destination.
+  const optimizationSteps = useMemo(() => {
+    if (!optimizationResult || !routeCoordinates) {
+      return []
+    }
+    return buildOptimizationSteps({
+      response: optimizationResult,
+      routeCoordinates,
+      fuelStations,
+      initialFuelGallons: Number.parseFloat(initialFuelGallons) || 0,
+    })
+  }, [optimizationResult, routeCoordinates, fuelStations, initialFuelGallons])
+
+  const activeOptimizationStep = optimizationSteps[activeStepIndex] ?? null
+
+  const handleStepChange = (index: number) => {
+    const clamped = Math.max(0, Math.min(index, optimizationSteps.length - 1))
+    setActiveStepIndex(clamped)
+    const step = optimizationSteps[clamped]
+    if (step) {
+      mapRef.current?.panTo(step.coordinate)
+    }
   }
 
   const canSubmit =
@@ -702,6 +742,12 @@ function MapPage() {
             fuel: fuelStations.length,
             "truck-restrictions": truckRestrictions.length,
             "rest-areas": restAreas?.features?.length ?? 0,
+            "optimization-stops": optimizationSteps.length,
+            "optimization-rejected":
+              optimizationResult?.explanation.skipped_station_stats?.reduce(
+                (sum, stat) => sum + stat.count,
+                0,
+              ) ?? 0,
           }}
         />
         {visibleLayers.has("route") && (
@@ -735,6 +781,31 @@ function MapPage() {
         )}
         {visibleLayers.has("rest-areas") && (
           <RestAreaLayer mapInstance={mapInstance} restAreas={restAreas} />
+        )}
+        {visibleLayers.has("optimization-stops") &&
+          optimizationSteps.length > 0 && (
+            <OptimizationStopsLayer
+              mapInstance={mapInstance}
+              steps={optimizationSteps}
+              activeStepIndex={activeStepIndex}
+            />
+          )}
+        {visibleLayers.has("optimization-rejected") && optimizationResult && (
+          <OptimizationRejectedStationsLayer
+            mapInstance={mapInstance}
+            skippedStationStats={
+              optimizationResult.explanation.skipped_station_stats ?? []
+            }
+            activeStep={activeOptimizationStep}
+            maxAllowedDetourMeters={parseInt(maxDetourMeters, 10) || null}
+          />
+        )}
+        {optimizationSteps.length > 0 && (
+          <OptimizationWalkthrough
+            steps={optimizationSteps}
+            activeStepIndex={activeStepIndex}
+            onStepChange={handleStepChange}
+          />
         )}
       </div>
     </div>

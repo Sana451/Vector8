@@ -84,6 +84,7 @@ class FuelOptimizationSkippedStationPointPublic(BaseModel):
     name: str
     latitude: Decimal
     longitude: Decimal
+    route_offset_meters: Decimal
 
 
 class FuelOptimizationSkippedStationStatPublic(BaseModel):
