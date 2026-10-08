@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
+from app.core.config import settings
 from app.providers.tomtom.routing import TomTomRoutingProvider
 from app.routing.exceptions import (
     RoutingAuthenticationError,
@@ -24,12 +25,6 @@ from app.routing.schemas import (
     GeoJSONPoint,
     RoutePlanningLocations,
 )
-
-
-@pytest.fixture
-def tomtom_provider():
-    """Create TomTom provider instance."""
-    return TomTomRoutingProvider()
 
 
 @pytest.fixture
@@ -62,14 +57,22 @@ def tomtom_error_response():
 class TestTomTomProviderInit:
     """Test TomTom provider initialization."""
 
+    @patch.object(settings, "TOMTOM_API_KEY", "fake-key-for-ci")
+    @patch.object(settings, "TOMTOM_BASE_URL", "https://api.tomtom.com")
+    @patch.object(settings, "TOMTOM_API_VERSION", "3")
+    @patch.object(settings, "TOMTOM_TIMEOUT_SECONDS", 30)
     def test_init_with_defaults(self):
         """Test initialization with default settings."""
         provider = TomTomRoutingProvider()
-        assert provider.api_key is not None
+        assert provider.api_key == "fake-key-for-ci"
         assert provider.base_url == "https://api.tomtom.com"
         assert provider.api_version == "3"
         assert provider.timeout == 30
 
+    @patch.object(settings, "TOMTOM_API_KEY", "fake-key-for-ci")
+    @patch.object(settings, "TOMTOM_BASE_URL", "https://api.tomtom.com")
+    @patch.object(settings, "TOMTOM_API_VERSION", "3")
+    @patch.object(settings, "TOMTOM_TIMEOUT_SECONDS", 30)
     def test_init_with_client(self):
         """Test initialization with provided client."""
         client = AsyncMock(spec=httpx.AsyncClient)
@@ -80,9 +83,14 @@ class TestTomTomProviderInit:
 class TestTomTomProviderRequestTransformation:
     """Test request transformation to TomTom format."""
 
-    def test_transform_basic_request(self, tomtom_provider, basic_route_request):
+    @patch.object(settings, "TOMTOM_API_KEY", "fake-key-for-ci")
+    @patch.object(settings, "TOMTOM_BASE_URL", "https://api.tomtom.com")
+    @patch.object(settings, "TOMTOM_API_VERSION", "3")
+    @patch.object(settings, "TOMTOM_TIMEOUT_SECONDS", 30)
+    def test_transform_basic_request(self, basic_route_request):
         """Test transformation of basic request."""
-        tomtom_request = tomtom_provider._transform_request(basic_route_request)
+        provider = TomTomRoutingProvider()
+        tomtom_request = provider._transform_request(basic_route_request)
 
         assert "routePlanningLocations" in tomtom_request
         assert "origin" in tomtom_request["routePlanningLocations"]
@@ -92,8 +100,13 @@ class TestTomTomProviderRequestTransformation:
         assert origin["type"] == "Point"
         assert origin["coordinates"] == [-74.006, 40.7128]
 
-    def test_transform_with_route_type(self, tomtom_provider):
+    @patch.object(settings, "TOMTOM_API_KEY", "fake-key-for-ci")
+    @patch.object(settings, "TOMTOM_BASE_URL", "https://api.tomtom.com")
+    @patch.object(settings, "TOMTOM_API_VERSION", "3")
+    @patch.object(settings, "TOMTOM_TIMEOUT_SECONDS", 30)
+    def test_transform_with_route_type(self):
         """Test transformation with route type."""
+        provider = TomTomRoutingProvider()
         request = CalculateRouteRequest(
             route_planning_locations=RoutePlanningLocations(
                 origin=GeoJSONPoint(coordinates=[0, 0]),
@@ -101,11 +114,16 @@ class TestTomTomProviderRequestTransformation:
             ),
             route_type="fast",
         )
-        tomtom_request = tomtom_provider._transform_request(request)
+        tomtom_request = provider._transform_request(request)
         assert tomtom_request["routeType"] == "fast"
 
-    def test_transform_with_traffic(self, tomtom_provider):
+    @patch.object(settings, "TOMTOM_API_KEY", "fake-key-for-ci")
+    @patch.object(settings, "TOMTOM_BASE_URL", "https://api.tomtom.com")
+    @patch.object(settings, "TOMTOM_API_VERSION", "3")
+    @patch.object(settings, "TOMTOM_TIMEOUT_SECONDS", 30)
+    def test_transform_with_traffic(self):
         """Test transformation with traffic mode."""
+        provider = TomTomRoutingProvider()
         request = CalculateRouteRequest(
             route_planning_locations=RoutePlanningLocations(
                 origin=GeoJSONPoint(coordinates=[0, 0]),
@@ -113,11 +131,16 @@ class TestTomTomProviderRequestTransformation:
             ),
             traffic="live",
         )
-        tomtom_request = tomtom_provider._transform_request(request)
+        tomtom_request = provider._transform_request(request)
         assert tomtom_request["traffic"] == "live"
 
-    def test_transform_with_vehicle_params(self, tomtom_provider):
+    @patch.object(settings, "TOMTOM_API_KEY", "fake-key-for-ci")
+    @patch.object(settings, "TOMTOM_BASE_URL", "https://api.tomtom.com")
+    @patch.object(settings, "TOMTOM_API_VERSION", "3")
+    @patch.object(settings, "TOMTOM_TIMEOUT_SECONDS", 30)
+    def test_transform_with_vehicle_params(self):
         """Test transformation with vehicle parameters."""
+        provider = TomTomRoutingProvider()
         request = CalculateRouteRequest(
             route_planning_locations=RoutePlanningLocations(
                 origin=GeoJSONPoint(coordinates=[0, 0]),
@@ -127,7 +150,7 @@ class TestTomTomProviderRequestTransformation:
             vehicle_max_speed_in_kilometers_per_hour=100,
             vehicle_engine_type="combustion",
         )
-        tomtom_request = tomtom_provider._transform_request(request)
+        tomtom_request = provider._transform_request(request)
         assert tomtom_request["vehicleWeightInKilograms"] == 5000
         assert tomtom_request["vehicleMaxSpeedInKilometersPerHour"] == 100
         assert tomtom_request["vehicleEngineType"] == "combustion"
@@ -136,23 +159,33 @@ class TestTomTomProviderRequestTransformation:
 class TestTomTomProviderHeaders:
     """Test HTTP headers preparation."""
 
-    def test_prepare_headers_basic(self, tomtom_provider):
+    @patch.object(settings, "TOMTOM_API_KEY", "fake-key-for-ci")
+    @patch.object(settings, "TOMTOM_BASE_URL", "https://api.tomtom.com")
+    @patch.object(settings, "TOMTOM_API_VERSION", "3")
+    @patch.object(settings, "TOMTOM_TIMEOUT_SECONDS", 30)
+    def test_prepare_headers_basic(self):
         """Test basic header preparation."""
+        provider = TomTomRoutingProvider()
         request = CalculateRouteRequest(
             route_planning_locations=RoutePlanningLocations(
                 origin=GeoJSONPoint(coordinates=[0, 0]),
                 destination=GeoJSONPoint(coordinates=[1, 1]),
             )
         )
-        headers = tomtom_provider._prepare_headers(request, "test-tracking-id")
+        headers = provider._prepare_headers(request, "test-tracking-id")
 
         assert headers["Content-Type"] == "application/json"
-        assert headers["TomTom-Api-Key"] == tomtom_provider.api_key
+        assert headers["TomTom-Api-Key"] == "fake-key-for-ci"
         assert headers["TomTom-Api-Version"] == "3"
         assert headers["Tracking-ID"] == "test-tracking-id"
 
-    def test_prepare_headers_with_language(self, tomtom_provider):
+    @patch.object(settings, "TOMTOM_API_KEY", "fake-key-for-ci")
+    @patch.object(settings, "TOMTOM_BASE_URL", "https://api.tomtom.com")
+    @patch.object(settings, "TOMTOM_API_VERSION", "3")
+    @patch.object(settings, "TOMTOM_TIMEOUT_SECONDS", 30)
+    def test_prepare_headers_with_language(self):
         """Test header preparation with Accept-Language."""
+        provider = TomTomRoutingProvider()
         request = CalculateRouteRequest(
             route_planning_locations=RoutePlanningLocations(
                 origin=GeoJSONPoint(coordinates=[0, 0]),
@@ -160,7 +193,7 @@ class TestTomTomProviderHeaders:
             ),
             accept_language="en-US",
         )
-        headers = tomtom_provider._prepare_headers(request, "test-tracking-id")
+        headers = provider._prepare_headers(request, "test-tracking-id")
         assert headers["Accept-Language"] == "en-US"
 
 
@@ -168,10 +201,15 @@ class TestTomTomProviderCalculateRoute:
     """Test calculate_route method."""
 
     @pytest.mark.asyncio
+    @patch.object(settings, "TOMTOM_API_KEY", "fake-key-for-ci")
+    @patch.object(settings, "TOMTOM_BASE_URL", "https://api.tomtom.com")
+    @patch.object(settings, "TOMTOM_API_VERSION", "3")
+    @patch.object(settings, "TOMTOM_TIMEOUT_SECONDS", 30)
     async def test_calculate_route_success(
-        self, tomtom_provider, basic_route_request, tomtom_success_response
+        self, basic_route_request, tomtom_success_response
     ):
         """Test successful route calculation."""
+        provider = TomTomRoutingProvider()
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 200
         mock_response.headers = httpx.Headers()
@@ -182,13 +220,17 @@ class TestTomTomProviderCalculateRoute:
             mock_client_class.return_value.__aenter__.return_value = mock_client
             mock_client.post.return_value = mock_response
 
-            result = await tomtom_provider.calculate_route(basic_route_request)
+            result = await provider.calculate_route(basic_route_request)
 
             assert result is not None
             assert len(result.routes) > 0
             assert result.routes[0].summary.length_in_meters == 1234
 
     @pytest.mark.asyncio
+    @patch.object(settings, "TOMTOM_API_KEY", "fake-key-for-ci")
+    @patch.object(settings, "TOMTOM_BASE_URL", "https://api.tomtom.com")
+    @patch.object(settings, "TOMTOM_API_VERSION", "3")
+    @patch.object(settings, "TOMTOM_TIMEOUT_SECONDS", 30)
     async def test_calculate_route_with_provided_client(
         self, basic_route_request, tomtom_success_response
     ):
@@ -207,21 +249,31 @@ class TestTomTomProviderCalculateRoute:
         assert len(result.routes) > 0
 
     @pytest.mark.asyncio
-    async def test_calculate_route_timeout(self, tomtom_provider, basic_route_request):
+    @patch.object(settings, "TOMTOM_API_KEY", "fake-key-for-ci")
+    @patch.object(settings, "TOMTOM_BASE_URL", "https://api.tomtom.com")
+    @patch.object(settings, "TOMTOM_API_VERSION", "3")
+    @patch.object(settings, "TOMTOM_TIMEOUT_SECONDS", 30)
+    async def test_calculate_route_timeout(self, basic_route_request):
         """Test timeout handling."""
+        provider = TomTomRoutingProvider()
         with patch.object(httpx, "AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
             mock_client_class.return_value.__aenter__.return_value = mock_client
             mock_client.post.side_effect = httpx.TimeoutException("Timeout")
 
             with pytest.raises(RoutingTimeoutError):
-                await tomtom_provider.calculate_route(basic_route_request)
+                await provider.calculate_route(basic_route_request)
 
     @pytest.mark.asyncio
+    @patch.object(settings, "TOMTOM_API_KEY", "fake-key-for-ci")
+    @patch.object(settings, "TOMTOM_BASE_URL", "https://api.tomtom.com")
+    @patch.object(settings, "TOMTOM_API_VERSION", "3")
+    @patch.object(settings, "TOMTOM_TIMEOUT_SECONDS", 30)
     async def test_calculate_route_bad_request(
-        self, tomtom_provider, basic_route_request, tomtom_error_response
+        self, basic_route_request, tomtom_error_response
     ):
         """Test 400 error handling."""
+        provider = TomTomRoutingProvider()
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 400
         mock_response.headers = httpx.Headers()
@@ -233,13 +285,16 @@ class TestTomTomProviderCalculateRoute:
             mock_client.post.return_value = mock_response
 
             with pytest.raises(RoutingNoRouteFoundError):
-                await tomtom_provider.calculate_route(basic_route_request)
+                await provider.calculate_route(basic_route_request)
 
     @pytest.mark.asyncio
-    async def test_calculate_route_authentication_error(
-        self, tomtom_provider, basic_route_request
-    ):
+    @patch.object(settings, "TOMTOM_API_KEY", "fake-key-for-ci")
+    @patch.object(settings, "TOMTOM_BASE_URL", "https://api.tomtom.com")
+    @patch.object(settings, "TOMTOM_API_VERSION", "3")
+    @patch.object(settings, "TOMTOM_TIMEOUT_SECONDS", 30)
+    async def test_calculate_route_authentication_error(self, basic_route_request):
         """Test 403 authentication error handling."""
+        provider = TomTomRoutingProvider()
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 403
         mock_response.headers = httpx.Headers()
@@ -251,13 +306,16 @@ class TestTomTomProviderCalculateRoute:
             mock_client.post.return_value = mock_response
 
             with pytest.raises(RoutingAuthenticationError):
-                await tomtom_provider.calculate_route(basic_route_request)
+                await provider.calculate_route(basic_route_request)
 
     @pytest.mark.asyncio
-    async def test_calculate_route_rate_limit(
-        self, tomtom_provider, basic_route_request
-    ):
+    @patch.object(settings, "TOMTOM_API_KEY", "fake-key-for-ci")
+    @patch.object(settings, "TOMTOM_BASE_URL", "https://api.tomtom.com")
+    @patch.object(settings, "TOMTOM_API_VERSION", "3")
+    @patch.object(settings, "TOMTOM_TIMEOUT_SECONDS", 30)
+    async def test_calculate_route_rate_limit(self, basic_route_request):
         """Test 429 rate limit handling."""
+        provider = TomTomRoutingProvider()
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 429
         mock_response.headers = httpx.Headers()
@@ -269,13 +327,16 @@ class TestTomTomProviderCalculateRoute:
             mock_client.post.return_value = mock_response
 
             with pytest.raises(RoutingRateLimitError):
-                await tomtom_provider.calculate_route(basic_route_request)
+                await provider.calculate_route(basic_route_request)
 
     @pytest.mark.asyncio
-    async def test_calculate_route_unavailable(
-        self, tomtom_provider, basic_route_request
-    ):
+    @patch.object(settings, "TOMTOM_API_KEY", "fake-key-for-ci")
+    @patch.object(settings, "TOMTOM_BASE_URL", "https://api.tomtom.com")
+    @patch.object(settings, "TOMTOM_API_VERSION", "3")
+    @patch.object(settings, "TOMTOM_TIMEOUT_SECONDS", 30)
+    async def test_calculate_route_unavailable(self, basic_route_request):
         """Test 503 unavailable error handling."""
+        provider = TomTomRoutingProvider()
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 503
         mock_response.headers = httpx.Headers()
@@ -287,4 +348,4 @@ class TestTomTomProviderCalculateRoute:
             mock_client.post.return_value = mock_response
 
             with pytest.raises(RoutingUnavailableError):
-                await tomtom_provider.calculate_route(basic_route_request)
+                await provider.calculate_route(basic_route_request)
