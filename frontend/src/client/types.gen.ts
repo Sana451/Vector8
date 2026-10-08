@@ -359,6 +359,14 @@ export type FuelOptimizationConstraintsInput = {
      */
     reserve_gallons?: number | string | null;
     /**
+     * Min Refuel Gallons
+     */
+    min_refuel_gallons?: number | string | null;
+    /**
+     * Max Refuel Gallons
+     */
+    max_refuel_gallons?: number | string | null;
+    /**
      * Max Allowed Detour Meters
      */
     max_allowed_detour_meters?: number | string | null;
@@ -1717,14 +1725,6 @@ export type VehicleFuelProfileCreate = {
      * Consumption Mpg
      */
     consumption_mpg: number | string;
-    /**
-     * Min Refuel Gallons
-     */
-    min_refuel_gallons?: number | string | null;
-    /**
-     * Max Refuel Gallons
-     */
-    max_refuel_gallons?: number | string | null;
 };
 
 /**
@@ -1748,14 +1748,6 @@ export type VehicleFuelProfilePublic = {
      * Consumption Mpg
      */
     consumption_mpg: string;
-    /**
-     * Min Refuel Gallons
-     */
-    min_refuel_gallons?: string | null;
-    /**
-     * Max Refuel Gallons
-     */
-    max_refuel_gallons?: string | null;
     /**
      * Created At
      */
@@ -1789,14 +1781,6 @@ export type VehicleFuelProfileUpdate = {
      * Consumption Mpg
      */
     consumption_mpg?: number | string | null;
-    /**
-     * Min Refuel Gallons
-     */
-    min_refuel_gallons?: number | string | null;
-    /**
-     * Max Refuel Gallons
-     */
-    max_refuel_gallons?: number | string | null;
 };
 
 /**
@@ -1927,14 +1911,6 @@ export type VehicleFuelProfilePublicWritable = {
      * Consumption Mpg
      */
     consumption_mpg: string;
-    /**
-     * Min Refuel Gallons
-     */
-    min_refuel_gallons?: string | null;
-    /**
-     * Max Refuel Gallons
-     */
-    max_refuel_gallons?: string | null;
     /**
      * Created At
      */

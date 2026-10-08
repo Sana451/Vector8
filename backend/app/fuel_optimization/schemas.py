@@ -17,12 +17,16 @@ class FuelOptimizationConstraintsInput(BaseModel):
         json_schema_extra={
             "example": {
                 "reserve_gallons": "20",
+                "min_refuel_gallons": "10",
+                "max_refuel_gallons": "100",
                 "max_allowed_detour_meters": "100000",
             }
         }
     )
 
     reserve_gallons: Decimal | None = Field(default=None, ge=0)
+    min_refuel_gallons: Decimal | None = Field(default=None, ge=0)
+    max_refuel_gallons: Decimal | None = Field(default=None, gt=0)
     max_allowed_detour_meters: Decimal | None = Field(default=None, ge=0)
 
 

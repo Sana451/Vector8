@@ -37,8 +37,6 @@ class VehicleFuelProfile:
     tank_capacity_gallons: Decimal
     usable_tank_capacity_gallons: Decimal
     consumption_mpg: Decimal
-    min_refuel_gallons: Decimal | None = None
-    max_refuel_gallons: Decimal | None = None
 
     def __post_init__(self) -> None:
         if self.tank_capacity_gallons <= ZERO:
@@ -101,6 +99,8 @@ class FuelStationCandidate:
 @dataclass(frozen=True)
 class FuelOptimizationConstraints:
     reserve_gallons: Decimal
+    min_refuel_gallons: Decimal | None = None
+    max_refuel_gallons: Decimal | None = None
     max_allowed_detour_meters: Decimal | None = None
 
 
@@ -364,10 +364,10 @@ class GreedyFuelOptimizationStrategy:
             fuel_added = max(ZERO, desired_fuel_after - current_fuel)
             fuel_added = min(fuel_added, max_additional)
 
-            min_refuel = context.vehicle.fuel_profile.min_refuel_gallons
+            min_refuel = context.constraints.min_refuel_gallons
             if fuel_added > ZERO and min_refuel is not None and fuel_added < min_refuel:
                 fuel_added = min(min_refuel, max_additional)
-            max_refuel = context.vehicle.fuel_profile.max_refuel_gallons
+            max_refuel = context.constraints.max_refuel_gallons
             if max_refuel is not None:
                 fuel_added = min(fuel_added, max_refuel)
 

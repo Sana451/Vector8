@@ -46,8 +46,6 @@ def _to_vehicle_public(repository: VehicleRepository, vehicle) -> VehiclePublic:
             fuel_type=VehicleFuelType(str(profile.fuel_type)),
             tank_capacity_gallons=profile.tank_capacity_gallons,
             consumption_mpg=profile.consumption_mpg,
-            min_refuel_gallons=profile.min_refuel_gallons,
-            max_refuel_gallons=profile.max_refuel_gallons,
             created_at=profile.created_at,
             updated_at=profile.updated_at,
         ),
