@@ -153,6 +153,11 @@ class FuelStationCandidateBuilder:
                 "formula_route_offset": "route_offset_meters = progress_fraction * route_total_distance_meters",
                 "formula_detour": "detour_distance_meters ≈ 2 * distance_from_route_meters",
             }
+            # reject stations outside route bounds
+            if route_offset < 0 or route_offset > route.total_distance_meters:
+                audit_entry["reason"] = "station_outside_route_bounds"
+                audit.append(audit_entry)
+                continue
             if row.id in candidates_by_id:
                 audit_entry["reason"] = "duplicate_station_id"
                 audit.append(audit_entry)
@@ -873,6 +878,7 @@ class OptimizeFuelUseCase:
             "missing_diesel_price": "Station has no diesel price, so it cannot be used in a cost-aware fuel optimization run.",
             "not_truck_accessible": "Station is not marked as accessible for both medium and large trucks.",
             "detour_distance_limit_exceeded": "Station was too far from the route (distance from route exceeds half of the allowed detour zone).",
+            "station_outside_route_bounds": "Station is located outside the route boundaries (before start or after destination).",
         }
         return descriptions.get(
             reason, "Station was filtered out by an optimization candidate rule."

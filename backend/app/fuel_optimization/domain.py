@@ -532,6 +532,9 @@ class GreedyFuelOptimizationStrategy:
         unreachable_due_to_fuel: list[tuple[UUID, Decimal, Decimal]] = []
 
         for station in stations:
+            # skip stations beyond route end (defensive fallback)
+            if station.route_offset_meters > context.route.total_distance_meters:
+                continue
             if station.route_offset_meters <= current_offset:
                 skipped_behind.append((station.station_id, station.route_offset_meters))
                 continue
