@@ -362,7 +362,7 @@ def test_infeasible_response_lists_all_stations_and_keeps_target_order() -> None
             route_id=route_id,
             vehicle_id=vehicle.id,
             initial_fuel_gallons=Decimal("10"),
-            constraints={"reserve_gallons": Decimal("3")},
+            constraints={"reserve_gallons": Decimal("5")},
         )
     )
 

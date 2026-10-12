@@ -357,3 +357,37 @@ export function getReachableRouteSegmentMeters(
 
   return endMeters > startMeters ? { startMeters, endMeters } : null
 }
+
+const DEFAULT_RESERVE_TANK_FRACTION = 0.1
+const MIN_DEFAULT_RESERVE_GALLONS = 5
+const MAX_DEFAULT_RESERVE_TANK_FRACTION = 0.25
+
+/**
+ * Suggested reserve fuel: 10% of the usable tank, at least 5 gal and at most
+ * 25% of the tank. Returns null when the tank size is unknown.
+ */
+export function getDefaultReserveGallons(
+  usableTankGallons: number,
+): number | null {
+  if (!(usableTankGallons > 0)) {
+    return null
+  }
+  const suggested = Math.max(
+    MIN_DEFAULT_RESERVE_GALLONS,
+    Math.round(usableTankGallons * DEFAULT_RESERVE_TANK_FRACTION),
+  )
+  return Math.min(
+    suggested,
+    usableTankGallons * MAX_DEFAULT_RESERVE_TANK_FRACTION,
+  )
+}
+
+export function getReserveLimits(
+  usableTankGallons: number,
+): { min: number; max: number } | null {
+  if (!(usableTankGallons > 0)) {
+    return null
+  }
+  const max = usableTankGallons * MAX_DEFAULT_RESERVE_TANK_FRACTION
+  return { min: Math.min(MIN_DEFAULT_RESERVE_GALLONS, max), max }
+}

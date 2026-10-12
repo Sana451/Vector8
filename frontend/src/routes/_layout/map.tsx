@@ -37,6 +37,8 @@ import useCustomToast from "@/hooks/useCustomToast"
 import {
   buildOptimizationSteps,
   calculateRouteTotalDistanceMeters,
+  getDefaultReserveGallons,
+  getReserveLimits,
 } from "@/lib/fuelOptimizationWalkthrough"
 import { extractOverviewCoordinates } from "@/lib/mapLayers"
 import {
@@ -308,7 +310,7 @@ function MapPage() {
         const durationMin = Math.round(summary.travelDurationInSeconds / 60)
         setRouteInfo({
           distance: `${distanceKm} km (${distanceMi} mi)`,
-          duration: `${durationMin} min`,
+          duration: `${durationMin} min (${Math.floor(durationMin / 1440)} d ${Math.floor((durationMin % 1440) / 60)} h)`,
         })
       }
 
@@ -344,7 +346,7 @@ function MapPage() {
         algorithm: "greedy",
         initial_fuel_gallons: parseInt(initialFuelGallons, 10),
         constraints: {
-          reserve_gallons: parseInt(reserveGallons, 10),
+          reserve_gallons: parseFloat(reserveGallons),
           min_refuel_gallons: minRefuelGallons.trim()
             ? Number.parseFloat(minRefuelGallons)
             : null,
@@ -442,9 +444,29 @@ function MapPage() {
     onError: handleError.bind(showErrorToast),
   })
 
+  const reserveLimits = useMemo(() => {
+    const vehicle = vehicles.find((v) => v.id === selectedVehicleId)
+    return getReserveLimits(
+      Number(vehicle?.fuel_profile.usable_tank_capacity_gallons),
+    )
+  }, [vehicles, selectedVehicleId])
+
   const handleOptimizeFuel = () => {
     if (!selectedVehicleId) {
       showErrorToast("Please select a vehicle")
+      return
+    }
+    const reserve = Number.parseFloat(reserveGallons)
+    if (
+      !Number.isFinite(reserve) ||
+      (reserveLimits &&
+        (reserve < reserveLimits.min || reserve > reserveLimits.max))
+    ) {
+      showErrorToast(
+        reserveLimits
+          ? `Reserve must be between ${reserveLimits.min} and ${reserveLimits.max} gal (25% of tank)`
+          : "Enter a valid reserve",
+      )
       return
     }
     fuelOptimizationMutation.mutate()
@@ -469,6 +491,17 @@ function MapPage() {
   )
 
   const activeOptimizationStep = optimizationSteps[activeStepIndex] ?? null
+
+  const handleSelectVehicle = (vehicleId: string) => {
+    setSelectedVehicleId(vehicleId)
+    const vehicle = vehicles.find((v) => v.id === vehicleId)
+    const reserve = getDefaultReserveGallons(
+      Number(vehicle?.fuel_profile.usable_tank_capacity_gallons),
+    )
+    if (reserve !== null) {
+      setReserveGallons(String(reserve))
+    }
+  }
 
   const handleStepChange = (index: number) => {
     const clamped = Math.max(0, Math.min(index, optimizationSteps.length - 1))
@@ -636,7 +669,7 @@ function MapPage() {
             <VehicleSelector
               vehicles={vehicles}
               selectedVehicleId={selectedVehicleId}
-              onSelectVehicle={setSelectedVehicleId}
+              onSelectVehicle={handleSelectVehicle}
             />
 
             <div className="flex-1 min-w-[150px]">
@@ -660,8 +693,18 @@ function MapPage() {
               <Input
                 id="reserve-fuel"
                 type="number"
+                min={reserveLimits?.min ?? 0}
+                max={reserveLimits?.max}
+                step="0.1"
                 value={reserveGallons}
-                onChange={(e) => setReserveGallons(e.target.value)}
+                onKeyDown={(e) => {
+                  if (["-", "+", "e", "E"].includes(e.key)) e.preventDefault()
+                }}
+                onChange={(e) => {
+                  if (!e.target.value.startsWith("-")) {
+                    setReserveGallons(e.target.value)
+                  }
+                }}
                 className="text-xs h-8"
                 placeholder="3"
               />
