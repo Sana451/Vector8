@@ -7,7 +7,10 @@
  */
 
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import type { FuelOptimizationFailurePublic } from "@/client"
+import type {
+  FuelOptimizationFailurePublic,
+  FuelOptimizationSummaryPublic,
+} from "@/client"
 import type { OptimizationStep } from "@/lib/fuelOptimizationWalkthrough"
 
 interface OptimizationWalkthroughProps {
@@ -15,6 +18,10 @@ interface OptimizationWalkthroughProps {
   activeStepIndex: number
   onStepChange: (index: number) => void
   failure: FuelOptimizationFailurePublic | null
+  consumptionMpg?: number | string
+  usableTankGallons?: number | string
+  summary?: FuelOptimizationSummaryPublic
+  routeTotalDistanceMeters?: number
 }
 
 function formatGallons(value: number | undefined): string {
@@ -22,9 +29,14 @@ function formatGallons(value: number | undefined): string {
   return `${value.toFixed(1)} gal`
 }
 
+function formatMiles(value: number | undefined): string {
+  if (value === undefined || Number.isNaN(value)) return "—"
+  return `${value.toFixed(1)} mi`
+}
+
 function formatDiagnosticGallons(value: number | undefined): string {
   if (value === undefined || Number.isNaN(value)) return "—"
-  return `${value.toFixed(4)} gal`
+  return `${value.toFixed(2)} gal`
 }
 
 function formatMoney(value: number | undefined): string {
@@ -35,6 +47,11 @@ function formatMoney(value: number | undefined): string {
 function formatMeters(value: number | undefined): string {
   if (value === undefined || Number.isNaN(value)) return "—"
   return `${(value / 1000).toFixed(1)} km`
+}
+
+function formatMetersAsMiles(value: number | undefined): string {
+  if (value === undefined || Number.isNaN(value)) return "—"
+  return formatMiles(value / 1609.344)
 }
 
 function formatSeconds(value: number | undefined): string {
@@ -56,12 +73,42 @@ export function OptimizationWalkthrough({
   activeStepIndex,
   onStepChange,
   failure,
+  consumptionMpg,
+  usableTankGallons,
+  summary,
+  routeTotalDistanceMeters,
 }: OptimizationWalkthroughProps) {
   if (steps.length === 0) {
     return null
   }
 
   const activeStep = steps[activeStepIndex] ?? steps[0]
+  const nextStep = steps[activeStepIndex + 1]
+  const distanceToNextMeters =
+    nextStep && activeStep
+      ? nextStep.routeOffsetMeters - activeStep.routeOffsetMeters
+      : undefined
+  const destinationOffsetMeters =
+    routeTotalDistanceMeters ?? steps[steps.length - 1]?.routeOffsetMeters
+  const distanceToDestinationMeters =
+    destinationOffsetMeters !== undefined && activeStep.kind !== "destination"
+      ? destinationOffsetMeters - activeStep.routeOffsetMeters
+      : undefined
+  const mpg = Number(consumptionMpg)
+  const usableTank = Number(usableTankGallons)
+  const isFullAfterRefuel =
+    activeStep.kind === "stop" &&
+    activeStep.fuelAfterGallons !== undefined &&
+    usableTank > 0 &&
+    Math.abs(activeStep.fuelAfterGallons - usableTank) < 0.05
+  const fuelOnDepartureGallons =
+    activeStep.kind === "start"
+      ? activeStep.fuelGallons
+      : activeStep.fuelAfterGallons
+  const rangeMiles =
+    fuelOnDepartureGallons !== undefined && mpg > 0
+      ? fuelOnDepartureGallons * mpg
+      : undefined
   const canGoBack = activeStepIndex > 0
   const canGoNext = activeStepIndex < steps.length - 1
 
@@ -129,6 +176,32 @@ export function OptimizationWalkthrough({
                 {formatGallons(activeStep.fuelGallons)}
               </span>
             </div>
+            {distanceToNextMeters !== undefined && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">
+                  Distance to next stop
+                </span>
+                <span className="font-medium">
+                  {formatMetersAsMiles(distanceToNextMeters)}
+                </span>
+              </div>
+            )}
+            {rangeMiles !== undefined && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Range on fuel</span>
+                <span className="font-medium">{formatMiles(rangeMiles)}</span>
+              </div>
+            )}
+            {distanceToDestinationMeters !== undefined && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">
+                  Distance to destination
+                </span>
+                <span className="font-medium">
+                  {formatMetersAsMiles(distanceToDestinationMeters)}
+                </span>
+              </div>
+            )}
           </div>
         )}
 
@@ -141,6 +214,14 @@ export function OptimizationWalkthrough({
               <span className="text-muted-foreground">Fuel on arrival</span>
               <span className="font-medium">
                 {formatGallons(activeStep.fuelGallons)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">
+                Distance to destination
+              </span>
+              <span className="font-medium">
+                {formatMetersAsMiles(distanceToDestinationMeters)}
               </span>
             </div>
           </div>
@@ -164,6 +245,9 @@ export function OptimizationWalkthrough({
               <span className="text-muted-foreground">Fuel after refuel</span>
               <span className="font-medium">
                 {formatGallons(activeStep.fuelAfterGallons)}
+                {isFullAfterRefuel && (
+                  <span className="text-muted-foreground"> (full)</span>
+                )}
               </span>
             </div>
             <div className="flex justify-between">
@@ -185,6 +269,32 @@ export function OptimizationWalkthrough({
                 {formatSeconds(activeStep.detourTimeSeconds)}
               </span>
             </div>
+            {distanceToNextMeters !== undefined && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">
+                  Distance to next stop
+                </span>
+                <span className="font-medium">
+                  {formatMetersAsMiles(distanceToNextMeters)}
+                </span>
+              </div>
+            )}
+            {rangeMiles !== undefined && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Range on fuel</span>
+                <span className="font-medium">{formatMiles(rangeMiles)}</span>
+              </div>
+            )}
+            {distanceToDestinationMeters !== undefined && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">
+                  Distance to destination
+                </span>
+                <span className="font-medium">
+                  {formatMetersAsMiles(distanceToDestinationMeters)}
+                </span>
+              </div>
+            )}
           </div>
         )}
 
@@ -233,6 +343,28 @@ export function OptimizationWalkthrough({
                   {formatGallons(activeStep.fuelGallons)}
                 </span>
               </div>
+              {summary && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      Total fuel purchased
+                    </span>
+                    <span className="font-medium">
+                      {formatGallons(
+                        Number(summary.total_fuel_purchased_gallons),
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      Total fuel cost
+                    </span>
+                    <span className="font-medium">
+                      {formatMoney(Number(summary.total_fuel_cost))}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
           )}
         {activeStep.isFailurePoint && activeStep.status === "reached" && (

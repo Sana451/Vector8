@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import uuid
 from dataclasses import dataclass
-from decimal import ROUND_CEILING, Decimal
+from decimal import ROUND_CEILING, ROUND_HALF_UP, Decimal
 from enum import Enum
 from math import cos, radians
 from typing import Any
@@ -196,7 +196,7 @@ class FuelStationCandidateBuilder:
                 continue
             if (
                 constraints.max_allowed_detour_meters is not None
-                and detour.distance_meters > constraints.max_allowed_detour_meters
+                and distance_from_route > constraints.max_allowed_detour_meters
             ):
                 audit_entry["reason"] = "detour_distance_limit_exceeded"
                 audit_entry["max_allowed_detour_meters"] = (
@@ -1007,11 +1007,9 @@ class OptimizeFuelUseCase:
         kept_candidates = build_result.metadata["candidate_count"]
         total_rows = build_result.metadata["rows_received_from_repository"]
         key_points = [
+            (f"Route length: {cls._fmt_km(route.total_distance_meters)}."),
             (
-                f"Route length: {cls._fmt(route.total_distance_meters)} m ({cls._fmt(route.total_distance_meters * Decimal('0.000621371192237334'))} mi)."
-            ),
-            (
-                f"Vehicle usable tank: {cls._fmt(vehicle.fuel_profile.usable_tank_capacity_gallons)} gal, reserve: {cls._fmt(constraints.reserve_gallons)} gal, MPG: {cls._fmt(vehicle.fuel_profile.consumption_mpg)}."
+                f"Vehicle usable tank: {cls._fmt(vehicle.fuel_profile.usable_tank_capacity_gallons)} gal, reserve: {cls._fmt(constraints.reserve_gallons)} gal, Fuel economy: {cls._fmt(vehicle.fuel_profile.consumption_mpg)} mi/gal."
             ),
             (
                 f"Station search returned {total_rows} rows; {kept_candidates} candidate station(s) were used in the optimization."
@@ -1027,16 +1025,13 @@ class OptimizeFuelUseCase:
             filtered_parts = []
             for reason, count in sorted(excluded_counts.items()):
                 if reason == "detour_distance_limit_exceeded":
-                    # max_allowed_detour_meters represents the full detour buffer diameter shown on the map
-                    # The actual constraint is the distance from the route to a station
+                    # max_allowed_detour_meters is the radius of the detour zone shown on the map
                     if constraints.max_allowed_detour_meters is not None:
-                        max_detour_km = constraints.max_allowed_detour_meters / 1000
-                        # Half of the detour represents the actual distance constraint from the route
                         max_distance_from_route_km = cls._fmt(
-                            constraints.max_allowed_detour_meters / 2000
+                            constraints.max_allowed_detour_meters / 1000, 1
                         )
                         filtered_parts.append(
-                            f"{reason}={count} stations (must be within {max_distance_from_route_km}km of route, half of {cls._fmt(max_detour_km)}k detour zone)"
+                            f"{reason}={count} stations (must be within {max_distance_from_route_km}km of route)"
                         )
                     else:
                         filtered_parts.append(f"{reason}={count}")
@@ -1070,7 +1065,7 @@ class OptimizeFuelUseCase:
             else:
                 first_stop = plan.stops[0]
                 key_points.append(
-                    f"First planned stop: station {first_stop.station_id} at {cls._fmt(first_stop.route_offset_meters)} m, "
+                    f"First planned stop: station {first_stop.station_id} at {cls._fmt_km(first_stop.route_offset_meters)}, "
                     f"adding {cls._fmt(first_stop.fuel_added_gallons)} gal at ${cls._fmt(first_stop.fuel_price_per_gallon)}/gal."
                 )
                 if plan.number_of_stops > 1:
@@ -1101,15 +1096,15 @@ class OptimizeFuelUseCase:
             target = failure.primary_target
             lines.extend(
                 [
-                    f"Failure reason: {failure.reason.value}; the algorithm stopped at route offset {cls._fmt(failure.stopped_at_route_offset_meters)} m.",
-                    f"Primary unreachable target: {target.name} ({target.kind}) at {cls._fmt(target.route_offset_meters)} m; "
+                    f"Failure reason: {failure.reason.value}; the algorithm stopped at route offset {cls._fmt_km(failure.stopped_at_route_offset_meters)}.",
+                    f"Primary unreachable target: {target.name} ({target.kind}) at {cls._fmt_km(target.route_offset_meters)}; "
                     f"fuel required {cls._fmt(target.fuel_required_gallons)} gal, "
                     f"available {cls._fmt(target.available_fuel_gallons)} gal, "
                     f"reserve {cls._fmt(target.reserve_gallons)} gal, "
                     f"deficit {cls._fmt(target.deficit_gallons)} gal.",
                     (
                         f"Last reachable station: {failure.last_reachable_station_id} at "
-                        f"{cls._fmt(failure.last_reachable_route_offset_meters)} m."
+                        f"{cls._fmt_km(failure.last_reachable_route_offset_meters)}."
                         if failure.last_reachable_station_id is not None
                         else "No fuel station was reached; the algorithm stopped at the route start."
                     ),
@@ -1192,7 +1187,7 @@ class OptimizeFuelUseCase:
             "unsupported_fuel_type": "Station fuel type does not match the required truck diesel fuel type.",
             "missing_diesel_price": "Station has no diesel price, so it cannot be used in a cost-aware fuel optimization run.",
             "not_truck_accessible": "Station is not marked as accessible for both medium and large trucks.",
-            "detour_distance_limit_exceeded": "Station was too far from the route (distance from route exceeds half of the allowed detour zone).",
+            "detour_distance_limit_exceeded": "Station was too far from the route (distance from route exceeds the allowed detour radius).",
             "station_outside_route_bounds": "Station is located outside the route boundaries (before start or after destination).",
         }
         return descriptions.get(
@@ -1200,13 +1195,25 @@ class OptimizeFuelUseCase:
         )
 
     @staticmethod
-    def _fmt(value: Any) -> str:
+    def _fmt(value: Any, digits: int = 2) -> str:
         if value is None:
             return "n/a"
+        if isinstance(value, (float, int)) and not isinstance(value, bool):
+            value = Decimal(str(value))
         if isinstance(value, Decimal):
-            normalized = value.normalize()
-            return format(normalized, "f")
+            rounded = value.quantize(Decimal(1).scaleb(-digits), rounding=ROUND_HALF_UP)
+            return format(rounded.normalize(), "f")
         return str(value)
+
+    @classmethod
+    def _fmt_km(cls, meters: Any) -> str:
+        if meters is None:
+            return "n/a"
+        if isinstance(meters, (float, int)) and not isinstance(meters, bool):
+            meters = Decimal(str(meters))
+        kilometers = Decimal(meters) / 1000
+        miles = Decimal(meters) * Decimal("0.000621371192237334")
+        return f"{cls._fmt(kilometers, 1)} km ({cls._fmt(miles, 1)} mi)"
 
     @staticmethod
     def _format_decision_reason(reason: str) -> str:

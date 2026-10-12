@@ -85,6 +85,7 @@ def build_context(
     reserve: str = "20",
     usable: str = "142.5",
     mpg: str = "10",
+    min_refuel: str | None = None,
 ) -> FuelOptimizationContext:
     vehicle = build_vehicle(usable=usable, mpg=mpg)
     route = build_route(
@@ -96,7 +97,10 @@ def build_context(
         initial_fuel_gallons=Decimal(initial_fuel),
         stations=stations,
         algorithm=FuelOptimizationAlgorithm.GREEDY,
-        constraints=FuelOptimizationConstraints(reserve_gallons=Decimal(reserve)),
+        constraints=FuelOptimizationConstraints(
+            reserve_gallons=Decimal(reserve),
+            min_refuel_gallons=Decimal(min_refuel) if min_refuel is not None else None,
+        ),
         consumption_model=ConstantMpgFuelConsumptionModel(),
         detour_calculator=DummyDetourCalculator(),
     )
@@ -139,16 +143,31 @@ def test_greedy_returns_success_without_stops_when_destination_reachable() -> No
     assert plan.number_of_stops == 0
 
 
-def test_greedy_returns_infeasible_when_initial_fuel_below_reserve() -> None:
-    context = build_context(initial_fuel="10", route_distance_miles="200", stations=[])
+def test_greedy_refuels_at_reachable_station_when_initial_fuel_below_reserve() -> None:
+    station = build_station(miles_from_start="5", price="5.0000")
+    context = build_context(
+        initial_fuel="10",
+        route_distance_miles="200",
+        stations=[station],
+        reserve="20",
+        mpg="10",
+    )
+    plan = GreedyFuelOptimizationStrategy().optimize(context)
+    assert plan.status == FuelOptimizationStatus.SUCCESS
+    assert plan.number_of_stops == 1
+    assert plan.stops[0].station_id == station.station_id
+    assert plan.stops[0].fuel_before_gallons == Decimal("9.5000")
+
+
+def test_greedy_is_infeasible_when_initial_fuel_below_reserve_and_no_station_reachable() -> (
+    None
+):
+    context = build_context(
+        initial_fuel="10", route_distance_miles="200", stations=[], reserve="20"
+    )
     plan = GreedyFuelOptimizationStrategy().optimize(context)
     assert plan.status == FuelOptimizationStatus.INFEASIBLE
     assert plan.failure is not None
-    assert (
-        plan.failure.reason == FuelOptimizationFailureReason.INITIAL_FUEL_BELOW_RESERVE
-    )
-    assert plan.failure.primary_target.kind == "start"
-    assert plan.failure.primary_target.deficit_gallons == Decimal("10.0000")
 
 
 def test_infeasible_reports_all_unreachable_stations_and_nearest_target() -> None:
@@ -242,6 +261,21 @@ def test_greedy_buys_only_enough_to_reach_cheaper_station_ahead() -> None:
         first_stop.fuel_after_gallons
         <= context.vehicle.fuel_profile.usable_tank_capacity_gallons
     )
+
+
+def test_greedy_skips_station_when_min_refuel_cannot_fit_in_tank() -> None:
+    nearly_full_station = build_station(miles_from_start="10", price="5.0000")
+    context = build_context(
+        initial_fuel="100",
+        route_distance_miles="500",
+        stations=[nearly_full_station],
+        reserve="20",
+        mpg="10",
+        min_refuel="50",
+    )
+    plan = GreedyFuelOptimizationStrategy().optimize(context)
+    assert plan.status == FuelOptimizationStatus.SUCCESS
+    assert plan.number_of_stops == 0
 
 
 def test_greedy_rounds_required_refuel_up_to_fuel_precision() -> None:

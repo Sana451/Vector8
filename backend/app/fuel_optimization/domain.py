@@ -229,7 +229,7 @@ class ConstantMpgFuelConsumptionModel:
 
 
 class GreedyFuelOptimizationStrategy:
-    algorithm_version = "3"
+    algorithm_version = "7"
 
     def optimize(self, context: FuelOptimizationContext) -> FuelOptimizationPlan:
         usable = context.vehicle.fuel_profile.usable_tank_capacity_gallons
@@ -240,22 +240,6 @@ class GreedyFuelOptimizationStrategy:
             raise InvalidFuelOptimizationInputError(
                 "initial_fuel_gallons must be between 0 and usable_tank_capacity_gallons"
             )
-        if initial < reserve:
-            return self._infeasible_plan(
-                context,
-                initial,
-                failure_reason=FuelOptimizationFailureReason.INITIAL_FUEL_BELOW_RESERVE,
-                current_offset=ZERO,
-                current_station=None,
-                reached_stations=[],
-                stops=[],
-                total_consumed=ZERO,
-                total_purchased=ZERO,
-                total_cost_precise=ZERO,
-                total_detour_distance=ZERO,
-                total_detour_time=0,
-            )
-
         stations = sorted(
             context.stations,
             key=lambda item: (item.route_offset_meters, str(item.station_id)),
@@ -314,6 +298,9 @@ class GreedyFuelOptimizationStrategy:
                     current_fuel,
                     debug_trace=debug_trace,
                     phase="initial_station_search",
+                    min_arrival_fuel_gallons=(
+                        reserve if current_fuel >= reserve else ZERO
+                    ),
                 )
                 if not reachable:
                     debug_trace.append(
@@ -463,8 +450,12 @@ class GreedyFuelOptimizationStrategy:
             fuel_added = min(fuel_added, max_additional)
 
             min_refuel = context.constraints.min_refuel_gallons
-            if fuel_added > ZERO and min_refuel is not None and fuel_added < min_refuel:
-                fuel_added = min(min_refuel, max_additional)
+            if fuel_added > ZERO and min_refuel is not None:
+                # The minimum cannot be bought here, so skip refuelling at this station.
+                if max_additional < min_refuel:
+                    fuel_added = ZERO
+                elif fuel_added < min_refuel:
+                    fuel_added = min_refuel
             max_refuel = context.constraints.max_refuel_gallons
             if max_refuel is not None:
                 fuel_added = min(fuel_added, max_refuel)
@@ -588,8 +579,8 @@ class GreedyFuelOptimizationStrategy:
                 next_target = max(
                     reachable_after_refuel,
                     key=lambda item: (
-                        item.route_offset_meters,
                         -item.fuel_price_per_gallon,
+                        item.route_offset_meters,
                         str(item.station_id),
                     ),
                 )
@@ -666,8 +657,12 @@ class GreedyFuelOptimizationStrategy:
         *,
         debug_trace: list[dict[str, Any]] | None = None,
         phase: str,
+        min_arrival_fuel_gallons: Decimal | None = None,
     ) -> list[FuelStationCandidate]:
         reserve = context.constraints.reserve_gallons
+        min_arrival = (
+            reserve if min_arrival_fuel_gallons is None else min_arrival_fuel_gallons
+        )
         reachable: list[FuelStationCandidate] = []
         skipped_behind: list[tuple[UUID, Decimal]] = []
         unreachable_due_to_fuel: list[tuple[UUID, Decimal, Decimal]] = []
@@ -681,7 +676,7 @@ class GreedyFuelOptimizationStrategy:
                 continue
             fuel_needed = self._fuel_to_station(context, current_offset, station)
             projected_after_arrival = current_fuel - fuel_needed
-            reachable_now = projected_after_arrival >= reserve
+            reachable_now = projected_after_arrival >= min_arrival
             if not reachable_now:
                 unreachable_due_to_fuel.append(
                     (

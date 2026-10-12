@@ -502,7 +502,7 @@ def test_expanded_search_radius_makes_farther_station_visible_before_detour_filt
         if kwargs["radius_meters"] < 12000:
             return []
         station = build_station_row(station_id=station_id)
-        station.distance_to_route_meters = 12000.0
+        station.distance_to_route_meters = 21000.0
         return [station]
 
     station_repository = FakeFuelStationRepository(side_effect=find_along_route)
@@ -530,8 +530,8 @@ def test_expanded_search_radius_makes_farther_station_visible_before_detour_filt
     assert audit[0]["station_id"] == str(station_id)
     assert audit[0]["reason"] == "detour_distance_limit_exceeded"
     assert audit[0]["included"] is False
-    assert audit[0]["distance_from_route_meters"] == "12000.0"
-    assert audit[0]["detour_distance_meters"] == "24000.0"
+    assert audit[0]["distance_from_route_meters"] == "21000.0"
+    assert audit[0]["detour_distance_meters"] == "42000.0"
     assert audit[0]["max_allowed_detour_meters"] == "20000"
 
 

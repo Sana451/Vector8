@@ -33,7 +33,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { VehicleSelector } from "@/components/VehicleSelector"
 import useCustomToast from "@/hooks/useCustomToast"
-import { buildOptimizationSteps } from "@/lib/fuelOptimizationWalkthrough"
+import {
+  buildOptimizationSteps,
+  calculateRouteTotalDistanceMeters,
+} from "@/lib/fuelOptimizationWalkthrough"
 import { extractOverviewCoordinates } from "@/lib/mapLayers"
 import {
   type AddressSelection,
@@ -300,9 +303,10 @@ function MapPage() {
       const summary = data.route?.routes?.[0]?.summary
       if (summary) {
         const distanceKm = (summary.lengthInMeters / 1000).toFixed(1)
+        const distanceMi = (summary.lengthInMeters / 1609.344).toFixed(1)
         const durationMin = Math.round(summary.travelDurationInSeconds / 60)
         setRouteInfo({
-          distance: `${distanceKm} km`,
+          distance: `${distanceKm} km (${distanceMi} mi)`,
           duration: `${durationMin} min`,
         })
       }
@@ -457,6 +461,11 @@ function MapPage() {
       initialFuelGallons: Number.parseFloat(initialFuelGallons) || 0,
     })
   }, [optimizationResult, routeCoordinates, fuelStations, initialFuelGallons])
+
+  const routeTotalDistanceMeters = useMemo(
+    () => calculateRouteTotalDistanceMeters(routeCoordinates),
+    [routeCoordinates],
+  )
 
   const activeOptimizationStep = optimizationSteps[activeStepIndex] ?? null
 
@@ -823,6 +832,16 @@ function MapPage() {
             activeStepIndex={activeStepIndex}
             onStepChange={handleStepChange}
             failure={optimizationResult?.failure ?? null}
+            consumptionMpg={
+              vehicles.find((v) => v.id === optimizationResult?.vehicle_id)
+                ?.fuel_profile.consumption_mpg
+            }
+            summary={optimizationResult?.summary}
+            routeTotalDistanceMeters={routeTotalDistanceMeters}
+            usableTankGallons={
+              vehicles.find((v) => v.id === optimizationResult?.vehicle_id)
+                ?.fuel_profile.usable_tank_capacity_gallons
+            }
           />
         )}
       </div>
