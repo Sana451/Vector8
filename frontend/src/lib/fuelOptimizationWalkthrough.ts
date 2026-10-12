@@ -269,3 +269,125 @@ export function findNearbySkippedStationIds(
 
   return nearby
 }
+
+const METERS_PER_MILE = 1609.344
+
+function segmentLengthMeters(a: Coordinate, b: Coordinate): number {
+  return calculateRouteTotalDistanceMeters([a, b])
+}
+
+function lerpCoordinate(a: Coordinate, b: Coordinate, t: number): Coordinate {
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]
+}
+
+/**
+ * Extract the part of the route between two distances (meters from start).
+ */
+export function sliceRouteByDistance(
+  coordinates: Coordinate[],
+  startMeters: number,
+  endMeters: number,
+): Coordinate[] {
+  if (coordinates.length < 2 || endMeters <= startMeters) {
+    return []
+  }
+
+  const result: Coordinate[] = []
+  let traveled = 0
+
+  for (let i = 0; i < coordinates.length - 1; i++) {
+    const a = coordinates[i]
+    const b = coordinates[i + 1]
+    const segmentLength = segmentLengthMeters(a, b)
+    const segmentStart = traveled
+    const segmentEnd = traveled + segmentLength
+    traveled = segmentEnd
+
+    if (segmentEnd < startMeters) continue
+    if (segmentStart > endMeters) break
+
+    const t0 =
+      segmentLength > 0
+        ? Math.min(1, Math.max(0, (startMeters - segmentStart) / segmentLength))
+        : 0
+    const t1 =
+      segmentLength > 0
+        ? Math.min(1, Math.max(0, (endMeters - segmentStart) / segmentLength))
+        : 1
+    const p0 = lerpCoordinate(a, b, t0)
+    const p1 = lerpCoordinate(a, b, t1)
+
+    if (result.length === 0) result.push(p0)
+    const last = result[result.length - 1]
+    if (last[0] !== p1[0] || last[1] !== p1[1]) result.push(p1)
+  }
+
+  return result.length >= 2 ? result : []
+}
+
+/**
+ * Route span reachable from a walkthrough step on the fuel it departs with.
+ *
+ * Uses the same fuel-to-distance conversion as the "Range on fuel" figure
+ * in the walkthrough panel. Returns null for steps without a departure
+ * (destination) or when the range cannot be computed.
+ */
+export function getReachableRouteSegmentMeters(
+  step: OptimizationStep,
+  consumptionMpg: number,
+  routeTotalDistanceMeters: number,
+): { startMeters: number; endMeters: number } | null {
+  if (step.kind === "destination" || !(consumptionMpg > 0)) {
+    return null
+  }
+
+  const fuelOnDeparture =
+    step.kind === "stop" ? step.fuelAfterGallons : step.fuelGallons
+  if (fuelOnDeparture === undefined || Number.isNaN(fuelOnDeparture)) {
+    return null
+  }
+
+  const rangeMeters =
+    Math.max(0, fuelOnDeparture) * consumptionMpg * METERS_PER_MILE
+  const startMeters = step.routeOffsetMeters
+  const endMeters = Math.min(
+    routeTotalDistanceMeters,
+    startMeters + rangeMeters,
+  )
+
+  return endMeters > startMeters ? { startMeters, endMeters } : null
+}
+
+const DEFAULT_RESERVE_TANK_FRACTION = 0.1
+const MIN_DEFAULT_RESERVE_GALLONS = 5
+const MAX_DEFAULT_RESERVE_TANK_FRACTION = 0.25
+
+/**
+ * Suggested reserve fuel: 10% of the usable tank, at least 5 gal and at most
+ * 25% of the tank. Returns null when the tank size is unknown.
+ */
+export function getDefaultReserveGallons(
+  usableTankGallons: number,
+): number | null {
+  if (!(usableTankGallons > 0)) {
+    return null
+  }
+  const suggested = Math.max(
+    MIN_DEFAULT_RESERVE_GALLONS,
+    Math.round(usableTankGallons * DEFAULT_RESERVE_TANK_FRACTION),
+  )
+  return Math.min(
+    suggested,
+    usableTankGallons * MAX_DEFAULT_RESERVE_TANK_FRACTION,
+  )
+}
+
+export function getReserveLimits(
+  usableTankGallons: number,
+): { min: number; max: number } | null {
+  if (!(usableTankGallons > 0)) {
+    return null
+  }
+  const max = usableTankGallons * MAX_DEFAULT_RESERVE_TANK_FRACTION
+  return { min: Math.min(MIN_DEFAULT_RESERVE_GALLONS, max), max }
+}

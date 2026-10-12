@@ -220,3 +220,5 @@ def test_find_along_route_orders_by_progress_then_distance(
     assert distance_0 < distance_1
     assert progress_1 < progress_2
     assert distance_0 == pytest.approx(44.0, rel=0.4)
+    assert 0 <= rows[0].route_offset_meters <= rows[1].route_offset_meters
+    assert rows[1].route_offset_meters < rows[2].route_offset_meters

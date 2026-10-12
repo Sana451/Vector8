@@ -134,7 +134,12 @@ class FuelStationCandidateBuilder:
             )
             detour = self.detour_calculator.calculate(distance_from_route)
             fraction = Decimal(str(getattr(row, "progress_along_route", 0.0)))
-            route_offset = fraction * route.total_distance_meters
+            geodesic_offset = getattr(row, "route_offset_meters", None)
+            route_offset = (
+                Decimal(str(geodesic_offset))
+                if geodesic_offset is not None
+                else fraction * route.total_distance_meters
+            )
             audit_entry = {
                 "station_id": row.id,
                 "external_id": station.external_id,
@@ -157,7 +162,7 @@ class FuelStationCandidateBuilder:
                 "route_offset_meters": route_offset,
                 "included": False,
                 "reason": None,
-                "formula_route_offset": "route_offset_meters = progress_fraction * route_total_distance_meters",
+                "formula_route_offset": "route_offset_meters = geodesic length of route up to station",
                 "formula_detour": "detour_distance_meters ≈ 2 * distance_from_route_meters",
             }
             boundary_position = self._outside_route_boundary(
@@ -404,6 +409,7 @@ class OptimizeFuelUseCase:
             ),
         )
         route = self._build_route(route_row)
+        self._validate_reserve(request, vehicle)
         constraints = FuelOptimizationConstraints(
             reserve_gallons=(
                 request.constraints.reserve_gallons
@@ -640,6 +646,20 @@ class OptimizeFuelUseCase:
             explanation=explanation,
             debug=self._serialize_debug(debug) if request.include_debug else None,
         )
+
+    @staticmethod
+    def _validate_reserve(request, vehicle: Vehicle) -> None:
+        if request.constraints is None or request.constraints.reserve_gallons is None:
+            return
+        usable = vehicle.fuel_profile.usable_tank_capacity_gallons
+        max_reserve = usable * Decimal("0.25")
+        min_reserve = min(Decimal("5"), max_reserve)
+        reserve = request.constraints.reserve_gallons
+        if not min_reserve <= reserve <= max_reserve:
+            raise InvalidFuelOptimizationInputError(
+                f"reserve_gallons must be between {min_reserve.normalize():f} gal "
+                f"and 25% of the usable tank ({max_reserve.normalize():f} gal)"
+            )
 
     @staticmethod
     def _build_route(route_row) -> Route:

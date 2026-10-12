@@ -219,13 +219,19 @@ class FuelStationRepository(_SpatialLayerRepository):
             FuelStation.location,
             route_geography,
         ).label("distance_to_route_meters")
-        progress_along_route = func.ST_LineLocatePoint(
+        progress_fraction = func.ST_LineLocatePoint(
             route_geometry,
             location_geometry,
-        ).label("progress_along_route")
+        )
+        progress_along_route = progress_fraction.label("progress_along_route")
+        # Geodesic metres from route start; the planar fraction above skews
+        # distance because degrees of longitude and latitude differ in length.
+        route_offset = func.ST_Length(
+            func.geography(func.ST_LineSubstring(route_geometry, 0, progress_fraction)),
+        ).label("route_offset_meters")
 
         statement = (
-            select(FuelStation, distance_to_route, progress_along_route)
+            select(FuelStation, distance_to_route, progress_along_route, route_offset)
             .where(
                 func.ST_DWithin(FuelStation.location, route_geography, radius_meters)
             )
@@ -243,9 +249,10 @@ class FuelStationRepository(_SpatialLayerRepository):
             statement = statement.order_by(distance_to_route)
 
         rows: list[FuelStation] = []
-        for station, distance, progress in self.session.exec(statement).all():
+        for station, distance, progress, offset in self.session.exec(statement).all():
             object.__setattr__(station, "distance_to_route_meters", float(distance))
             object.__setattr__(station, "progress_along_route", float(progress))
+            object.__setattr__(station, "route_offset_meters", float(offset))
             rows.append(station)
         return rows
 
