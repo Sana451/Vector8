@@ -139,6 +139,23 @@ class TestFuelOptimizationRouter:
         assert isinstance(data["explanation"]["key_points"], list)
         assert isinstance(data["explanation"]["warnings"], list)
         assert isinstance(data["explanation"]["skipped_station_stats"], list)
+        assert isinstance(data["itinerary"], list)
+        assert data["itinerary"][0]["kind"] == "start"
+        if data["status"] == "success":
+            assert data["itinerary"][-1]["kind"] == "destination"
+            assert data["itinerary"][-1]["status"] == "reached"
+            assert data["failure"] is None
+        else:
+            assert data["failure"]["reason"]
+            assert data["failure"]["primary_target"]["kind"] in {
+                "station",
+                "destination",
+                "start",
+            }
+            assert "fuel_required_gallons" in data["failure"]["primary_target"]
+            assert "available_fuel_gallons" in data["failure"]["primary_target"]
+            assert "reserve_gallons" in data["failure"]["primary_target"]
+            assert "deficit_gallons" in data["failure"]["primary_target"]
         assert data["debug"] is None
 
         run = db.exec(select(FuelOptimizationRun)).first()

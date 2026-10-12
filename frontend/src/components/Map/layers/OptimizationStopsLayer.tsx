@@ -23,6 +23,8 @@ interface OptimizationStopsLayerProps {
 }
 
 function stepMarkerLabel(step: OptimizationStep): string {
+  if (step.isPrimaryFailureTarget) return "X"
+  if (step.kind === "unreachable_station") return "X"
   if (step.kind === "start") return "S"
   if (step.kind === "destination") return "D"
   return String(step.index)
@@ -42,9 +44,12 @@ function buildStopsFeatures(
     properties: {
       index: step.index,
       kind: step.kind,
+      status: step.status,
       label: step.label,
       markerLabel: stepMarkerLabel(step),
       isActive: step.index === activeStepIndex,
+      isPrimaryFailureTarget: Boolean(step.isPrimaryFailureTarget),
+      isFailurePoint: Boolean(step.isFailurePoint),
     },
     geometry: {
       type: "Point",
@@ -76,15 +81,33 @@ export function OptimizationStopsLayer({
         source: sourceId,
         paint: {
           "circle-color": [
-            "match",
-            ["get", "kind"],
-            "start",
-            "#2563eb",
-            "destination",
-            "#7c3aed",
-            "#f97316",
+            "case",
+            ["get", "isPrimaryFailureTarget"],
+            "#dc2626",
+            ["get", "isFailurePoint"],
+            "#f59e0b",
+            ["==", ["get", "status"], "unreachable"],
+            "#fb7185",
+            [
+              "match",
+              ["get", "kind"],
+              "start",
+              "#2563eb",
+              "destination",
+              "#7c3aed",
+              "#16a34a",
+            ],
           ],
-          "circle-radius": ["case", ["get", "isActive"], 14, 10],
+          "circle-radius": [
+            "case",
+            ["get", "isActive"],
+            14,
+            ["get", "isPrimaryFailureTarget"],
+            13,
+            ["==", ["get", "status"], "unreachable"],
+            9,
+            10,
+          ],
           "circle-stroke-color": "#ffffff",
           "circle-stroke-width": ["case", ["get", "isActive"], 3, 2],
           "circle-opacity": 0.95,

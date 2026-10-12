@@ -129,6 +129,7 @@ function MapPage() {
   const [maxDetourMeters, setMaxDetourMeters] = useState("100000")
   const [initialFuelGallons, setInitialFuelGallons] = useState("42")
   const [reserveGallons, setReserveGallons] = useState("3")
+  const [minRefuelGallons, setMinRefuelGallons] = useState("")
   const [optimizationResult, setOptimizationResult] =
     useState<FuelOptimizationCalculateResponse | null>(null)
   const [activeStepIndex, setActiveStepIndex] = useState(0)
@@ -339,6 +340,9 @@ function MapPage() {
         initial_fuel_gallons: parseInt(initialFuelGallons, 10),
         constraints: {
           reserve_gallons: parseInt(reserveGallons, 10),
+          min_refuel_gallons: minRefuelGallons.trim()
+            ? Number.parseFloat(minRefuelGallons)
+            : null,
           max_allowed_detour_meters: parseInt(maxDetourMeters, 10),
         },
         include_debug: false,
@@ -349,6 +353,9 @@ function MapPage() {
       // on the map, even when the optimization itself is infeasible.
       setOptimizationResult(data)
       setActiveStepIndex(0)
+      setActiveFuelStationIds(
+        new Set((data.stops ?? []).map((stop) => stop.station_id)),
+      )
 
       // Check optimization status
       if (data.status === "infeasible") {
@@ -416,12 +423,6 @@ function MapPage() {
 
       // Optimization succeeded
       if (data.status === "success") {
-        // Extract station IDs from optimization stops (used fuel stations)
-        const usedStationIds = new Set(
-          (data.stops ?? []).map((stop) => stop.station_id),
-        )
-        setActiveFuelStationIds(usedStationIds)
-
         // Build success message with summary
         const summary = data.summary
         let successMessage = "Fuel optimization calculated successfully"
@@ -656,6 +657,22 @@ function MapPage() {
               />
             </div>
 
+            <div className="flex-1 min-w-[150px]">
+              <label htmlFor="min-refuel" className="text-xs font-medium">
+                Min Refuel (gal)
+              </label>
+              <Input
+                id="min-refuel"
+                type="number"
+                min="0"
+                step="0.1"
+                value={minRefuelGallons}
+                onChange={(e) => setMinRefuelGallons(e.target.value)}
+                className="text-xs h-8"
+                placeholder="Optional"
+              />
+            </div>
+
             <div className="flex-1 min-w-[200px]">
               <div className="flex justify-between items-center mb-1">
                 <label htmlFor="max-detour" className="text-xs font-medium">
@@ -805,6 +822,7 @@ function MapPage() {
             steps={optimizationSteps}
             activeStepIndex={activeStepIndex}
             onStepChange={handleStepChange}
+            failure={optimizationResult?.failure ?? null}
           />
         )}
       </div>

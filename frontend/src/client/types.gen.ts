@@ -341,6 +341,11 @@ export type FuelOptimizationCalculateResponse = {
      * Stops
      */
     stops: Array<FuelOptimizationStopPublic>;
+    /**
+     * Itinerary
+     */
+    itinerary: Array<FuelOptimizationItineraryPointPublic>;
+    failure: FuelOptimizationFailurePublic | null;
     explanation: FuelOptimizationExplanationPublic;
     /**
      * Debug
@@ -396,6 +401,190 @@ export type FuelOptimizationExplanationPublic = {
      * Skipped Station Stats
      */
     skipped_station_stats?: Array<FuelOptimizationSkippedStationStatPublic>;
+};
+
+/**
+ * FuelOptimizationFailurePublic
+ */
+export type FuelOptimizationFailurePublic = {
+    reason: FuelOptimizationFailureReason;
+    /**
+     * Message
+     */
+    message: string;
+    /**
+     * Stopped At Route Offset Meters
+     */
+    stopped_at_route_offset_meters: string;
+    /**
+     * Last Reachable Station Id
+     */
+    last_reachable_station_id?: string | null;
+    /**
+     * Last Reachable Route Offset Meters
+     */
+    last_reachable_route_offset_meters: string;
+    /**
+     * Available Fuel Gallons
+     */
+    available_fuel_gallons: string;
+    /**
+     * Reserve Gallons
+     */
+    reserve_gallons: string;
+    primary_target: FuelOptimizationFailureTargetPublic;
+    /**
+     * Unreachable Stations
+     */
+    unreachable_stations?: Array<FuelOptimizationFailureTargetPublic>;
+    destination?: FuelOptimizationFailureTargetPublic | null;
+};
+
+/**
+ * FuelOptimizationFailureReason
+ */
+export type FuelOptimizationFailureReason = 'initial_fuel_below_reserve' | 'no_reachable_station' | 'no_reachable_continuation' | 'planned_station_unreachable' | 'destination_unreachable';
+
+/**
+ * FuelOptimizationFailureTargetPublic
+ */
+export type FuelOptimizationFailureTargetPublic = {
+    /**
+     * Kind
+     */
+    kind: 'start' | 'station' | 'destination';
+    /**
+     * Station Id
+     */
+    station_id?: string | null;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Route Offset Meters
+     */
+    route_offset_meters: string;
+    /**
+     * Coordinate
+     */
+    coordinate: [
+        string,
+        string
+    ];
+    /**
+     * Fuel Required Gallons
+     */
+    fuel_required_gallons: string;
+    /**
+     * Available Fuel Gallons
+     */
+    available_fuel_gallons: string;
+    /**
+     * Reserve Gallons
+     */
+    reserve_gallons: string;
+    /**
+     * Projected Arrival Fuel Gallons
+     */
+    projected_arrival_fuel_gallons: string;
+    /**
+     * Deficit Gallons
+     */
+    deficit_gallons: string;
+};
+
+/**
+ * FuelOptimizationItineraryPointPublic
+ */
+export type FuelOptimizationItineraryPointPublic = {
+    /**
+     * Sequence
+     */
+    sequence: number;
+    /**
+     * Kind
+     */
+    kind: 'start' | 'station' | 'refuel' | 'destination' | 'unreachable_station';
+    /**
+     * Status
+     */
+    status: 'reached' | 'unreachable';
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Station Id
+     */
+    station_id?: string | null;
+    /**
+     * Route Offset Meters
+     */
+    route_offset_meters: string;
+    /**
+     * Coordinate
+     */
+    coordinate: [
+        string,
+        string
+    ];
+    /**
+     * Fuel Gallons
+     */
+    fuel_gallons?: string | null;
+    /**
+     * Fuel Before Gallons
+     */
+    fuel_before_gallons?: string | null;
+    /**
+     * Fuel Added Gallons
+     */
+    fuel_added_gallons?: string | null;
+    /**
+     * Fuel After Gallons
+     */
+    fuel_after_gallons?: string | null;
+    /**
+     * Fuel Price Per Gallon
+     */
+    fuel_price_per_gallon?: string | null;
+    /**
+     * Fuel Cost
+     */
+    fuel_cost?: string | null;
+    /**
+     * Detour Distance Meters
+     */
+    detour_distance_meters?: string | null;
+    /**
+     * Detour Time Seconds
+     */
+    detour_time_seconds?: number | null;
+    /**
+     * Fuel Required Gallons
+     */
+    fuel_required_gallons?: string | null;
+    /**
+     * Available Fuel Gallons
+     */
+    available_fuel_gallons?: string | null;
+    /**
+     * Reserve Gallons
+     */
+    reserve_gallons?: string | null;
+    /**
+     * Deficit Gallons
+     */
+    deficit_gallons?: string | null;
+    /**
+     * Is Primary Failure Target
+     */
+    is_primary_failure_target?: boolean;
+    /**
+     * Is Failure Point
+     */
+    is_failure_point?: boolean;
 };
 
 /**

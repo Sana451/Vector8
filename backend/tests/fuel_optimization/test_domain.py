@@ -11,6 +11,7 @@ from app.fuel_optimization.domain import (
     FuelOptimizationAlgorithm,
     FuelOptimizationConstraints,
     FuelOptimizationContext,
+    FuelOptimizationFailureReason,
     FuelOptimizationStatus,
     FuelStationCandidate,
     GreedyFuelOptimizationStrategy,
@@ -142,6 +143,64 @@ def test_greedy_returns_infeasible_when_initial_fuel_below_reserve() -> None:
     context = build_context(initial_fuel="10", route_distance_miles="200", stations=[])
     plan = GreedyFuelOptimizationStrategy().optimize(context)
     assert plan.status == FuelOptimizationStatus.INFEASIBLE
+    assert plan.failure is not None
+    assert (
+        plan.failure.reason == FuelOptimizationFailureReason.INITIAL_FUEL_BELOW_RESERVE
+    )
+    assert plan.failure.primary_target.kind == "start"
+    assert plan.failure.primary_target.deficit_gallons == Decimal("10.0000")
+
+
+def test_infeasible_reports_all_unreachable_stations_and_nearest_target() -> None:
+    nearest = build_station(miles_from_start="80", price="6.0000")
+    farther = build_station(miles_from_start="100", price="5.9000")
+    context = build_context(
+        initial_fuel="25",
+        route_distance_miles="300",
+        stations=[farther, nearest],
+        reserve="20",
+        mpg="10",
+    )
+
+    plan = GreedyFuelOptimizationStrategy().optimize(context)
+
+    assert plan.status == FuelOptimizationStatus.INFEASIBLE
+    assert plan.failure is not None
+    assert plan.failure.reason == FuelOptimizationFailureReason.NO_REACHABLE_STATION
+    assert plan.failure.primary_target.station_id == nearest.station_id
+    assert [station.station_id for station in plan.failure.unreachable_stations] == [
+        nearest.station_id,
+        farther.station_id,
+    ]
+    assert plan.failure.primary_target.fuel_required_gallons == Decimal("8.0000")
+    assert plan.failure.primary_target.available_fuel_gallons == Decimal("25.0000")
+    assert plan.failure.primary_target.reserve_gallons == Decimal("20.0000")
+    assert plan.failure.primary_target.deficit_gallons == Decimal("3.0000")
+    assert plan.failure.destination is not None
+    assert plan.failure.destination.kind == "destination"
+
+
+def test_infeasible_preserves_reached_station_and_planned_refuel() -> None:
+    station = build_station(miles_from_start="150", price="5.5000")
+    context = build_context(
+        initial_fuel="60",
+        route_distance_miles="1700",
+        stations=[station],
+        reserve="20",
+        mpg="10",
+    )
+
+    plan = GreedyFuelOptimizationStrategy().optimize(context)
+
+    assert plan.status == FuelOptimizationStatus.INFEASIBLE
+    assert plan.number_of_stops == 1
+    assert plan.stops[0].station_id == station.station_id
+    assert plan.reached_stations[0].station_id == station.station_id
+    assert plan.failure is not None
+    assert plan.failure.reason == FuelOptimizationFailureReason.DESTINATION_UNREACHABLE
+    assert plan.failure.last_reachable_station_id == station.station_id
+    assert plan.failure.primary_target.kind == "destination"
+    assert plan.failure.primary_target.deficit_gallons > Decimal("0")
 
 
 def test_greedy_makes_one_necessary_stop() -> None:
@@ -182,6 +241,31 @@ def test_greedy_buys_only_enough_to_reach_cheaper_station_ahead() -> None:
     assert (
         first_stop.fuel_after_gallons
         <= context.vehicle.fuel_profile.usable_tank_capacity_gallons
+    )
+
+
+def test_greedy_rounds_required_refuel_up_to_fuel_precision() -> None:
+    current = build_station(miles_from_start="200", price="6.0000")
+    cheaper = build_station(miles_from_start="350.00001", price="5.5000")
+    context = build_context(
+        initial_fuel="50",
+        route_distance_miles="700",
+        stations=[current, cheaper],
+        reserve="20",
+        mpg="10",
+    )
+
+    plan = GreedyFuelOptimizationStrategy().optimize(context)
+
+    assert plan.status == FuelOptimizationStatus.SUCCESS
+    first_stop = plan.stops[0]
+    assert first_stop.station_id == current.station_id
+    assert first_stop.fuel_after_gallons == Decimal("35.0001")
+    refuel_decision = next(
+        step for step in plan.debug_trace if step["event"] == "refuel_decision"
+    )
+    assert (
+        first_stop.fuel_after_gallons >= refuel_decision["desired_fuel_after_gallons"]
     )
 
 

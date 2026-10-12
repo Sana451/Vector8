@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import uuid
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.fuel_optimization.domain import (
     FuelOptimizationAlgorithm,
+    FuelOptimizationFailureReason,
     FuelOptimizationStatus,
 )
 
@@ -69,6 +70,58 @@ class FuelOptimizationStopPublic(BaseModel):
     detour_time_seconds: int
 
 
+class FuelOptimizationFailureTargetPublic(BaseModel):
+    kind: Literal["start", "station", "destination"]
+    station_id: uuid.UUID | None = None
+    name: str
+    route_offset_meters: Decimal
+    coordinate: tuple[Decimal, Decimal]
+    fuel_required_gallons: Decimal
+    available_fuel_gallons: Decimal
+    reserve_gallons: Decimal
+    projected_arrival_fuel_gallons: Decimal
+    deficit_gallons: Decimal
+
+
+class FuelOptimizationFailurePublic(BaseModel):
+    reason: FuelOptimizationFailureReason
+    message: str
+    stopped_at_route_offset_meters: Decimal
+    last_reachable_station_id: uuid.UUID | None = None
+    last_reachable_route_offset_meters: Decimal
+    available_fuel_gallons: Decimal
+    reserve_gallons: Decimal
+    primary_target: FuelOptimizationFailureTargetPublic
+    unreachable_stations: list[FuelOptimizationFailureTargetPublic] = Field(
+        default_factory=list
+    )
+    destination: FuelOptimizationFailureTargetPublic | None = None
+
+
+class FuelOptimizationItineraryPointPublic(BaseModel):
+    sequence: int
+    kind: Literal["start", "station", "refuel", "destination", "unreachable_station"]
+    status: Literal["reached", "unreachable"]
+    label: str
+    station_id: uuid.UUID | None = None
+    route_offset_meters: Decimal
+    coordinate: tuple[Decimal, Decimal]
+    fuel_gallons: Decimal | None = None
+    fuel_before_gallons: Decimal | None = None
+    fuel_added_gallons: Decimal | None = None
+    fuel_after_gallons: Decimal | None = None
+    fuel_price_per_gallon: Decimal | None = None
+    fuel_cost: Decimal | None = None
+    detour_distance_meters: Decimal | None = None
+    detour_time_seconds: int | None = None
+    fuel_required_gallons: Decimal | None = None
+    available_fuel_gallons: Decimal | None = None
+    reserve_gallons: Decimal | None = None
+    deficit_gallons: Decimal | None = None
+    is_primary_failure_target: bool = False
+    is_failure_point: bool = False
+
+
 class FuelOptimizationSummaryPublic(BaseModel):
     total_fuel_consumed_gallons: Decimal
     total_fuel_purchased_gallons: Decimal
@@ -116,5 +169,7 @@ class FuelOptimizationCalculateResponse(BaseModel):
     algorithm_version: str
     summary: FuelOptimizationSummaryPublic
     stops: list[FuelOptimizationStopPublic]
+    itinerary: list[FuelOptimizationItineraryPointPublic]
+    failure: FuelOptimizationFailurePublic | None
     explanation: FuelOptimizationExplanationPublic
     debug: dict[str, Any] | None = None
