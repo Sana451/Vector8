@@ -72,7 +72,7 @@ def _set_expires_at(db: Session, *, external_id: str, expires_at: datetime) -> N
     db.commit()
 
 
-def test_internal_provider_ignores_ttl(
+def test_internal_provider_respects_ttl(
     repository: FuelStationRepository, db: Session
 ) -> None:
     repository.upsert_many(
@@ -101,7 +101,7 @@ def test_internal_provider_ignores_ttl(
         provider="internal",
     )
 
-    assert [row.external_id for row in rows] == ["internal-expired"]
+    assert rows == []
 
 
 def test_external_provider_still_uses_ttl(

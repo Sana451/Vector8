@@ -229,7 +229,7 @@ class ConstantMpgFuelConsumptionModel:
 
 
 class GreedyFuelOptimizationStrategy:
-    algorithm_version = "2"
+    algorithm_version = "3"
 
     def optimize(self, context: FuelOptimizationContext) -> FuelOptimizationPlan:
         usable = context.vehicle.fuel_profile.usable_tank_capacity_gallons
@@ -353,8 +353,8 @@ class GreedyFuelOptimizationStrategy:
                 next_station = max(
                     reachable,
                     key=lambda item: (
+                        -item.fuel_price_per_gallon,
                         item.route_offset_meters,
-                        item.fuel_price_per_gallon,
                         str(item.station_id),
                     ),
                 )
@@ -364,7 +364,7 @@ class GreedyFuelOptimizationStrategy:
                 debug_trace.append(
                     {
                         "event": "travel_to_initial_station",
-                        "message": "Traveled to the farthest reachable station before first refuel.",
+                        "message": "Traveled to the cheapest reachable station before first refuel (farthest among equal prices).",
                         "reachable_station_count": len(reachable),
                         "selected_station_id": next_station.station_id,
                         "selected_station_price_per_gallon": next_station.fuel_price_per_gallon,
