@@ -28,6 +28,7 @@ import {
   TrafficLayer,
   TruckRestrictionLayer,
 } from "@/components/Map/layers"
+import { MeasureTool } from "@/components/Map/MeasureTool"
 import { OptimizationWalkthrough } from "@/components/Map/OptimizationWalkthrough"
 import TomTomMap, { type TomTomMapHandle } from "@/components/Map/TomTomMap"
 import { Button } from "@/components/ui/button"
@@ -804,6 +805,7 @@ function MapPage() {
       )}
       <div className="flex-1 min-h-0 relative w-full overflow-hidden">
         <TomTomMap ref={mapRef} />
+        <MeasureTool mapInstance={mapInstance} />
         <LayerTogglePanel
           visibleLayers={visibleLayers}
           onToggleLayer={handleToggleLayer}
