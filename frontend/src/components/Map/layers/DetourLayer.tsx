@@ -6,7 +6,7 @@
  */
 
 import type { Map as MapLibreMap } from "maplibre-gl"
-import { useCallback, useMemo } from "react"
+import { useCallback, useDeferredValue, useMemo } from "react"
 import { buildDetourFeature } from "@/lib/mapLayers"
 import type { Coordinate } from "@/lib/routing"
 import { type LayerWithVisibility, useGeoJsonLayer } from "./useGeoJsonLayer"
@@ -32,8 +32,11 @@ export function DetourLayer({
   coordinates,
   detourMeters,
 }: DetourLayerProps) {
+  // Deferred so the slider stays responsive while the (expensive) buffer
+  // geometry is recomputed at lower priority during drags.
+  const deferredDetourMeters = useDeferredValue(detourMeters)
   // Convert meters to kilometers for the buffer function
-  const detourKm = detourMeters / 1000
+  const detourKm = deferredDetourMeters / 1000
 
   // Build detour feature - updates whenever coordinates or detour distance changes
   const data = useMemo(

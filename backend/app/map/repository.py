@@ -201,9 +201,9 @@ class FuelStationRepository(_SpatialLayerRepository):
     ) -> list[FuelStation]:
         """Find fuel stations near the route with provider-aware ordering.
 
-        Internal stations ignore TTL and are ordered by route progress first,
-        then by distance to the route. External providers keep the existing TTL
-        filtering while also exposing the same distance/progress annotations.
+        All stations are filtered by TTL. Internal stations are ordered by route
+        progress first, then by distance to the route. External providers are
+        ordered by distance to the route.
         """
         if len(coordinates) < 2:
             return []
@@ -235,8 +235,7 @@ class FuelStationRepository(_SpatialLayerRepository):
         if provider is not None:
             statement = statement.where(FuelStation.provider == provider)
 
-        if provider != "internal":
-            statement = statement.where(FuelStation.expires_at >= get_datetime_utc())
+        statement = statement.where(FuelStation.expires_at >= get_datetime_utc())
 
         if provider == "internal":
             statement = statement.order_by(progress_along_route, distance_to_route)

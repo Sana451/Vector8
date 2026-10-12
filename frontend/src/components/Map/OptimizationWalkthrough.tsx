@@ -1,24 +1,42 @@
 /**
  * OptimizationWalkthrough component
  *
- * Step-by-step panel for reviewing a fuel optimization result: start,
- * every refuel stop (in order) and the destination. Supports Next/Back
- * navigation as well as jumping directly to any step. Stepping does not
- * change the map zoom level (handled by the caller via TomTomMapHandle.panTo).
+ * Step-by-step panel for reviewing reached route points and unreachable
+ * optimization targets. Supports Next/Back navigation and direct jumps.
+ * Stepping does not change the map zoom level.
  */
 
 import { ChevronLeft, ChevronRight } from "lucide-react"
+import type {
+  FuelOptimizationFailurePublic,
+  FuelOptimizationSummaryPublic,
+} from "@/client"
 import type { OptimizationStep } from "@/lib/fuelOptimizationWalkthrough"
 
 interface OptimizationWalkthroughProps {
   steps: OptimizationStep[]
   activeStepIndex: number
   onStepChange: (index: number) => void
+  failure: FuelOptimizationFailurePublic | null
+  consumptionMpg?: number | string
+  usableTankGallons?: number | string
+  summary?: FuelOptimizationSummaryPublic
+  routeTotalDistanceMeters?: number
 }
 
 function formatGallons(value: number | undefined): string {
   if (value === undefined || Number.isNaN(value)) return "—"
   return `${value.toFixed(1)} gal`
+}
+
+function formatMiles(value: number | undefined): string {
+  if (value === undefined || Number.isNaN(value)) return "—"
+  return `${value.toFixed(1)} mi`
+}
+
+function formatDiagnosticGallons(value: number | undefined): string {
+  if (value === undefined || Number.isNaN(value)) return "—"
+  return `${value.toFixed(2)} gal`
 }
 
 function formatMoney(value: number | undefined): string {
@@ -31,12 +49,20 @@ function formatMeters(value: number | undefined): string {
   return `${(value / 1000).toFixed(1)} km`
 }
 
+function formatMetersAsMiles(value: number | undefined): string {
+  if (value === undefined || Number.isNaN(value)) return "—"
+  return formatMiles(value / 1609.344)
+}
+
 function formatSeconds(value: number | undefined): string {
   if (value === undefined || Number.isNaN(value)) return "—"
   return `${Math.round(value / 60)} min`
 }
 
 function stepBadgeLabel(step: OptimizationStep): string {
+  if (step.isPrimaryFailureTarget) return "X"
+  if (step.kind === "unreachable_station") return "X"
+  if (step.kind === "checkpoint") return "✓"
   if (step.kind === "start") return "S"
   if (step.kind === "destination") return "D"
   return String(step.index)
@@ -46,12 +72,43 @@ export function OptimizationWalkthrough({
   steps,
   activeStepIndex,
   onStepChange,
+  failure,
+  consumptionMpg,
+  usableTankGallons,
+  summary,
+  routeTotalDistanceMeters,
 }: OptimizationWalkthroughProps) {
   if (steps.length === 0) {
     return null
   }
 
   const activeStep = steps[activeStepIndex] ?? steps[0]
+  const nextStep = steps[activeStepIndex + 1]
+  const distanceToNextMeters =
+    nextStep && activeStep
+      ? nextStep.routeOffsetMeters - activeStep.routeOffsetMeters
+      : undefined
+  const destinationOffsetMeters =
+    routeTotalDistanceMeters ?? steps[steps.length - 1]?.routeOffsetMeters
+  const distanceToDestinationMeters =
+    destinationOffsetMeters !== undefined && activeStep.kind !== "destination"
+      ? destinationOffsetMeters - activeStep.routeOffsetMeters
+      : undefined
+  const mpg = Number(consumptionMpg)
+  const usableTank = Number(usableTankGallons)
+  const isFullAfterRefuel =
+    activeStep.kind === "stop" &&
+    activeStep.fuelAfterGallons !== undefined &&
+    usableTank > 0 &&
+    Math.abs(activeStep.fuelAfterGallons - usableTank) < 0.05
+  const fuelOnDepartureGallons =
+    activeStep.kind === "start"
+      ? activeStep.fuelGallons
+      : activeStep.fuelAfterGallons
+  const rangeMiles =
+    fuelOnDepartureGallons !== undefined && mpg > 0
+      ? fuelOnDepartureGallons * mpg
+      : undefined
   const canGoBack = activeStepIndex > 0
   const canGoNext = activeStepIndex < steps.length - 1
 
@@ -67,9 +124,13 @@ export function OptimizationWalkthrough({
             aria-current={step.index === activeStepIndex}
             aria-label={`Go to ${step.label}`}
             className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
-              step.index === activeStepIndex
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
+              step.isPrimaryFailureTarget
+                ? "bg-red-600 text-white"
+                : step.status === "unreachable"
+                  ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
+                  : step.index === activeStepIndex
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
             }`}
           >
             {stepBadgeLabel(step)}
@@ -81,10 +142,31 @@ export function OptimizationWalkthrough({
       <div className="px-4 py-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold truncate">{activeStep.label}</h3>
-          <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
-            Step {activeStepIndex + 1} of {steps.length}
+          <span
+            className={`text-xs flex-shrink-0 ml-2 ${
+              activeStep.status === "unreachable"
+                ? "font-semibold text-red-600 dark:text-red-400"
+                : "text-muted-foreground"
+            }`}
+          >
+            {activeStep.status === "unreachable" ? "Unreachable" : "Reached"} ·{" "}
+            {activeStepIndex + 1}/{steps.length}
           </span>
         </div>
+
+        {failure && (
+          <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-2.5 py-2 text-xs text-red-800 dark:border-red-900 dark:bg-red-950/50 dark:text-red-200">
+            <div className="font-semibold">{failure.message}</div>
+            <div className="mt-1">
+              Stopped at{" "}
+              {formatMeters(Number(failure.stopped_at_route_offset_meters))}
+              {failure.last_reachable_station_id
+                ? ` after station ${failure.last_reachable_station_id}`
+                : " from the route start"}
+              .
+            </div>
+          </div>
+        )}
 
         {activeStep.kind === "start" && (
           <div className="mt-2 text-xs space-y-1">
@@ -92,6 +174,54 @@ export function OptimizationWalkthrough({
               <span className="text-muted-foreground">Starting fuel</span>
               <span className="font-medium">
                 {formatGallons(activeStep.fuelGallons)}
+              </span>
+            </div>
+            {distanceToNextMeters !== undefined && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">
+                  Distance to next stop
+                </span>
+                <span className="font-medium">
+                  {formatMetersAsMiles(distanceToNextMeters)}
+                </span>
+              </div>
+            )}
+            {rangeMiles !== undefined && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Range on fuel</span>
+                <span className="font-medium">{formatMiles(rangeMiles)}</span>
+              </div>
+            )}
+            {distanceToDestinationMeters !== undefined && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">
+                  Distance to destination
+                </span>
+                <span className="font-medium">
+                  {formatMetersAsMiles(distanceToDestinationMeters)}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeStep.kind === "checkpoint" && (
+          <div className="mt-2 text-xs space-y-1">
+            <div className="text-muted-foreground">
+              Reached without refueling
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Fuel on arrival</span>
+              <span className="font-medium">
+                {formatGallons(activeStep.fuelGallons)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">
+                Distance to destination
+              </span>
+              <span className="font-medium">
+                {formatMetersAsMiles(distanceToDestinationMeters)}
               </span>
             </div>
           </div>
@@ -115,6 +245,9 @@ export function OptimizationWalkthrough({
               <span className="text-muted-foreground">Fuel after refuel</span>
               <span className="font-medium">
                 {formatGallons(activeStep.fuelAfterGallons)}
+                {isFullAfterRefuel && (
+                  <span className="text-muted-foreground"> (full)</span>
+                )}
               </span>
             </div>
             <div className="flex justify-between">
@@ -136,19 +269,107 @@ export function OptimizationWalkthrough({
                 {formatSeconds(activeStep.detourTimeSeconds)}
               </span>
             </div>
+            {distanceToNextMeters !== undefined && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">
+                  Distance to next stop
+                </span>
+                <span className="font-medium">
+                  {formatMetersAsMiles(distanceToNextMeters)}
+                </span>
+              </div>
+            )}
+            {rangeMiles !== undefined && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Range on fuel</span>
+                <span className="font-medium">{formatMiles(rangeMiles)}</span>
+              </div>
+            )}
+            {distanceToDestinationMeters !== undefined && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">
+                  Distance to destination
+                </span>
+                <span className="font-medium">
+                  {formatMetersAsMiles(distanceToDestinationMeters)}
+                </span>
+              </div>
+            )}
           </div>
         )}
 
-        {activeStep.kind === "destination" && (
+        {activeStep.status === "unreachable" && (
           <div className="mt-2 text-xs space-y-1">
+            <div className="font-semibold text-red-600 dark:text-red-400">
+              {activeStep.isPrimaryFailureTarget
+                ? "Primary failure target"
+                : "Unreachable goal"}
+            </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">
-                Remaining fuel on arrival
-              </span>
+              <span className="text-muted-foreground">Fuel required</span>
               <span className="font-medium">
-                {formatGallons(activeStep.fuelGallons)}
+                {formatDiagnosticGallons(activeStep.fuelRequiredGallons)}
               </span>
             </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Fuel available</span>
+              <span className="font-medium">
+                {formatDiagnosticGallons(activeStep.availableFuelGallons)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Required reserve</span>
+              <span className="font-medium">
+                {formatDiagnosticGallons(activeStep.reserveGallons)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Reserve deficit</span>
+              <span className="font-semibold text-red-600 dark:text-red-400">
+                {formatDiagnosticGallons(activeStep.deficitGallons)}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {activeStep.kind === "destination" &&
+          activeStep.status === "reached" && (
+            <div className="mt-2 text-xs space-y-1">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">
+                  Remaining fuel on arrival
+                </span>
+                <span className="font-medium">
+                  {formatGallons(activeStep.fuelGallons)}
+                </span>
+              </div>
+              {summary && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      Total fuel purchased
+                    </span>
+                    <span className="font-medium">
+                      {formatGallons(
+                        Number(summary.total_fuel_purchased_gallons),
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      Total fuel cost
+                    </span>
+                    <span className="font-medium">
+                      {formatMoney(Number(summary.total_fuel_cost))}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        {activeStep.isFailurePoint && activeStep.status === "reached" && (
+          <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+            Last reachable point; the algorithm could not continue beyond here.
           </div>
         )}
       </div>

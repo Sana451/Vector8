@@ -1,10 +1,8 @@
 /**
  * Fuel optimization walkthrough helpers
  *
- * Builds the step-by-step model (start -> stops -> destination) used by the
- * OptimizationWalkthrough panel and the related map layers, and computes
- * proximity between skipped stations and the currently active step so they
- * can be softly highlighted on the map.
+ * Builds the ordered reached/unreachable points for the walkthrough and map,
+ * and computes proximity between skipped stations and the active step.
  */
 
 import { lineString } from "@turf/helpers"
@@ -16,10 +14,17 @@ import type {
 } from "@/client"
 import type { Coordinate } from "@/lib/routing"
 
-export type OptimizationStepKind = "start" | "stop" | "destination"
+export type OptimizationStepKind =
+  | "start"
+  | "stop"
+  | "destination"
+  | "unreachable_station"
+  | "checkpoint"
+export type OptimizationStepStatus = "reached" | "unreachable"
 
 export interface OptimizationStep {
   kind: OptimizationStepKind
+  status: OptimizationStepStatus
   /** 0-based index within the steps array */
   index: number
   label: string
@@ -36,6 +41,12 @@ export interface OptimizationStep {
   detourTimeSeconds?: number
   /** Fields only present for "start" / "destination" steps */
   fuelGallons?: number
+  fuelRequiredGallons?: number
+  availableFuelGallons?: number
+  reserveGallons?: number
+  deficitGallons?: number
+  isPrimaryFailureTarget?: boolean
+  isFailurePoint?: boolean
 }
 
 interface BuildStepsParams {
@@ -62,8 +73,7 @@ export function calculateRouteTotalDistanceMeters(
 }
 
 /**
- * Build the ordered list of walkthrough steps: start, each stop (in
- * sequence order), and the destination.
+ * Build the ordered walkthrough steps from the server itinerary.
  */
 export function buildOptimizationSteps({
   response,
@@ -71,6 +81,101 @@ export function buildOptimizationSteps({
   fuelStations,
   initialFuelGallons,
 }: BuildStepsParams): OptimizationStep[] {
+  if (response.itinerary?.length) {
+    return [...response.itinerary]
+      .filter((point) =>
+        point.status === "unreachable"
+          ? point.is_primary_failure_target
+          : point.kind !== "station" || point.is_failure_point,
+      )
+      .sort((a, b) => a.sequence - b.sequence)
+      .map((point, index) => {
+        const kind: OptimizationStepKind =
+          point.kind === "start"
+            ? "start"
+            : point.kind === "destination"
+              ? "destination"
+              : point.kind === "station"
+                ? "checkpoint"
+                : point.status === "unreachable"
+                  ? "unreachable_station"
+                  : "stop"
+        const step: OptimizationStep = {
+          kind,
+          status: point.status,
+          index,
+          label: point.label,
+          coordinate: [
+            Number(point.coordinate[0]),
+            Number(point.coordinate[1]),
+          ],
+          routeOffsetMeters: Number(point.route_offset_meters),
+          stationId: point.station_id ?? undefined,
+          fuelGallons:
+            point.fuel_gallons === null || point.fuel_gallons === undefined
+              ? undefined
+              : Number(point.fuel_gallons),
+          fuelBeforeGallons:
+            point.fuel_before_gallons === null ||
+            point.fuel_before_gallons === undefined
+              ? undefined
+              : Number(point.fuel_before_gallons),
+          fuelAddedGallons:
+            point.fuel_added_gallons === null ||
+            point.fuel_added_gallons === undefined
+              ? undefined
+              : Number(point.fuel_added_gallons),
+          fuelAfterGallons:
+            point.fuel_after_gallons === null ||
+            point.fuel_after_gallons === undefined
+              ? undefined
+              : Number(point.fuel_after_gallons),
+          fuelPricePerGallon:
+            point.fuel_price_per_gallon === null ||
+            point.fuel_price_per_gallon === undefined
+              ? undefined
+              : Number(point.fuel_price_per_gallon),
+          fuelCost:
+            point.fuel_cost === null || point.fuel_cost === undefined
+              ? undefined
+              : Number(point.fuel_cost),
+          detourDistanceMeters:
+            point.detour_distance_meters === null ||
+            point.detour_distance_meters === undefined
+              ? undefined
+              : Number(point.detour_distance_meters),
+          detourTimeSeconds:
+            point.detour_time_seconds === null ||
+            point.detour_time_seconds === undefined
+              ? undefined
+              : point.detour_time_seconds,
+          fuelRequiredGallons:
+            point.fuel_required_gallons === null ||
+            point.fuel_required_gallons === undefined
+              ? undefined
+              : Number(point.fuel_required_gallons),
+          availableFuelGallons:
+            point.available_fuel_gallons === null ||
+            point.available_fuel_gallons === undefined
+              ? undefined
+              : Number(point.available_fuel_gallons),
+          reserveGallons:
+            point.reserve_gallons === null ||
+            point.reserve_gallons === undefined
+              ? undefined
+              : Number(point.reserve_gallons),
+          deficitGallons:
+            point.deficit_gallons === null ||
+            point.deficit_gallons === undefined
+              ? undefined
+              : Number(point.deficit_gallons),
+          isPrimaryFailureTarget: point.is_primary_failure_target,
+          isFailurePoint: point.is_failure_point,
+        }
+        return step
+      })
+  }
+
   const stationsById = new Map(
     fuelStations
       .filter((station) => station.station_id)
@@ -84,6 +189,7 @@ export function buildOptimizationSteps({
   if (startCoordinate) {
     steps.push({
       kind: "start",
+      status: "reached",
       index: steps.length,
       label: "Start",
       coordinate: startCoordinate,
@@ -104,6 +210,7 @@ export function buildOptimizationSteps({
 
     steps.push({
       kind: "stop",
+      status: "reached",
       index: steps.length,
       label: station?.name ?? `Stop #${stop.sequence}`,
       coordinate,
@@ -124,6 +231,7 @@ export function buildOptimizationSteps({
       calculateRouteTotalDistanceMeters(routeCoordinates)
     steps.push({
       kind: "destination",
+      status: "reached",
       index: steps.length,
       label: "Destination",
       coordinate: destinationCoordinate,

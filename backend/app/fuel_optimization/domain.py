@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_CEILING, ROUND_HALF_UP, Decimal
 from enum import StrEnum
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 from uuid import UUID
 
 MONEY_QUANT = Decimal("0.01")
@@ -20,6 +20,14 @@ class FuelOptimizationAlgorithm(StrEnum):
 class FuelOptimizationStatus(StrEnum):
     SUCCESS = "success"
     INFEASIBLE = "infeasible"
+
+
+class FuelOptimizationFailureReason(StrEnum):
+    INITIAL_FUEL_BELOW_RESERVE = "initial_fuel_below_reserve"
+    NO_REACHABLE_STATION = "no_reachable_station"
+    NO_REACHABLE_CONTINUATION = "no_reachable_continuation"
+    PLANNED_STATION_UNREACHABLE = "planned_station_unreachable"
+    DESTINATION_UNREACHABLE = "destination_unreachable"
 
 
 class UnsupportedOptimizationAlgorithmError(Exception):
@@ -94,6 +102,7 @@ class FuelStationCandidate:
     fuel_price_per_gallon: Decimal
     truck_accessible: bool
     detour: Detour
+    name: str = ""
 
 
 @dataclass(frozen=True)
@@ -140,6 +149,49 @@ class FuelOptimizationStop:
 
 
 @dataclass(frozen=True)
+class FuelOptimizationReachedStation:
+    station_id: UUID
+    name: str
+    route_offset_meters: Decimal
+    latitude: Decimal
+    longitude: Decimal
+    fuel_gallons: Decimal
+
+
+FailureTargetKind = Literal["start", "station", "destination"]
+
+
+@dataclass(frozen=True)
+class FuelOptimizationFailureTarget:
+    kind: FailureTargetKind
+    station_id: UUID | None
+    name: str
+    route_offset_meters: Decimal
+    latitude: Decimal
+    longitude: Decimal
+    fuel_required_gallons: Decimal
+    available_fuel_gallons: Decimal
+    reserve_gallons: Decimal
+    projected_arrival_fuel_gallons: Decimal
+    deficit_gallons: Decimal
+
+
+@dataclass(frozen=True)
+class FuelOptimizationFailure:
+    reason: FuelOptimizationFailureReason
+    stopped_at_route_offset_meters: Decimal
+    last_reachable_station_id: UUID | None
+    last_reachable_route_offset_meters: Decimal
+    available_fuel_gallons: Decimal
+    reserve_gallons: Decimal
+    primary_target: FuelOptimizationFailureTarget
+    unreachable_stations: list[FuelOptimizationFailureTarget] = field(
+        default_factory=list
+    )
+    destination: FuelOptimizationFailureTarget | None = None
+
+
+@dataclass(frozen=True)
 class FuelOptimizationPlan:
     algorithm: FuelOptimizationAlgorithm
     algorithm_version: str
@@ -154,6 +206,8 @@ class FuelOptimizationPlan:
     total_detour_time_seconds: int = 0
     number_of_stops: int = 0
     remaining_fuel_gallons: Decimal = ZERO
+    reached_stations: list[FuelOptimizationReachedStation] = field(default_factory=list)
+    failure: FuelOptimizationFailure | None = None
     debug_trace: list[dict[str, Any]] = field(default_factory=list)
 
 
@@ -175,7 +229,7 @@ class ConstantMpgFuelConsumptionModel:
 
 
 class GreedyFuelOptimizationStrategy:
-    algorithm_version = "1"
+    algorithm_version = "7"
 
     def optimize(self, context: FuelOptimizationContext) -> FuelOptimizationPlan:
         usable = context.vehicle.fuel_profile.usable_tank_capacity_gallons
@@ -186,9 +240,6 @@ class GreedyFuelOptimizationStrategy:
             raise InvalidFuelOptimizationInputError(
                 "initial_fuel_gallons must be between 0 and usable_tank_capacity_gallons"
             )
-        if initial < reserve:
-            return self._infeasible_plan(context, initial)
-
         stations = sorted(
             context.stations,
             key=lambda item: (item.route_offset_meters, str(item.station_id)),
@@ -202,6 +253,7 @@ class GreedyFuelOptimizationStrategy:
         total_detour_time = 0
         current_station: FuelStationCandidate | None = None
         stops: list[FuelOptimizationStop] = []
+        reached_stations: list[FuelOptimizationReachedStation] = []
         debug_trace: list[dict[str, Any]] = [
             {
                 "event": "initial_state",
@@ -234,6 +286,7 @@ class GreedyFuelOptimizationStrategy:
                     total_detour_distance=total_detour_distance,
                     total_detour_time=total_detour_time,
                     remaining_fuel=remaining,
+                    reached_stations=reached_stations,
                     debug_trace=debug_trace,
                 )
 
@@ -245,6 +298,9 @@ class GreedyFuelOptimizationStrategy:
                     current_fuel,
                     debug_trace=debug_trace,
                     phase="initial_station_search",
+                    min_arrival_fuel_gallons=(
+                        reserve if current_fuel >= reserve else ZERO
+                    ),
                 )
                 if not reachable:
                     debug_trace.append(
@@ -258,13 +314,34 @@ class GreedyFuelOptimizationStrategy:
                         }
                     )
                     return self._infeasible_plan(
-                        context, current_fuel, debug_trace=debug_trace
+                        context,
+                        current_fuel,
+                        failure_reason=(
+                            FuelOptimizationFailureReason.NO_REACHABLE_STATION
+                            if any(
+                                current_offset
+                                < station.route_offset_meters
+                                <= context.route.total_distance_meters
+                                for station in stations
+                            )
+                            else FuelOptimizationFailureReason.DESTINATION_UNREACHABLE
+                        ),
+                        current_offset=current_offset,
+                        current_station=current_station,
+                        reached_stations=reached_stations,
+                        stops=stops,
+                        total_consumed=total_consumed,
+                        total_purchased=total_purchased,
+                        total_cost_precise=total_cost_precise,
+                        total_detour_distance=total_detour_distance,
+                        total_detour_time=total_detour_time,
+                        debug_trace=debug_trace,
                     )
                 next_station = max(
                     reachable,
                     key=lambda item: (
+                        -item.fuel_price_per_gallon,
                         item.route_offset_meters,
-                        item.fuel_price_per_gallon,
                         str(item.station_id),
                     ),
                 )
@@ -274,7 +351,7 @@ class GreedyFuelOptimizationStrategy:
                 debug_trace.append(
                     {
                         "event": "travel_to_initial_station",
-                        "message": "Traveled to the farthest reachable station before first refuel.",
+                        "message": "Traveled to the cheapest reachable station before first refuel (farthest among equal prices).",
                         "reachable_station_count": len(reachable),
                         "selected_station_id": next_station.station_id,
                         "selected_station_price_per_gallon": next_station.fuel_price_per_gallon,
@@ -289,6 +366,16 @@ class GreedyFuelOptimizationStrategy:
                 total_consumed += fuel_to_station
                 current_offset = next_station.route_offset_meters
                 current_station = next_station
+                reached_stations.append(
+                    FuelOptimizationReachedStation(
+                        station_id=next_station.station_id,
+                        name=next_station.name,
+                        route_offset_meters=_q4(next_station.route_offset_meters),
+                        latitude=next_station.latitude,
+                        longitude=next_station.longitude,
+                        fuel_gallons=_q4(current_fuel),
+                    )
+                )
                 continue
 
             full_reachable = self._reachable_stations(
@@ -333,12 +420,8 @@ class GreedyFuelOptimizationStrategy:
             )
 
             if cheaper_ahead is not None:
-                desired_fuel_after = (
-                    self._fuel_to_station(
-                        context,
-                        current_offset,
-                        cheaper_ahead,
-                    )
+                desired_fuel_after = _q4_ceil(
+                    self._fuel_to_station(context, current_offset, cheaper_ahead)
                     + reserve
                 )
                 next_target = cheaper_ahead
@@ -346,13 +429,15 @@ class GreedyFuelOptimizationStrategy:
             else:
                 desired_fuel_after = min(
                     usable,
-                    self._fuel_between(
-                        context,
-                        current_offset,
-                        context.route.total_distance_meters,
-                        ZERO,
-                    )
-                    + reserve,
+                    _q4_ceil(
+                        self._fuel_between(
+                            context,
+                            current_offset,
+                            context.route.total_distance_meters,
+                            ZERO,
+                        )
+                        + reserve
+                    ),
                 )
                 next_target = None
                 decision_reason = (
@@ -365,8 +450,12 @@ class GreedyFuelOptimizationStrategy:
             fuel_added = min(fuel_added, max_additional)
 
             min_refuel = context.constraints.min_refuel_gallons
-            if fuel_added > ZERO and min_refuel is not None and fuel_added < min_refuel:
-                fuel_added = min(min_refuel, max_additional)
+            if fuel_added > ZERO and min_refuel is not None:
+                # The minimum cannot be bought here, so skip refuelling at this station.
+                if max_additional < min_refuel:
+                    fuel_added = ZERO
+                elif fuel_added < min_refuel:
+                    fuel_added = min_refuel
             max_refuel = context.constraints.max_refuel_gallons
             if max_refuel is not None:
                 fuel_added = min(fuel_added, max_refuel)
@@ -464,13 +553,34 @@ class GreedyFuelOptimizationStrategy:
                         }
                     )
                     return self._infeasible_plan(
-                        context, current_fuel, debug_trace=debug_trace
+                        context,
+                        current_fuel,
+                        failure_reason=(
+                            FuelOptimizationFailureReason.NO_REACHABLE_CONTINUATION
+                            if any(
+                                current_offset
+                                < station.route_offset_meters
+                                <= context.route.total_distance_meters
+                                for station in stations
+                            )
+                            else FuelOptimizationFailureReason.DESTINATION_UNREACHABLE
+                        ),
+                        current_offset=current_offset,
+                        current_station=current_station,
+                        reached_stations=reached_stations,
+                        stops=stops,
+                        total_consumed=total_consumed,
+                        total_purchased=total_purchased,
+                        total_cost_precise=total_cost_precise,
+                        total_detour_distance=total_detour_distance,
+                        total_detour_time=total_detour_time,
+                        debug_trace=debug_trace,
                     )
                 next_target = max(
                     reachable_after_refuel,
                     key=lambda item: (
-                        item.route_offset_meters,
                         -item.fuel_price_per_gallon,
+                        item.route_offset_meters,
                         str(item.station_id),
                     ),
                 )
@@ -496,7 +606,19 @@ class GreedyFuelOptimizationStrategy:
                     }
                 )
                 return self._infeasible_plan(
-                    context, current_fuel, debug_trace=debug_trace
+                    context,
+                    current_fuel,
+                    failure_reason=FuelOptimizationFailureReason.PLANNED_STATION_UNREACHABLE,
+                    current_offset=current_offset,
+                    current_station=current_station,
+                    reached_stations=reached_stations,
+                    stops=stops,
+                    total_consumed=total_consumed,
+                    total_purchased=total_purchased,
+                    total_cost_precise=total_cost_precise,
+                    total_detour_distance=total_detour_distance,
+                    total_detour_time=total_detour_time,
+                    debug_trace=debug_trace,
                 )
             debug_trace.append(
                 {
@@ -515,6 +637,16 @@ class GreedyFuelOptimizationStrategy:
             total_consumed += fuel_to_station
             current_offset = next_target.route_offset_meters
             current_station = next_target
+            reached_stations.append(
+                FuelOptimizationReachedStation(
+                    station_id=next_target.station_id,
+                    name=next_target.name,
+                    route_offset_meters=_q4(next_target.route_offset_meters),
+                    latitude=next_target.latitude,
+                    longitude=next_target.longitude,
+                    fuel_gallons=_q4(current_fuel),
+                )
+            )
 
     def _reachable_stations(
         self,
@@ -525,8 +657,12 @@ class GreedyFuelOptimizationStrategy:
         *,
         debug_trace: list[dict[str, Any]] | None = None,
         phase: str,
+        min_arrival_fuel_gallons: Decimal | None = None,
     ) -> list[FuelStationCandidate]:
         reserve = context.constraints.reserve_gallons
+        min_arrival = (
+            reserve if min_arrival_fuel_gallons is None else min_arrival_fuel_gallons
+        )
         reachable: list[FuelStationCandidate] = []
         skipped_behind: list[tuple[UUID, Decimal]] = []
         unreachable_due_to_fuel: list[tuple[UUID, Decimal, Decimal]] = []
@@ -540,7 +676,7 @@ class GreedyFuelOptimizationStrategy:
                 continue
             fuel_needed = self._fuel_to_station(context, current_offset, station)
             projected_after_arrival = current_fuel - fuel_needed
-            reachable_now = projected_after_arrival >= reserve
+            reachable_now = projected_after_arrival >= min_arrival
             if not reachable_now:
                 unreachable_due_to_fuel.append(
                     (
@@ -644,6 +780,7 @@ class GreedyFuelOptimizationStrategy:
         total_detour_distance: Decimal,
         total_detour_time: int,
         remaining_fuel: Decimal,
+        reached_stations: list[FuelOptimizationReachedStation],
         debug_trace: list[dict[str, Any]],
     ) -> FuelOptimizationPlan:
         debug_trace.append(
@@ -674,6 +811,7 @@ class GreedyFuelOptimizationStrategy:
             total_detour_time_seconds=total_detour_time,
             number_of_stops=len(stops),
             remaining_fuel_gallons=_q4(remaining_fuel),
+            reached_stations=reached_stations,
             debug_trace=debug_trace,
         )
 
@@ -682,14 +820,42 @@ class GreedyFuelOptimizationStrategy:
         context: FuelOptimizationContext,
         remaining_fuel: Decimal,
         *,
+        failure_reason: FuelOptimizationFailureReason,
+        current_offset: Decimal,
+        current_station: FuelStationCandidate | None,
+        reached_stations: list[FuelOptimizationReachedStation],
+        stops: list[FuelOptimizationStop],
+        total_consumed: Decimal,
+        total_purchased: Decimal,
+        total_cost_precise: Decimal,
+        total_detour_distance: Decimal,
+        total_detour_time: int,
         debug_trace: list[dict[str, Any]] | None = None,
     ) -> FuelOptimizationPlan:
         final_trace = list(debug_trace or [])
+        failure = self._build_failure(
+            context,
+            failure_reason=failure_reason,
+            current_offset=current_offset,
+            current_fuel=remaining_fuel,
+            current_station=current_station,
+        )
         final_trace.append(
             {
                 "event": "optimization_infeasible",
                 "message": "Fuel optimization could not find a feasible continuation while preserving reserve.",
                 "remaining_fuel_gallons": remaining_fuel,
+                "failure_reason": failure.reason.value,
+                "stopped_at_route_offset_meters": failure.stopped_at_route_offset_meters,
+                "last_reachable_station_id": failure.last_reachable_station_id,
+                "last_reachable_route_offset_meters": failure.last_reachable_route_offset_meters,
+                "primary_target_kind": failure.primary_target.kind,
+                "primary_target_station_id": failure.primary_target.station_id,
+                "primary_target_route_offset_meters": failure.primary_target.route_offset_meters,
+                "fuel_required_gallons": failure.primary_target.fuel_required_gallons,
+                "available_fuel_gallons": failure.available_fuel_gallons,
+                "reserve_gallons": failure.reserve_gallons,
+                "fuel_deficit_gallons": failure.primary_target.deficit_gallons,
             }
         )
         return FuelOptimizationPlan(
@@ -698,8 +864,116 @@ class GreedyFuelOptimizationStrategy:
             vehicle_id=context.vehicle.id,
             route_id=context.route.id,
             status=FuelOptimizationStatus.INFEASIBLE,
+            stops=stops,
+            total_fuel_consumed_gallons=_q4(total_consumed),
+            total_fuel_purchased_gallons=_q4(total_purchased),
+            total_fuel_cost=_money(total_cost_precise),
+            total_detour_distance_meters=_q2(total_detour_distance),
+            total_detour_time_seconds=total_detour_time,
+            number_of_stops=len(stops),
             remaining_fuel_gallons=_q4(remaining_fuel),
+            reached_stations=reached_stations,
+            failure=failure,
             debug_trace=final_trace,
+        )
+
+    def _build_failure(
+        self,
+        context: FuelOptimizationContext,
+        *,
+        failure_reason: FuelOptimizationFailureReason,
+        current_offset: Decimal,
+        current_fuel: Decimal,
+        current_station: FuelStationCandidate | None,
+    ) -> FuelOptimizationFailure:
+        reserve = context.constraints.reserve_gallons
+        unreachable_stations: list[FuelOptimizationFailureTarget] = []
+        for station in context.stations:
+            if (
+                not current_offset
+                < station.route_offset_meters
+                <= context.route.total_distance_meters
+            ):
+                continue
+            fuel_required = self._fuel_to_station(context, current_offset, station)
+            projected = current_fuel - fuel_required
+            if projected >= reserve:
+                continue
+            unreachable_stations.append(
+                FuelOptimizationFailureTarget(
+                    kind="station",
+                    station_id=station.station_id,
+                    name=station.name or f"Station {station.station_id}",
+                    route_offset_meters=_q4(station.route_offset_meters),
+                    latitude=station.latitude,
+                    longitude=station.longitude,
+                    fuel_required_gallons=_q4(fuel_required),
+                    available_fuel_gallons=_q4(current_fuel),
+                    reserve_gallons=_q4(reserve),
+                    projected_arrival_fuel_gallons=_q4(projected),
+                    deficit_gallons=_q4_deficit(max(ZERO, reserve - projected)),
+                )
+            )
+        unreachable_stations.sort(
+            key=lambda target: (target.route_offset_meters, str(target.station_id))
+        )
+
+        destination_fuel_required = self._fuel_between(
+            context, current_offset, context.route.total_distance_meters, ZERO
+        )
+        destination_projected = current_fuel - destination_fuel_required
+        destination = None
+        if destination_projected < reserve:
+            longitude, latitude = context.route.geometry_coordinates[-1]
+            destination = FuelOptimizationFailureTarget(
+                kind="destination",
+                station_id=None,
+                name="Destination",
+                route_offset_meters=_q4(context.route.total_distance_meters),
+                latitude=Decimal(str(latitude)),
+                longitude=Decimal(str(longitude)),
+                fuel_required_gallons=_q4(destination_fuel_required),
+                available_fuel_gallons=_q4(current_fuel),
+                reserve_gallons=_q4(reserve),
+                projected_arrival_fuel_gallons=_q4(destination_projected),
+                deficit_gallons=_q4_deficit(max(ZERO, reserve - destination_projected)),
+            )
+
+        if failure_reason is FuelOptimizationFailureReason.INITIAL_FUEL_BELOW_RESERVE:
+            longitude, latitude = context.route.geometry_coordinates[0]
+            primary_target = FuelOptimizationFailureTarget(
+                kind="start",
+                station_id=None,
+                name="Start",
+                route_offset_meters=ZERO,
+                latitude=Decimal(str(latitude)),
+                longitude=Decimal(str(longitude)),
+                fuel_required_gallons=ZERO,
+                available_fuel_gallons=_q4(current_fuel),
+                reserve_gallons=_q4(reserve),
+                projected_arrival_fuel_gallons=_q4(current_fuel),
+                deficit_gallons=_q4_deficit(max(ZERO, reserve - current_fuel)),
+            )
+        elif unreachable_stations:
+            primary_target = unreachable_stations[0]
+        elif destination is not None:
+            primary_target = destination
+        else:
+            # All infeasible branches must have at least one unreachable target.
+            raise RuntimeError("Infeasible optimization has no unreachable target")
+
+        return FuelOptimizationFailure(
+            reason=failure_reason,
+            stopped_at_route_offset_meters=_q4(current_offset),
+            last_reachable_station_id=(
+                current_station.station_id if current_station is not None else None
+            ),
+            last_reachable_route_offset_meters=_q4(current_offset),
+            available_fuel_gallons=_q4(current_fuel),
+            reserve_gallons=_q4(reserve),
+            primary_target=primary_target,
+            unreachable_stations=unreachable_stations,
+            destination=destination,
         )
 
 
@@ -731,6 +1005,17 @@ def _money(value: Decimal) -> Decimal:
 
 def _q4(value: Decimal) -> Decimal:
     return value.quantize(FUEL_QUANT, rounding=ROUND_HALF_UP)
+
+
+def _q4_ceil(value: Decimal) -> Decimal:
+    return value.quantize(FUEL_QUANT, rounding=ROUND_CEILING)
+
+
+def _q4_deficit(value: Decimal) -> Decimal:
+    rounded = _q4(value)
+    if value > ZERO and rounded == ZERO:
+        return FUEL_QUANT
+    return rounded
 
 
 def _q2(value: Decimal) -> Decimal:

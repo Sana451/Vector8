@@ -3,8 +3,9 @@ from __future__ import annotations
 import re
 import uuid
 from dataclasses import dataclass
-from decimal import ROUND_CEILING, Decimal
+from decimal import ROUND_CEILING, ROUND_HALF_UP, Decimal
 from enum import Enum
+from math import cos, radians
 from typing import Any
 
 from app.core.config import settings
@@ -19,6 +20,9 @@ from app.fuel_optimization.domain import (
     FuelOptimizationConstraints,
     FuelOptimizationContext,
     FuelOptimizationEngine,
+    FuelOptimizationFailure,
+    FuelOptimizationFailureReason,
+    FuelOptimizationFailureTarget,
     FuelOptimizationPlan,
     FuelOptimizationStatus,
     FuelOptimizationStrategyRegistry,
@@ -42,6 +46,9 @@ from app.fuel_optimization.schemas import (
     FuelOptimizationCalculateRequest,
     FuelOptimizationCalculateResponse,
     FuelOptimizationExplanationPublic,
+    FuelOptimizationFailurePublic,
+    FuelOptimizationFailureTargetPublic,
+    FuelOptimizationItineraryPointPublic,
     FuelOptimizationSkippedStationPointPublic,
     FuelOptimizationSkippedStationStatPublic,
     FuelOptimizationStopPublic,
@@ -153,9 +160,22 @@ class FuelStationCandidateBuilder:
                 "formula_route_offset": "route_offset_meters = progress_fraction * route_total_distance_meters",
                 "formula_detour": "detour_distance_meters ≈ 2 * distance_from_route_meters",
             }
+            boundary_position = self._outside_route_boundary(
+                longitude=lon,
+                latitude=lat,
+                progress_fraction=fraction,
+                distance_from_route_meters=distance_from_route,
+                route_total_distance_meters=route.total_distance_meters,
+                coordinates=route.geometry_coordinates,
+            )
             # reject stations outside route bounds
             if route_offset < 0 or route_offset > route.total_distance_meters:
                 audit_entry["reason"] = "station_outside_route_bounds"
+                audit.append(audit_entry)
+                continue
+            if boundary_position is not None:
+                audit_entry["reason"] = "station_outside_route_bounds"
+                audit_entry["boundary_position"] = boundary_position
                 audit.append(audit_entry)
                 continue
             if row.id in candidates_by_id:
@@ -176,7 +196,7 @@ class FuelStationCandidateBuilder:
                 continue
             if (
                 constraints.max_allowed_detour_meters is not None
-                and detour.distance_meters > constraints.max_allowed_detour_meters
+                and distance_from_route > constraints.max_allowed_detour_meters
             ):
                 audit_entry["reason"] = "detour_distance_limit_exceeded"
                 audit_entry["max_allowed_detour_meters"] = (
@@ -195,6 +215,7 @@ class FuelStationCandidateBuilder:
                 fuel_price_per_gallon=Decimal(str(row.diesel_price)),
                 truck_accessible=truck_accessible,
                 detour=detour,
+                name=station.name,
             )
             audit_entry["included"] = True
             audit_entry["reason"] = "candidate_included"
@@ -230,6 +251,78 @@ class FuelStationCandidateBuilder:
                 ],
             },
         )
+
+    @staticmethod
+    def _outside_route_boundary(
+        *,
+        longitude: float,
+        latitude: float,
+        progress_fraction: Decimal,
+        distance_from_route_meters: Decimal,
+        route_total_distance_meters: Decimal,
+        coordinates: list[tuple[float, float]],
+    ) -> str | None:
+        if len(coordinates) < 2:
+            return None
+
+        def local_xy(
+            point: tuple[float, float],
+            reference: tuple[float, float],
+            *,
+            scale_latitude: float | None = None,
+        ) -> tuple[float, float]:
+            longitude_scale = 111_320 * cos(
+                radians(reference[1] if scale_latitude is None else scale_latitude)
+            )
+            latitude_scale = 110_574
+            return (
+                (point[0] - reference[0]) * longitude_scale,
+                (point[1] - reference[1]) * latitude_scale,
+            )
+
+        station = (longitude, latitude)
+        route_offset = progress_fraction * route_total_distance_meters
+        if progress_fraction <= 0 or route_offset <= distance_from_route_meters:
+            origin = coordinates[0]
+            direction = next(
+                (
+                    local_xy(point, origin)
+                    for point in coordinates[1:]
+                    if point != origin
+                ),
+                None,
+            )
+            if direction is not None:
+                station_vector = local_xy(station, origin)
+                projected_along_route = (
+                    station_vector[0] * direction[0] + station_vector[1] * direction[1]
+                )
+                if projected_along_route < 0:
+                    return "before_start"
+
+        remaining_route_distance = route_total_distance_meters - route_offset
+        if (
+            progress_fraction >= 1
+            or remaining_route_distance <= distance_from_route_meters
+        ):
+            destination = coordinates[-1]
+            direction = next(
+                (
+                    local_xy(destination, point, scale_latitude=destination[1])
+                    for point in reversed(coordinates[:-1])
+                    if point != destination
+                ),
+                None,
+            )
+            if direction is not None:
+                station_vector = local_xy(station, destination)
+                projected_beyond_destination = (
+                    station_vector[0] * direction[0] + station_vector[1] * direction[1]
+                )
+                if projected_beyond_destination > 0:
+                    return "after_destination"
+
+        return None
 
     @staticmethod
     def _normalize_fuel_type(value: str | None) -> str:
@@ -514,6 +607,11 @@ class OptimizeFuelUseCase:
             build_result=build_result,
             plan=plan,
         )
+        public_stops = [
+            FuelOptimizationStopPublic.model_validate(stop, from_attributes=True)
+            for stop in plan.stops
+        ]
+        failure = self._build_failure_public(plan.failure)
         return FuelOptimizationCalculateResponse(
             route_id=route.id,
             vehicle_id=vehicle.id,
@@ -530,10 +628,15 @@ class OptimizeFuelUseCase:
                 number_of_stops=plan.number_of_stops,
                 remaining_fuel_gallons=plan.remaining_fuel_gallons,
             ),
-            stops=[
-                FuelOptimizationStopPublic.model_validate(stop, from_attributes=True)
-                for stop in plan.stops
-            ],
+            stops=public_stops,
+            itinerary=self._build_itinerary(
+                route=route,
+                initial_fuel_gallons=request.initial_fuel_gallons,
+                plan=plan,
+                stops=public_stops,
+                failure=failure,
+            ),
+            failure=failure,
             explanation=explanation,
             debug=self._serialize_debug(debug) if request.include_debug else None,
         )
@@ -553,6 +656,177 @@ class OptimizeFuelUseCase:
             duration_seconds=route_row.duration_seconds,
             geometry_coordinates=coordinates,
         )
+
+    @staticmethod
+    def _build_failure_target_public(
+        target: FuelOptimizationFailureTarget,
+    ) -> FuelOptimizationFailureTargetPublic:
+        return FuelOptimizationFailureTargetPublic(
+            kind=target.kind,
+            station_id=target.station_id,
+            name=target.name,
+            route_offset_meters=target.route_offset_meters,
+            coordinate=(target.longitude, target.latitude),
+            fuel_required_gallons=target.fuel_required_gallons,
+            available_fuel_gallons=target.available_fuel_gallons,
+            reserve_gallons=target.reserve_gallons,
+            projected_arrival_fuel_gallons=target.projected_arrival_fuel_gallons,
+            deficit_gallons=target.deficit_gallons,
+        )
+
+    @classmethod
+    def _build_failure_public(
+        cls,
+        failure: FuelOptimizationFailure | None,
+    ) -> FuelOptimizationFailurePublic | None:
+        if failure is None:
+            return None
+        messages = {
+            FuelOptimizationFailureReason.INITIAL_FUEL_BELOW_RESERVE: (
+                "Starting fuel is below the required reserve."
+            ),
+            FuelOptimizationFailureReason.NO_REACHABLE_STATION: (
+                "No fuel station ahead can be reached while preserving the reserve."
+            ),
+            FuelOptimizationFailureReason.NO_REACHABLE_CONTINUATION: (
+                "No further fuel station can be reached while preserving the reserve."
+            ),
+            FuelOptimizationFailureReason.PLANNED_STATION_UNREACHABLE: (
+                "The selected next fuel station requires more fuel than is available above reserve."
+            ),
+            FuelOptimizationFailureReason.DESTINATION_UNREACHABLE: (
+                "The destination cannot be reached while preserving the reserve."
+            ),
+        }
+        return FuelOptimizationFailurePublic(
+            reason=failure.reason,
+            message=messages[failure.reason],
+            stopped_at_route_offset_meters=failure.stopped_at_route_offset_meters,
+            last_reachable_station_id=failure.last_reachable_station_id,
+            last_reachable_route_offset_meters=failure.last_reachable_route_offset_meters,
+            available_fuel_gallons=failure.available_fuel_gallons,
+            reserve_gallons=failure.reserve_gallons,
+            primary_target=cls._build_failure_target_public(failure.primary_target),
+            unreachable_stations=[
+                cls._build_failure_target_public(target)
+                for target in failure.unreachable_stations
+            ],
+            destination=(
+                cls._build_failure_target_public(failure.destination)
+                if failure.destination
+                else None
+            ),
+        )
+
+    @classmethod
+    def _build_itinerary(
+        cls,
+        *,
+        route: Route,
+        initial_fuel_gallons: Decimal,
+        plan: FuelOptimizationPlan,
+        stops: list[FuelOptimizationStopPublic],
+        failure: FuelOptimizationFailurePublic | None,
+    ) -> list[FuelOptimizationItineraryPointPublic]:
+        stop_by_station = {stop.station_id: stop for stop in stops}
+        first_longitude, first_latitude = route.geometry_coordinates[0]
+        primary = failure.primary_target if failure else None
+        points = [
+            FuelOptimizationItineraryPointPublic(
+                sequence=0,
+                kind="start",
+                status="reached",
+                label="Start",
+                route_offset_meters=Decimal("0"),
+                coordinate=(
+                    Decimal(str(first_longitude)),
+                    Decimal(str(first_latitude)),
+                ),
+                fuel_gallons=initial_fuel_gallons,
+                is_primary_failure_target=primary is not None
+                and primary.kind == "start",
+                is_failure_point=failure is not None
+                and failure.last_reachable_station_id is None,
+            )
+        ]
+
+        for visit in plan.reached_stations:
+            stop = stop_by_station.get(visit.station_id)
+            points.append(
+                FuelOptimizationItineraryPointPublic(
+                    sequence=len(points),
+                    kind="refuel" if stop else "station",
+                    status="reached",
+                    label=visit.name or f"Station {visit.station_id}",
+                    station_id=visit.station_id,
+                    route_offset_meters=visit.route_offset_meters,
+                    coordinate=(visit.longitude, visit.latitude),
+                    fuel_gallons=visit.fuel_gallons,
+                    fuel_before_gallons=stop.fuel_before_gallons if stop else None,
+                    fuel_added_gallons=stop.fuel_added_gallons if stop else None,
+                    fuel_after_gallons=stop.fuel_after_gallons if stop else None,
+                    fuel_price_per_gallon=(
+                        stop.fuel_price_per_gallon if stop else None
+                    ),
+                    fuel_cost=stop.fuel_cost if stop else None,
+                    detour_distance_meters=(
+                        stop.detour_distance_meters if stop else None
+                    ),
+                    detour_time_seconds=stop.detour_time_seconds if stop else None,
+                    is_failure_point=failure is not None
+                    and visit.station_id == failure.last_reachable_station_id,
+                )
+            )
+
+        if failure is None:
+            longitude, latitude = route.geometry_coordinates[-1]
+            points.append(
+                FuelOptimizationItineraryPointPublic(
+                    sequence=len(points),
+                    kind="destination",
+                    status="reached",
+                    label="Destination",
+                    route_offset_meters=route.total_distance_meters,
+                    coordinate=(Decimal(str(longitude)), Decimal(str(latitude))),
+                    fuel_gallons=plan.remaining_fuel_gallons,
+                )
+            )
+            return points
+
+        targets = list(failure.unreachable_stations)
+        if failure.destination is not None:
+            targets.append(failure.destination)
+        targets.sort(
+            key=lambda target: (
+                target.route_offset_meters,
+                target.kind == "destination",
+                str(target.station_id or ""),
+            )
+        )
+        for target in targets:
+            is_primary = target == failure.primary_target
+            points.append(
+                FuelOptimizationItineraryPointPublic(
+                    sequence=len(points),
+                    kind=(
+                        "destination"
+                        if target.kind == "destination"
+                        else "unreachable_station"
+                    ),
+                    status="unreachable",
+                    label=target.name,
+                    station_id=target.station_id,
+                    route_offset_meters=target.route_offset_meters,
+                    coordinate=target.coordinate,
+                    fuel_gallons=target.projected_arrival_fuel_gallons,
+                    fuel_required_gallons=target.fuel_required_gallons,
+                    available_fuel_gallons=target.available_fuel_gallons,
+                    reserve_gallons=target.reserve_gallons,
+                    deficit_gallons=target.deficit_gallons,
+                    is_primary_failure_target=is_primary,
+                )
+            )
+        return points
 
     @classmethod
     def _serialize_debug(cls, value: Any) -> Any:
@@ -694,9 +968,27 @@ class OptimizeFuelUseCase:
                     {
                         "step": "stop",
                         "remaining_fuel_gallons": step.get("remaining_fuel_gallons"),
-                        "route_offset_meters": None,
-                        "station_id": None,
-                        "action": "Optimization ended as infeasible.",
+                        "route_offset_meters": step.get(
+                            "stopped_at_route_offset_meters"
+                        ),
+                        "station_id": step.get("last_reachable_station_id"),
+                        "last_reachable_route_offset_meters": step.get(
+                            "last_reachable_route_offset_meters"
+                        ),
+                        "target_station_id": step.get("primary_target_station_id"),
+                        "target_kind": step.get("primary_target_kind"),
+                        "target_route_offset_meters": step.get(
+                            "primary_target_route_offset_meters"
+                        ),
+                        "failure_reason": step.get("failure_reason"),
+                        "fuel_required_gallons": step.get("fuel_required_gallons"),
+                        "available_fuel_gallons": step.get("available_fuel_gallons"),
+                        "reserve_gallons": step.get("reserve_gallons"),
+                        "fuel_deficit_gallons": step.get("fuel_deficit_gallons"),
+                        "action": (
+                            f"Optimization stopped: {step.get('failure_reason')}; "
+                            f"fuel deficit: {cls._fmt(step.get('fuel_deficit_gallons'))} gal."
+                        ),
                     }
                 )
 
@@ -715,11 +1007,9 @@ class OptimizeFuelUseCase:
         kept_candidates = build_result.metadata["candidate_count"]
         total_rows = build_result.metadata["rows_received_from_repository"]
         key_points = [
+            (f"Route length: {cls._fmt_km(route.total_distance_meters)}."),
             (
-                f"Route length: {cls._fmt(route.total_distance_meters)} m ({cls._fmt(route.total_distance_meters * Decimal('0.000621371192237334'))} mi)."
-            ),
-            (
-                f"Vehicle usable tank: {cls._fmt(vehicle.fuel_profile.usable_tank_capacity_gallons)} gal, reserve: {cls._fmt(constraints.reserve_gallons)} gal, MPG: {cls._fmt(vehicle.fuel_profile.consumption_mpg)}."
+                f"Vehicle usable tank: {cls._fmt(vehicle.fuel_profile.usable_tank_capacity_gallons)} gal, reserve: {cls._fmt(constraints.reserve_gallons)} gal, Fuel economy: {cls._fmt(vehicle.fuel_profile.consumption_mpg)} mi/gal."
             ),
             (
                 f"Station search returned {total_rows} rows; {kept_candidates} candidate station(s) were used in the optimization."
@@ -735,16 +1025,13 @@ class OptimizeFuelUseCase:
             filtered_parts = []
             for reason, count in sorted(excluded_counts.items()):
                 if reason == "detour_distance_limit_exceeded":
-                    # max_allowed_detour_meters represents the full detour buffer diameter shown on the map
-                    # The actual constraint is the distance from the route to a station
+                    # max_allowed_detour_meters is the radius of the detour zone shown on the map
                     if constraints.max_allowed_detour_meters is not None:
-                        max_detour_km = constraints.max_allowed_detour_meters / 1000
-                        # Half of the detour represents the actual distance constraint from the route
                         max_distance_from_route_km = cls._fmt(
-                            constraints.max_allowed_detour_meters / 2000
+                            constraints.max_allowed_detour_meters / 1000, 1
                         )
                         filtered_parts.append(
-                            f"{reason}={count} stations (must be within {max_distance_from_route_km}km of route, half of {cls._fmt(max_detour_km)}k detour zone)"
+                            f"{reason}={count} stations (must be within {max_distance_from_route_km}km of route)"
                         )
                     else:
                         filtered_parts.append(f"{reason}={count}")
@@ -778,7 +1065,7 @@ class OptimizeFuelUseCase:
             else:
                 first_stop = plan.stops[0]
                 key_points.append(
-                    f"First planned stop: station {first_stop.station_id} at {cls._fmt(first_stop.route_offset_meters)} m, "
+                    f"First planned stop: station {first_stop.station_id} at {cls._fmt_km(first_stop.route_offset_meters)}, "
                     f"adding {cls._fmt(first_stop.fuel_added_gallons)} gal at ${cls._fmt(first_stop.fuel_price_per_gallon)}/gal."
                 )
                 if plan.number_of_stops > 1:
@@ -804,6 +1091,29 @@ class OptimizeFuelUseCase:
     @classmethod
     def _extract_infeasible_reasons(cls, plan: FuelOptimizationPlan) -> list[str]:
         lines: list[str] = []
+        if plan.failure is not None:
+            failure = plan.failure
+            target = failure.primary_target
+            lines.extend(
+                [
+                    f"Failure reason: {failure.reason.value}; the algorithm stopped at route offset {cls._fmt_km(failure.stopped_at_route_offset_meters)}.",
+                    f"Primary unreachable target: {target.name} ({target.kind}) at {cls._fmt_km(target.route_offset_meters)}; "
+                    f"fuel required {cls._fmt(target.fuel_required_gallons)} gal, "
+                    f"available {cls._fmt(target.available_fuel_gallons)} gal, "
+                    f"reserve {cls._fmt(target.reserve_gallons)} gal, "
+                    f"deficit {cls._fmt(target.deficit_gallons)} gal.",
+                    (
+                        f"Last reachable station: {failure.last_reachable_station_id} at "
+                        f"{cls._fmt_km(failure.last_reachable_route_offset_meters)}."
+                        if failure.last_reachable_station_id is not None
+                        else "No fuel station was reached; the algorithm stopped at the route start."
+                    ),
+                ]
+            )
+            if failure.unreachable_stations:
+                lines.append(
+                    f"{len(failure.unreachable_stations)} candidate station(s) ahead are unreachable; all are listed in the structured failure details."
+                )
         for step in plan.debug_trace:
             event = step.get("event")
             if event == "initial_state":
@@ -877,7 +1187,7 @@ class OptimizeFuelUseCase:
             "unsupported_fuel_type": "Station fuel type does not match the required truck diesel fuel type.",
             "missing_diesel_price": "Station has no diesel price, so it cannot be used in a cost-aware fuel optimization run.",
             "not_truck_accessible": "Station is not marked as accessible for both medium and large trucks.",
-            "detour_distance_limit_exceeded": "Station was too far from the route (distance from route exceeds half of the allowed detour zone).",
+            "detour_distance_limit_exceeded": "Station was too far from the route (distance from route exceeds the allowed detour radius).",
             "station_outside_route_bounds": "Station is located outside the route boundaries (before start or after destination).",
         }
         return descriptions.get(
@@ -885,13 +1195,25 @@ class OptimizeFuelUseCase:
         )
 
     @staticmethod
-    def _fmt(value: Any) -> str:
+    def _fmt(value: Any, digits: int = 2) -> str:
         if value is None:
             return "n/a"
+        if isinstance(value, (float, int)) and not isinstance(value, bool):
+            value = Decimal(str(value))
         if isinstance(value, Decimal):
-            normalized = value.normalize()
-            return format(normalized, "f")
+            rounded = value.quantize(Decimal(1).scaleb(-digits), rounding=ROUND_HALF_UP)
+            return format(rounded.normalize(), "f")
         return str(value)
+
+    @classmethod
+    def _fmt_km(cls, meters: Any) -> str:
+        if meters is None:
+            return "n/a"
+        if isinstance(meters, (float, int)) and not isinstance(meters, bool):
+            meters = Decimal(str(meters))
+        kilometers = Decimal(meters) / 1000
+        miles = Decimal(meters) * Decimal("0.000621371192237334")
+        return f"{cls._fmt(kilometers, 1)} km ({cls._fmt(miles, 1)} mi)"
 
     @staticmethod
     def _format_decision_reason(reason: str) -> str:
