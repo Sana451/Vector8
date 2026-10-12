@@ -134,7 +134,12 @@ class FuelStationCandidateBuilder:
             )
             detour = self.detour_calculator.calculate(distance_from_route)
             fraction = Decimal(str(getattr(row, "progress_along_route", 0.0)))
-            route_offset = fraction * route.total_distance_meters
+            geodesic_offset = getattr(row, "route_offset_meters", None)
+            route_offset = (
+                Decimal(str(geodesic_offset))
+                if geodesic_offset is not None
+                else fraction * route.total_distance_meters
+            )
             audit_entry = {
                 "station_id": row.id,
                 "external_id": station.external_id,
@@ -157,7 +162,7 @@ class FuelStationCandidateBuilder:
                 "route_offset_meters": route_offset,
                 "included": False,
                 "reason": None,
-                "formula_route_offset": "route_offset_meters = progress_fraction * route_total_distance_meters",
+                "formula_route_offset": "route_offset_meters = geodesic length of route up to station",
                 "formula_detour": "detour_distance_meters ≈ 2 * distance_from_route_meters",
             }
             boundary_position = self._outside_route_boundary(

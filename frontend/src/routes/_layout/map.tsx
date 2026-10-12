@@ -22,6 +22,7 @@ import {
   FuelLayer,
   OptimizationRejectedStationsLayer,
   OptimizationStopsLayer,
+  ReachableRouteLayer,
   RestAreaLayer,
   RouteLayer,
   TrafficLayer,
@@ -780,6 +781,18 @@ function MapPage() {
           <RouteLayer
             mapInstance={mapInstance}
             coordinates={routeCoordinates}
+          />
+        )}
+        {optimizationSteps.length > 0 && routeCoordinates && (
+          <ReachableRouteLayer
+            mapInstance={mapInstance}
+            coordinates={routeCoordinates}
+            activeStep={activeOptimizationStep}
+            consumptionMpg={Number(
+              vehicles.find((v) => v.id === optimizationResult?.vehicle_id)
+                ?.fuel_profile.consumption_mpg,
+            )}
+            routeTotalDistanceMeters={routeTotalDistanceMeters}
           />
         )}
         {visibleLayers.has("detour") && (
