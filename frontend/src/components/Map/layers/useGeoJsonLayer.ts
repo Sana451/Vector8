@@ -10,7 +10,7 @@
 
 import type { Feature, FeatureCollection } from "geojson"
 import type { LayerSpecification, Map as MapLibreMap } from "maplibre-gl"
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 
 export type GeoJsonData = FeatureCollection | Feature
 
@@ -70,6 +70,15 @@ export function useGeoJsonLayer({
   shouldBeVisible,
   clusterOptions,
 }: UseGeoJsonLayerOptions): void {
+  // Latest data is read through a ref so that data updates do not tear down
+  // and re-create the source/layers (see the data-update effect below).
+  const dataRef = useRef(data)
+  const hasData = data !== null
+
+  useEffect(() => {
+    dataRef.current = data
+  }, [data])
+
   useEffect(() => {
     if (!mapInstance) {
       console.log(`[useGeoJsonLayer] Waiting for map instance: ${sourceId}`)
@@ -97,26 +106,32 @@ export function useGeoJsonLayer({
       }
     }
 
-    if (!data) {
+    if (!hasData) {
       remove()
       return
     }
 
     const apply = () => {
+      const currentData = dataRef.current
+      if (!currentData) {
+        return
+      }
+
       try {
         const existing = mapInstance.getSource(sourceId)
         console.log(`[useGeoJsonLayer] Applying ${sourceId}:`, {
           hasExistingSource: !!existing,
-          data: data ? "has data" : "no data",
           currentZoom: mapInstance.getZoom(),
           isStyleLoaded: mapInstance.isStyleLoaded(),
         })
 
         if (existing && "setData" in existing) {
-          ;(existing as { setData: (value: GeoJsonData) => void }).setData(data)
+          ;(existing as { setData: (value: GeoJsonData) => void }).setData(
+            currentData,
+          )
           console.log(`[useGeoJsonLayer] Updated source data for ${sourceId}`)
         } else {
-          const sourceConfig: any = { type: "geojson", data }
+          const sourceConfig: any = { type: "geojson", data: currentData }
 
           // Add clustering configuration if provided
           if (clusterOptions?.enabled) {
@@ -229,9 +244,22 @@ export function useGeoJsonLayer({
   }, [
     mapInstance,
     sourceId,
-    data,
+    hasData,
     buildLayers,
     shouldBeVisible,
     clusterOptions,
   ])
+
+  // Push new data into the existing source without removing layers, so that
+  // frequent updates (e.g. dragging a slider) don't flicker or stall the map.
+  useEffect(() => {
+    if (!mapInstance?.isStyleLoaded() || !data) {
+      return
+    }
+
+    const existing = mapInstance.getSource(sourceId)
+    if (existing && "setData" in existing) {
+      ;(existing as { setData: (value: GeoJsonData) => void }).setData(data)
+    }
+  }, [data, mapInstance, sourceId])
 }

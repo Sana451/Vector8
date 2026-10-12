@@ -129,7 +129,7 @@ function MapPage() {
   const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
   const [routeId, setRouteId] = useState<string | null>(null)
   const [selectedVehicleId, setSelectedVehicleId] = useState("")
-  const [maxDetourMeters, setMaxDetourMeters] = useState("100000")
+  const [maxDetourMeters, setMaxDetourMeters] = useState("5000")
   const [initialFuelGallons, setInitialFuelGallons] = useState("42")
   const [reserveGallons, setReserveGallons] = useState("3")
   const [minRefuelGallons, setMinRefuelGallons] = useState("")
