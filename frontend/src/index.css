@@ -257,3 +257,13 @@
     gap: 1rem;
   }
 }
+
+.fuel-station-popup .maplibregl-popup-content {
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
+.fuel-station-popup .maplibregl-popup-tip {
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.15));
+}

@@ -118,7 +118,9 @@ function buildPopupHtml(properties: Record<string, unknown>): string {
 
   return `
     <div style="
-      min-width: 280px;
+      width: 240px;
+      box-sizing: border-box;
+      word-break: break-word;
       background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%);
       border-radius: 8px;
       padding: 12px;
@@ -296,7 +298,11 @@ export function FuelLayer({
       const properties = (feature.properties ?? {}) as Record<string, unknown>
 
       popup?.remove()
-      popup = new Popup({ closeButton: true, closeOnClick: true })
+      popup = new Popup({
+        closeButton: true,
+        closeOnClick: true,
+        className: "fuel-station-popup",
+      })
         .setLngLat([longitude, latitude])
         .setHTML(buildPopupHtml(properties))
         .addTo(mapInstance)
