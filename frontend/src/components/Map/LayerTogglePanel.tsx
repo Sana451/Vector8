@@ -4,7 +4,7 @@
  * Provides UI controls to show/hide individual map layers
  */
 
-import { Eye, EyeOff } from "lucide-react"
+import { ChevronDown, ChevronUp, Eye, EyeOff } from "lucide-react"
 import { useCallback, useState } from "react"
 
 export type LayerType =
@@ -108,42 +108,36 @@ export function LayerTogglePanel({
       style={{ maxWidth: "320px" }}
     >
       {/* Header */}
-      <button
-        type="button"
-        onClick={() => setIsExpanded(!isExpanded)}
-        aria-expanded={isExpanded}
-        aria-controls="map-layers-panel"
-        className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-gray-50/50 to-transparent dark:from-slate-900/50 dark:to-transparent hover:from-gray-100/50 dark:hover:from-slate-800/50 hover:to-transparent dark:hover:to-transparent transition-colors border-b border-border/40 dark:border-border/60"
-      >
-        <div>
+      <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-gray-50/50 to-transparent dark:from-slate-900/50 dark:to-transparent border-b border-border/40 dark:border-border/60">
+        <button
+          type="button"
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="flex-1 min-w-0 text-left"
+        >
           <h3 className="text-sm font-semibold text-foreground dark:text-slate-50">
             Map Layers
           </h3>
           <p className="text-xs text-muted-foreground dark:text-slate-400">
             Show/hide layers
           </p>
-        </div>
-        <svg
-          aria-hidden="true"
-          focusable="false"
-          className={`w-5 h-5 text-muted-foreground dark:text-slate-400 transition-transform ${
-            isExpanded ? "transform rotate-180" : ""
-          }`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+        </button>
+        <button
+          type="button"
+          onClick={() => setIsExpanded(!isExpanded)}
+          aria-expanded={isExpanded}
+          aria-controls="map-layers-panel"
+          aria-label={
+            isExpanded ? "Collapse layer panel" : "Expand layer panel"
+          }
+          className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
         >
-          <title>
-            {isExpanded ? "Collapse layer panel" : "Expand layer panel"}
-          </title>
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 14l-7 7m0 0l-7-7m7 7V3"
-          />
-        </svg>
-      </button>
+          {isExpanded ? (
+            <ChevronUp className="h-4 w-4" />
+          ) : (
+            <ChevronDown className="h-4 w-4" />
+          )}
+        </button>
+      </div>
 
       {/* Layers List */}
       {isExpanded && (
@@ -162,13 +156,13 @@ export function LayerTogglePanel({
                 onClick={() => handleToggle(config.id)}
                 aria-pressed={isVisible}
                 aria-label={`${isVisible ? "Hide" : "Show"} ${config.label} layer`}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-md transition-all ${
+                className={`w-full min-w-0 flex items-center justify-between px-3 py-2 rounded-md transition-all ${
                   isVisible
                     ? "bg-primary/10 dark:bg-primary/20 border border-primary/30 dark:border-primary/40"
                     : "bg-muted/40 dark:bg-slate-800/60 border border-border/50 dark:border-slate-700/60"
                 }`}
               >
-                <div className="flex items-center gap-2 flex-1 text-left">
+                <div className="flex min-w-0 flex-1 items-center gap-2 text-left">
                   {/* Shape indicator */}
                   <div className="text-xl flex-shrink-0 dark:drop-shadow-sm">
                     {config.icon}
