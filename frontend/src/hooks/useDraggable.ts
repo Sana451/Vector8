@@ -14,7 +14,10 @@ interface Offset {
  * (the map container). Dragging starts from any non-interactive area of the
  * element, and the element is clamped so it cannot leave the parent.
  */
-export function useDraggable<T extends HTMLElement>(ref: RefObject<T | null>) {
+export function useDraggable<T extends HTMLElement>(
+  ref: RefObject<T | null>,
+  boundsRef?: RefObject<HTMLElement | null>,
+) {
   const [offset, setOffset] = useState<Offset>({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
   const dragRef = useRef<{
@@ -49,7 +52,8 @@ export function useDraggable<T extends HTMLElement>(ref: RefObject<T | null>) {
       drag.lastX = event.clientX
       drag.lastY = event.clientY
 
-      const parent = element.offsetParent as HTMLElement | null
+      const parent =
+        boundsRef?.current ?? (element.offsetParent as HTMLElement | null)
       if (parent) {
         const rect = element.getBoundingClientRect()
         const bounds = parent.getBoundingClientRect()
@@ -80,7 +84,7 @@ export function useDraggable<T extends HTMLElement>(ref: RefObject<T | null>) {
       window.removeEventListener("pointerup", onUp)
       window.removeEventListener("pointercancel", onUp)
     }
-  }, [isDragging, ref])
+  }, [isDragging, ref, boundsRef])
 
   return {
     dragHandlers: { onPointerDown },

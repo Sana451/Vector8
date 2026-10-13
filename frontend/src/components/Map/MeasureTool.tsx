@@ -113,7 +113,7 @@ export function MeasureTool({ mapInstance }: MeasureToolProps) {
         ref={panelRef}
         {...dragHandlers}
         style={dragStyle}
-        className="absolute top-2 left-2 z-10 flex flex-col gap-1 rounded-md border bg-background p-2 shadow text-xs"
+        className="absolute bottom-4 right-16 z-10 flex flex-col gap-1 rounded-md border bg-background p-2 shadow text-xs"
       >
         <Button
           size="sm"

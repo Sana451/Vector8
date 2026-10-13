@@ -14,6 +14,7 @@ import type {
   VehiclePublic,
 } from "@/client"
 import type { RestAreaFeatureCollection } from "@/client/types.gen"
+import { FloatingPanel } from "@/components/Map/FloatingPanel"
 import {
   LayerTogglePanel,
   type LayerType,
@@ -574,276 +575,299 @@ function MapPage() {
 
   return (
     <div className="flex flex-col w-full gap-2 h-[calc(100vh-100px)] overflow-hidden">
-      {/* Route Calculator - горизонтальная панель сверху */}
-      <div className="flex-shrink-0 border-b border-border/50 bg-background p-2">
-        <div className="flex flex-wrap gap-2 items-end">
-          {/* Pickup Address */}
-          <div className="flex-1 min-w-[220px]">
-            <label htmlFor="pickup-address" className="text-xs font-medium">
-              Pickup
-            </label>
-            <div className="relative">
-              <Input
-                id="pickup-address"
-                placeholder="1521 Hickory Trail..."
-                value={pickupAddress}
-                onChange={(e) => {
-                  setPickupEdited(true)
-                  setPickupAddress(e.target.value)
-                  if (e.target.value !== pickupSelection?.formatted_address) {
-                    setPickupSelection(null)
-                  }
-                }}
-                className="text-xs h-8"
-              />
-              {isPickupSearching && (
-                <p className="text-xs text-muted-foreground absolute top-8 left-0 z-10">
-                  Searching…
-                </p>
-              )}
-              {pickupSuggestion &&
-                pickupSuggestion.formatted_address !==
-                  pickupSelection?.formatted_address && (
-                  <button
-                    type="button"
-                    className="absolute top-8 left-0 w-full rounded-md border px-2 py-1 text-xs hover:bg-muted bg-white dark:bg-slate-950 z-10"
-                    onClick={() => applySuggestion("pickup", pickupSuggestion)}
-                  >
-                    {pickupSuggestion.formatted_address}
-                  </button>
-                )}
-            </div>
-          </div>
-
-          {/* Delivery Address */}
-          <div className="flex-1 min-w-[220px]">
-            <label htmlFor="delivery-address" className="text-xs font-medium">
-              Delivery
-            </label>
-            <div className="relative">
-              <Input
-                id="delivery-address"
-                placeholder="3660 Gateway Street..."
-                value={deliveryAddress}
-                onChange={(e) => {
-                  setDeliveryEdited(true)
-                  setDeliveryAddress(e.target.value)
-                  if (e.target.value !== deliverySelection?.formatted_address) {
-                    setDeliverySelection(null)
-                  }
-                }}
-                className="text-xs h-8"
-              />
-              {isDeliverySearching && (
-                <p className="text-xs text-muted-foreground absolute top-8 left-0 z-10">
-                  Searching…
-                </p>
-              )}
-              {deliverySuggestion &&
-                deliverySuggestion.formatted_address !==
-                  deliverySelection?.formatted_address && (
-                  <button
-                    type="button"
-                    className="absolute top-8 left-0 w-full rounded-md border px-2 py-1 text-xs hover:bg-muted bg-white dark:bg-slate-950 z-10"
-                    onClick={() =>
-                      applySuggestion("delivery", deliverySuggestion)
-                    }
-                  >
-                    {deliverySuggestion.formatted_address}
-                  </button>
-                )}
-            </div>
-          </div>
-
-          {/* Buttons */}
-          <div className="flex gap-2 flex-wrap">
-            <Button
-              onClick={handleCalculateRoute}
-              disabled={mutation.isPending || !canSubmit}
-              className="text-xs h-8 px-3"
-              size="sm"
-            >
-              {mutation.isPending ? "Calculating…" : "Calculate"}
-            </Button>
-            <Button
-              onClick={handleForceRefresh}
-              disabled={mutation.isPending || !canSubmit}
-              variant="outline"
-              className="text-xs h-8 px-3"
-              size="sm"
-            >
-              Refresh
-            </Button>
-          </div>
-
-          {/* Route Info */}
-          {routeInfo && (
-            <div className="flex gap-3 text-xs items-center flex-wrap">
-              <div>
-                <span className="font-medium">Distance:</span>{" "}
-                {routeInfo.distance}
-              </div>
-              <div>
-                <span className="font-medium">Duration:</span>{" "}
-                {routeInfo.duration}
-              </div>
-            </div>
-          )}
-
-          {/* Error Message */}
-          {mutation.isError && (
-            <div className="text-xs text-red-600 dark:text-red-400 flex-wrap">
-              Error calculating route
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Fuel Optimization Panel - показывается после расчета маршрута */}
-      {routeId && (
-        <div className="flex-shrink-0 border-b border-border/50 bg-background p-2">
-          <div className="flex flex-wrap gap-2 items-end">
-            <VehicleSelector
-              vehicles={vehicles}
-              selectedVehicleId={selectedVehicleId}
-              onSelectVehicle={handleSelectVehicle}
-            />
-
-            <div className="flex-1 min-w-[150px]">
-              <label htmlFor="initial-fuel" className="text-xs font-medium">
-                Initial Fuel (gal)
-              </label>
-              <Input
-                id="initial-fuel"
-                type="number"
-                value={initialFuelGallons}
-                onChange={(e) => setInitialFuelGallons(e.target.value)}
-                className="text-xs h-8"
-                placeholder="42"
-              />
-            </div>
-
-            <div className="flex-1 min-w-[150px]">
-              <label htmlFor="reserve-fuel" className="text-xs font-medium">
-                Reserve Fuel (gal)
-              </label>
-              <Input
-                id="reserve-fuel"
-                type="number"
-                min={reserveLimits?.min ?? 0}
-                max={reserveLimits?.max}
-                step="0.1"
-                value={reserveGallons}
-                onKeyDown={(e) => {
-                  if (["-", "+", "e", "E"].includes(e.key)) e.preventDefault()
-                }}
-                onChange={(e) => {
-                  if (!e.target.value.startsWith("-")) {
-                    setReserveGallons(e.target.value)
-                  }
-                }}
-                className="text-xs h-8"
-                placeholder="3"
-              />
-            </div>
-
-            <div className="flex-1 min-w-[150px]">
-              <label htmlFor="min-refuel" className="text-xs font-medium">
-                Min Refuel (gal)
-              </label>
-              <Input
-                id="min-refuel"
-                type="number"
-                min="0"
-                step="0.1"
-                value={minRefuelGallons}
-                onChange={(e) => setMinRefuelGallons(e.target.value)}
-                className="text-xs h-8"
-                placeholder="Optional"
-              />
-            </div>
-
-            <div className="flex-1 min-w-[200px]">
-              <div className="flex justify-between items-center mb-1">
-                <label htmlFor="max-detour" className="text-xs font-medium">
-                  Max Detour (km)
-                </label>
-                <span className="text-xs font-semibold text-muted-foreground">
-                  {(parseInt(maxDetourMeters, 10) / 1000).toFixed(0)}km
-                </span>
-              </div>
-              <div className="flex gap-2 items-center">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const current = parseInt(maxDetourMeters, 10)
-                    const newValue = Math.max(0, current - 1000)
-                    setMaxDetourMeters(String(newValue))
-                  }}
-                  className="px-2 py-1 h-8 rounded border border-border bg-muted hover:bg-muted/80 text-xs font-medium transition-colors"
-                  disabled={parseInt(maxDetourMeters, 10) === 0}
-                  aria-label="Decrease detour distance"
-                >
-                  −
-                </button>
-                <input
-                  id="max-detour"
-                  type="range"
-                  min="0"
-                  max="100000"
-                  step="1000"
-                  value={maxDetourMeters}
-                  onChange={(e) => setMaxDetourMeters(e.target.value)}
-                  className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    const current = parseInt(maxDetourMeters, 10)
-                    const newValue = Math.min(100000, current + 1000)
-                    setMaxDetourMeters(String(newValue))
-                  }}
-                  className="px-2 py-1 h-8 rounded border border-border bg-muted hover:bg-muted/80 text-xs font-medium transition-colors"
-                  disabled={parseInt(maxDetourMeters, 10) === 100000}
-                  aria-label="Increase detour distance"
-                >
-                  +
-                </button>
-              </div>
-              <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                <span>0</span>
-                <span>100km</span>
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <Button
-                onClick={handleOptimizeFuel}
-                disabled={
-                  fuelOptimizationMutation.isPending || !selectedVehicleId
-                }
-                className="text-xs h-8 px-3"
-                size="sm"
-              >
-                {fuelOptimizationMutation.isPending
-                  ? "Optimizing…"
-                  : "Optimize Fuel"}
-              </Button>
-            </div>
-
-            {fuelOptimizationMutation.isError && (
-              <div className="text-xs text-red-600 dark:text-red-400 flex-wrap">
-                Optimization error
-              </div>
-            )}
-          </div>
-        </div>
-      )}
       <div
         ref={mapContainerRef}
         className="flex-1 min-h-0 relative w-full overflow-hidden"
       >
         <TomTomMap ref={mapRef} />
+        <div className="pointer-events-none absolute left-2 top-2 z-10 flex max-w-[calc(100%-1rem)] flex-col gap-2">
+          <FloatingPanel
+            title="Route"
+            boundsRef={mapContainerRef}
+            collapsedSummary={
+              routeInfo ? (
+                <span className="text-xs text-muted-foreground">
+                  {routeInfo.distance} · {routeInfo.duration}
+                </span>
+              ) : null
+            }
+          >
+            <div className="flex flex-wrap gap-2 items-end">
+              {/* Pickup Address */}
+              <div className="flex-1 min-w-[220px]">
+                <label htmlFor="pickup-address" className="text-xs font-medium">
+                  Pickup
+                </label>
+                <div className="relative">
+                  <Input
+                    id="pickup-address"
+                    placeholder="1521 Hickory Trail..."
+                    value={pickupAddress}
+                    onChange={(e) => {
+                      setPickupEdited(true)
+                      setPickupAddress(e.target.value)
+                      if (
+                        e.target.value !== pickupSelection?.formatted_address
+                      ) {
+                        setPickupSelection(null)
+                      }
+                    }}
+                    className="text-xs h-8"
+                  />
+                  {isPickupSearching && (
+                    <p className="text-xs text-muted-foreground absolute top-8 left-0 z-10">
+                      Searching…
+                    </p>
+                  )}
+                  {pickupSuggestion &&
+                    pickupSuggestion.formatted_address !==
+                      pickupSelection?.formatted_address && (
+                      <button
+                        type="button"
+                        className="absolute top-8 left-0 w-full rounded-md border px-2 py-1 text-xs hover:bg-muted bg-white dark:bg-slate-950 z-10"
+                        onClick={() =>
+                          applySuggestion("pickup", pickupSuggestion)
+                        }
+                      >
+                        {pickupSuggestion.formatted_address}
+                      </button>
+                    )}
+                </div>
+              </div>
+
+              {/* Delivery Address */}
+              <div className="flex-1 min-w-[220px]">
+                <label
+                  htmlFor="delivery-address"
+                  className="text-xs font-medium"
+                >
+                  Delivery
+                </label>
+                <div className="relative">
+                  <Input
+                    id="delivery-address"
+                    placeholder="3660 Gateway Street..."
+                    value={deliveryAddress}
+                    onChange={(e) => {
+                      setDeliveryEdited(true)
+                      setDeliveryAddress(e.target.value)
+                      if (
+                        e.target.value !== deliverySelection?.formatted_address
+                      ) {
+                        setDeliverySelection(null)
+                      }
+                    }}
+                    className="text-xs h-8"
+                  />
+                  {isDeliverySearching && (
+                    <p className="text-xs text-muted-foreground absolute top-8 left-0 z-10">
+                      Searching…
+                    </p>
+                  )}
+                  {deliverySuggestion &&
+                    deliverySuggestion.formatted_address !==
+                      deliverySelection?.formatted_address && (
+                      <button
+                        type="button"
+                        className="absolute top-8 left-0 w-full rounded-md border px-2 py-1 text-xs hover:bg-muted bg-white dark:bg-slate-950 z-10"
+                        onClick={() =>
+                          applySuggestion("delivery", deliverySuggestion)
+                        }
+                      >
+                        {deliverySuggestion.formatted_address}
+                      </button>
+                    )}
+                </div>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  onClick={handleCalculateRoute}
+                  disabled={mutation.isPending || !canSubmit}
+                  className="text-xs h-8 px-3"
+                  size="sm"
+                >
+                  {mutation.isPending ? "Calculating…" : "Calculate"}
+                </Button>
+                <Button
+                  onClick={handleForceRefresh}
+                  disabled={mutation.isPending || !canSubmit}
+                  variant="outline"
+                  className="text-xs h-8 px-3"
+                  size="sm"
+                >
+                  Refresh
+                </Button>
+              </div>
+
+              {/* Route Info */}
+              {routeInfo && (
+                <div className="flex gap-3 text-xs items-center flex-wrap">
+                  <div>
+                    <span className="font-medium">Distance:</span>{" "}
+                    {routeInfo.distance}
+                  </div>
+                  <div>
+                    <span className="font-medium">Duration:</span>{" "}
+                    {routeInfo.duration}
+                  </div>
+                </div>
+              )}
+
+              {/* Error Message */}
+              {mutation.isError && (
+                <div className="text-xs text-red-600 dark:text-red-400 flex-wrap">
+                  Error calculating route
+                </div>
+              )}
+            </div>
+          </FloatingPanel>
+          {/* Fuel Optimization Panel - показывается после расчета маршрута */}
+          {routeId && (
+            <FloatingPanel
+              title="Fuel Optimization"
+              boundsRef={mapContainerRef}
+            >
+              <div className="flex flex-wrap gap-2 items-end">
+                <VehicleSelector
+                  vehicles={vehicles}
+                  selectedVehicleId={selectedVehicleId}
+                  onSelectVehicle={handleSelectVehicle}
+                />
+
+                <div className="flex-1 min-w-[150px]">
+                  <label htmlFor="initial-fuel" className="text-xs font-medium">
+                    Initial Fuel (gal)
+                  </label>
+                  <Input
+                    id="initial-fuel"
+                    type="number"
+                    value={initialFuelGallons}
+                    onChange={(e) => setInitialFuelGallons(e.target.value)}
+                    className="text-xs h-8"
+                    placeholder="42"
+                  />
+                </div>
+
+                <div className="flex-1 min-w-[150px]">
+                  <label htmlFor="reserve-fuel" className="text-xs font-medium">
+                    Reserve Fuel (gal)
+                  </label>
+                  <Input
+                    id="reserve-fuel"
+                    type="number"
+                    min={reserveLimits?.min ?? 0}
+                    max={reserveLimits?.max}
+                    step="0.1"
+                    value={reserveGallons}
+                    onKeyDown={(e) => {
+                      if (["-", "+", "e", "E"].includes(e.key))
+                        e.preventDefault()
+                    }}
+                    onChange={(e) => {
+                      if (!e.target.value.startsWith("-")) {
+                        setReserveGallons(e.target.value)
+                      }
+                    }}
+                    className="text-xs h-8"
+                    placeholder="3"
+                  />
+                </div>
+
+                <div className="flex-1 min-w-[150px]">
+                  <label htmlFor="min-refuel" className="text-xs font-medium">
+                    Min Refuel (gal)
+                  </label>
+                  <Input
+                    id="min-refuel"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={minRefuelGallons}
+                    onChange={(e) => setMinRefuelGallons(e.target.value)}
+                    className="text-xs h-8"
+                    placeholder="Optional"
+                  />
+                </div>
+
+                <div className="flex-1 min-w-[200px]">
+                  <div className="flex justify-between items-center mb-1">
+                    <label htmlFor="max-detour" className="text-xs font-medium">
+                      Max Detour (km)
+                    </label>
+                    <span className="text-xs font-semibold text-muted-foreground">
+                      {(parseInt(maxDetourMeters, 10) / 1000).toFixed(0)}km
+                    </span>
+                  </div>
+                  <div className="flex gap-2 items-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = parseInt(maxDetourMeters, 10)
+                        const newValue = Math.max(0, current - 1000)
+                        setMaxDetourMeters(String(newValue))
+                      }}
+                      className="px-2 py-1 h-8 rounded border border-border bg-muted hover:bg-muted/80 text-xs font-medium transition-colors"
+                      disabled={parseInt(maxDetourMeters, 10) === 0}
+                      aria-label="Decrease detour distance"
+                    >
+                      −
+                    </button>
+                    <input
+                      id="max-detour"
+                      type="range"
+                      min="0"
+                      max="100000"
+                      step="1000"
+                      value={maxDetourMeters}
+                      onChange={(e) => setMaxDetourMeters(e.target.value)}
+                      className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = parseInt(maxDetourMeters, 10)
+                        const newValue = Math.min(100000, current + 1000)
+                        setMaxDetourMeters(String(newValue))
+                      }}
+                      className="px-2 py-1 h-8 rounded border border-border bg-muted hover:bg-muted/80 text-xs font-medium transition-colors"
+                      disabled={parseInt(maxDetourMeters, 10) === 100000}
+                      aria-label="Increase detour distance"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                    <span>0</span>
+                    <span>100km</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleOptimizeFuel}
+                    disabled={
+                      fuelOptimizationMutation.isPending || !selectedVehicleId
+                    }
+                    className="text-xs h-8 px-3"
+                    size="sm"
+                  >
+                    {fuelOptimizationMutation.isPending
+                      ? "Optimizing…"
+                      : "Optimize Fuel"}
+                  </Button>
+                </div>
+
+                {fuelOptimizationMutation.isError && (
+                  <div className="text-xs text-red-600 dark:text-red-400 flex-wrap">
+                    Optimization error
+                  </div>
+                )}
+              </div>
+            </FloatingPanel>
+          )}
+        </div>
         <button
           type="button"
           onClick={toggleFullscreen}
