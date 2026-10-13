@@ -26,13 +26,13 @@ interface UserInfoProps {
 
 function UserInfo({ fullName, email }: UserInfoProps) {
   return (
-    <div className="flex items-center gap-2.5 w-full min-w-0">
-      <Avatar className="size-8">
+    <div className="flex items-center gap-2.5 w-full min-w-0 group-data-[collapsible=icon]:justify-center">
+      <Avatar className="size-8 group-data-[collapsible=icon]:size-7">
         <AvatarFallback className="bg-[var(--amber-500)] text-[var(--ink-900)]">
           {getInitials(fullName || "User")}
         </AvatarFallback>
       </Avatar>
-      <div className="flex flex-col items-start min-w-0">
+      <div className="flex flex-col items-start min-w-0 group-data-[collapsible=icon]:hidden">
         <p className="text-sm font-medium truncate w-full text-sidebar-foreground">
           {fullName}
         </p>
@@ -66,11 +66,11 @@ export function User({ user }: { user: any }) {
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
-              className="rounded-xl border border-[var(--slate-border)] bg-[color:rgba(236,230,214,0.04)] px-3 py-2 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              className="rounded-xl border border-[var(--slate-border)] bg-[color:rgba(236,230,214,0.04)] px-3 py-2 group-data-[collapsible=icon]:px-0! group-data-[collapsible=icon]:py-0! data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
               data-testid="user-menu"
             >
               <UserInfo fullName={user?.full_name} email={user?.email} />
-              <ChevronsUpDown className="ml-auto size-4 text-sidebar-foreground/55" />
+              <ChevronsUpDown className="ml-auto size-4 text-sidebar-foreground/55 group-data-[collapsible=icon]:hidden" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
