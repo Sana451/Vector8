@@ -5,6 +5,7 @@ import type {
 } from "@/client"
 import {
   buildOptimizationSteps,
+  getReachableRouteSegmentMeters,
   type OptimizationStep,
 } from "@/lib/fuelOptimizationWalkthrough"
 
@@ -209,5 +210,53 @@ describe("buildOptimizationSteps", () => {
     ])
     expect(steps[2].kind).toBe("checkpoint")
     expect(steps[2].isFailurePoint).toBe(true)
+  })
+})
+
+describe("getReachableRouteSegmentMeters", () => {
+  const METERS_PER_GALLON_AT_10_MPG = 10 * 1609.344
+  const startStep = {
+    kind: "start",
+    status: "reached",
+    index: 0,
+    label: "Start",
+    coordinate: [-97, 40],
+    routeOffsetMeters: 1000,
+    fuelGallons: 10,
+  } as OptimizationStep
+
+  it("splits the span into usable fuel and reserve", () => {
+    const span = getReachableRouteSegmentMeters(startStep, 10, 1_000_000, 2)
+    expect(span).not.toBeNull()
+    expect(span?.startMeters).toBe(1000)
+    expect(span?.reserveStartMeters).toBeCloseTo(
+      1000 + 8 * METERS_PER_GALLON_AT_10_MPG,
+      3,
+    )
+    expect(span?.endMeters).toBeCloseTo(
+      1000 + 10 * METERS_PER_GALLON_AT_10_MPG,
+      3,
+    )
+  })
+
+  it("treats the whole span as reserve when fuel is at or below reserve", () => {
+    const span = getReachableRouteSegmentMeters(startStep, 10, 1_000_000, 10)
+    expect(span?.reserveStartMeters).toBe(span?.startMeters)
+  })
+
+  it("clips the reserve boundary to the route end", () => {
+    const span = getReachableRouteSegmentMeters(startStep, 10, 50_000, 2)
+    expect(span?.endMeters).toBe(50_000)
+    expect(span?.reserveStartMeters).toBe(50_000)
+  })
+
+  it("returns null for destination steps", () => {
+    const destination = {
+      ...startStep,
+      kind: "destination",
+    } as OptimizationStep
+    expect(
+      getReachableRouteSegmentMeters(destination, 10, 1_000_000, 2),
+    ).toBeNull()
   })
 })

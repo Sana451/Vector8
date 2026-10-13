@@ -252,14 +252,22 @@ export function useGeoJsonLayer({
 
   // Push new data into the existing source without removing layers, so that
   // frequent updates (e.g. dragging a slider) don't flicker or stall the map.
+  // Not gated on isStyleLoaded(): it is false while any source or tile is still
+  // loading, and skipping the update here left stale features on the map until
+  // a zoom triggered "styledata". A source that does not exist yet is created
+  // by the main effect, which reads the latest data from dataRef.
   useEffect(() => {
-    if (!mapInstance?.isStyleLoaded() || !data) {
+    if (!mapInstance || !data) {
       return
     }
 
-    const existing = mapInstance.getSource(sourceId)
-    if (existing && "setData" in existing) {
-      ;(existing as { setData: (value: GeoJsonData) => void }).setData(data)
+    try {
+      const existing = mapInstance.getSource(sourceId)
+      if (existing && "setData" in existing) {
+        ;(existing as { setData: (value: GeoJsonData) => void }).setData(data)
+      }
+    } catch (error) {
+      console.error(`Error updating source "${sourceId}"`, error)
     }
   }, [data, mapInstance, sourceId])
 }

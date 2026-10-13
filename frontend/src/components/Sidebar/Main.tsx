@@ -48,11 +48,14 @@ export function Main({ items }: MainProps) {
                   tooltip={item.title}
                   isActive={isActive}
                   size="lg"
+                  className="group-data-[collapsible=icon]:justify-center"
                   asChild
                 >
                   <RouterLink to={item.path} onClick={handleMenuClick}>
                     <item.icon />
-                    <span>{item.title}</span>
+                    <span className="group-data-[collapsible=icon]:hidden">
+                      {item.title}
+                    </span>
                   </RouterLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>

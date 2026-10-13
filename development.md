@@ -7,7 +7,7 @@ For local development, run PostgreSQL and Mailpit with Docker Compose, and run t
 Start the supporting services:
 
 ```bash
-docker compose up -d db mailpit
+docker compose up -d db mailpit adminer
 ```
 
 Then, from the `backend` directory, install the dependencies and prepare the database:

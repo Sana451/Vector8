@@ -3,14 +3,17 @@
  *
  * Step-by-step panel for reviewing reached route points and unreachable
  * optimization targets. Supports Next/Back navigation and direct jumps.
+ * The details can be collapsed; pills and navigation stay visible.
  * Stepping does not change the map zoom level.
  */
 
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react"
+import { useRef, useState } from "react"
 import type {
   FuelOptimizationFailurePublic,
   FuelOptimizationSummaryPublic,
 } from "@/client"
+import { useDraggable } from "@/hooks/useDraggable"
 import type { OptimizationStep } from "@/lib/fuelOptimizationWalkthrough"
 
 interface OptimizationWalkthroughProps {
@@ -22,6 +25,7 @@ interface OptimizationWalkthroughProps {
   usableTankGallons?: number | string
   summary?: FuelOptimizationSummaryPublic
   routeTotalDistanceMeters?: number
+  reserveGallons?: number
 }
 
 function formatGallons(value: number | undefined): string {
@@ -77,7 +81,12 @@ export function OptimizationWalkthrough({
   usableTankGallons,
   summary,
   routeTotalDistanceMeters,
+  reserveGallons,
 }: OptimizationWalkthroughProps) {
+  const [isCollapsed, setIsCollapsed] = useState(false)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const { dragHandlers, dragStyle } = useDraggable(panelRef)
+
   if (steps.length === 0) {
     return null
   }
@@ -109,270 +118,319 @@ export function OptimizationWalkthrough({
     fuelOnDepartureGallons !== undefined && mpg > 0
       ? fuelOnDepartureGallons * mpg
       : undefined
+  const rangeWithoutReserveMiles =
+    fuelOnDepartureGallons !== undefined && mpg > 0
+      ? Math.max(0, fuelOnDepartureGallons - (reserveGallons ?? 0)) * mpg
+      : undefined
   const canGoBack = activeStepIndex > 0
   const canGoNext = activeStepIndex < steps.length - 1
 
   return (
-    <div className="absolute bottom-4 left-4 z-10 w-[360px] max-w-[calc(100vw-2rem)] rounded-lg border border-border/70 bg-white dark:bg-slate-950 shadow-md">
+    <div
+      ref={panelRef}
+      {...dragHandlers}
+      style={dragStyle}
+      className="absolute bottom-4 left-4 z-10 w-[360px] max-w-[calc(100vw-2rem)] rounded-lg border border-border/70 bg-white dark:bg-slate-950 shadow-md"
+    >
       {/* Step jump pills */}
-      <div className="flex items-center gap-1.5 px-3 pt-3 overflow-x-auto">
-        {steps.map((step) => (
-          <button
-            key={step.index}
-            type="button"
-            onClick={() => onStepChange(step.index)}
-            aria-current={step.index === activeStepIndex}
-            aria-label={`Go to ${step.label}`}
-            className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
-              step.isPrimaryFailureTarget
-                ? "bg-red-600 text-white"
-                : step.status === "unreachable"
-                  ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
-                  : step.index === activeStepIndex
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-            }`}
-          >
-            {stepBadgeLabel(step)}
-          </button>
-        ))}
+      <div className="flex items-center gap-1.5 px-3 pt-3">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
+          {steps.map((step) => (
+            <button
+              key={step.index}
+              type="button"
+              onClick={() => onStepChange(step.index)}
+              aria-current={step.index === activeStepIndex}
+              aria-label={`Go to ${step.label}`}
+              className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
+                step.isPrimaryFailureTarget
+                  ? "bg-red-600 text-white"
+                  : step.status === "unreachable"
+                    ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
+                    : step.index === activeStepIndex
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+              }`}
+            >
+              {stepBadgeLabel(step)}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsCollapsed((value) => !value)}
+          aria-expanded={!isCollapsed}
+          aria-label={isCollapsed ? "Expand details" : "Collapse details"}
+          className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
+        >
+          {isCollapsed ? (
+            <ChevronUp className="h-4 w-4" />
+          ) : (
+            <ChevronDown className="h-4 w-4" />
+          )}
+        </button>
       </div>
 
       {/* Step details */}
-      <div className="px-4 py-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold truncate">{activeStep.label}</h3>
-          <span
-            className={`text-xs flex-shrink-0 ml-2 ${
-              activeStep.status === "unreachable"
-                ? "font-semibold text-red-600 dark:text-red-400"
-                : "text-muted-foreground"
-            }`}
-          >
-            {activeStep.status === "unreachable" ? "Unreachable" : "Reached"} ·{" "}
-            {activeStepIndex + 1}/{steps.length}
-          </span>
-        </div>
-
-        {failure && (
-          <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-2.5 py-2 text-xs text-red-800 dark:border-red-900 dark:bg-red-950/50 dark:text-red-200">
-            <div className="font-semibold">{failure.message}</div>
-            <div className="mt-1">
-              Stopped at{" "}
-              {formatMeters(Number(failure.stopped_at_route_offset_meters))}
-              {failure.last_reachable_station_id
-                ? ` after station ${failure.last_reachable_station_id}`
-                : " from the route start"}
-              .
-            </div>
+      {!isCollapsed && (
+        <div className="px-4 py-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold truncate">
+              {activeStep.label}
+            </h3>
+            <span
+              className={`text-xs flex-shrink-0 ml-2 ${
+                activeStep.status === "unreachable"
+                  ? "font-semibold text-red-600 dark:text-red-400"
+                  : "text-muted-foreground"
+              }`}
+            >
+              {activeStep.status === "unreachable" ? "Unreachable" : "Reached"}{" "}
+              · {activeStepIndex + 1}/{steps.length}
+            </span>
           </div>
-        )}
 
-        {activeStep.kind === "start" && (
-          <div className="mt-2 text-xs space-y-1">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Starting fuel</span>
-              <span className="font-medium">
-                {formatGallons(activeStep.fuelGallons)}
-              </span>
+          {failure && (
+            <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-2.5 py-2 text-xs text-red-800 dark:border-red-900 dark:bg-red-950/50 dark:text-red-200">
+              <div className="font-semibold">{failure.message}</div>
+              <div className="mt-1">
+                Stopped at{" "}
+                {formatMeters(Number(failure.stopped_at_route_offset_meters))}
+                {failure.last_reachable_station_id
+                  ? ` after station ${failure.last_reachable_station_id}`
+                  : " from the route start"}
+                .
+              </div>
             </div>
-            {distanceToNextMeters !== undefined && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Distance to next stop
-                </span>
-                <span className="font-medium">
-                  {formatMetersAsMiles(distanceToNextMeters)}
-                </span>
-              </div>
-            )}
-            {rangeMiles !== undefined && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Range on fuel</span>
-                <span className="font-medium">{formatMiles(rangeMiles)}</span>
-              </div>
-            )}
-            {distanceToDestinationMeters !== undefined && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Distance to destination
-                </span>
-                <span className="font-medium">
-                  {formatMetersAsMiles(distanceToDestinationMeters)}
-                </span>
-              </div>
-            )}
-          </div>
-        )}
+          )}
 
-        {activeStep.kind === "checkpoint" && (
-          <div className="mt-2 text-xs space-y-1">
-            <div className="text-muted-foreground">
-              Reached without refueling
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Fuel on arrival</span>
-              <span className="font-medium">
-                {formatGallons(activeStep.fuelGallons)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">
-                Distance to destination
-              </span>
-              <span className="font-medium">
-                {formatMetersAsMiles(distanceToDestinationMeters)}
-              </span>
-            </div>
-          </div>
-        )}
-
-        {activeStep.kind === "stop" && (
-          <div className="mt-2 text-xs space-y-1">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Fuel on arrival</span>
-              <span className="font-medium">
-                {formatGallons(activeStep.fuelBeforeGallons)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Fuel to add</span>
-              <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                +{formatGallons(activeStep.fuelAddedGallons)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Fuel after refuel</span>
-              <span className="font-medium">
-                {formatGallons(activeStep.fuelAfterGallons)}
-                {isFullAfterRefuel && (
-                  <span className="text-muted-foreground"> (full)</span>
-                )}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Price per gallon</span>
-              <span className="font-medium">
-                {formatMoney(activeStep.fuelPricePerGallon)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Cost at this stop</span>
-              <span className="font-medium">
-                {formatMoney(activeStep.fuelCost)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Detour</span>
-              <span className="font-medium">
-                {formatMeters(activeStep.detourDistanceMeters)} /{" "}
-                {formatSeconds(activeStep.detourTimeSeconds)}
-              </span>
-            </div>
-            {distanceToNextMeters !== undefined && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Distance to next stop
-                </span>
-                <span className="font-medium">
-                  {formatMetersAsMiles(distanceToNextMeters)}
-                </span>
-              </div>
-            )}
-            {rangeMiles !== undefined && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Range on fuel</span>
-                <span className="font-medium">{formatMiles(rangeMiles)}</span>
-              </div>
-            )}
-            {distanceToDestinationMeters !== undefined && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Distance to destination
-                </span>
-                <span className="font-medium">
-                  {formatMetersAsMiles(distanceToDestinationMeters)}
-                </span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeStep.status === "unreachable" && (
-          <div className="mt-2 text-xs space-y-1">
-            <div className="font-semibold text-red-600 dark:text-red-400">
-              {activeStep.isPrimaryFailureTarget
-                ? "Primary failure target"
-                : "Unreachable goal"}
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Fuel required</span>
-              <span className="font-medium">
-                {formatDiagnosticGallons(activeStep.fuelRequiredGallons)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Fuel available</span>
-              <span className="font-medium">
-                {formatDiagnosticGallons(activeStep.availableFuelGallons)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Required reserve</span>
-              <span className="font-medium">
-                {formatDiagnosticGallons(activeStep.reserveGallons)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Reserve deficit</span>
-              <span className="font-semibold text-red-600 dark:text-red-400">
-                {formatDiagnosticGallons(activeStep.deficitGallons)}
-              </span>
-            </div>
-          </div>
-        )}
-
-        {activeStep.kind === "destination" &&
-          activeStep.status === "reached" && (
+          {activeStep.kind === "start" && (
             <div className="mt-2 text-xs space-y-1">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Remaining fuel on arrival
-                </span>
+                <span className="text-muted-foreground">Starting fuel</span>
                 <span className="font-medium">
                   {formatGallons(activeStep.fuelGallons)}
                 </span>
               </div>
-              {summary && (
-                <>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Total fuel purchased
-                    </span>
-                    <span className="font-medium">
-                      {formatGallons(
-                        Number(summary.total_fuel_purchased_gallons),
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Total fuel cost
-                    </span>
-                    <span className="font-medium">
-                      {formatMoney(Number(summary.total_fuel_cost))}
-                    </span>
-                  </div>
-                </>
+              {distanceToNextMeters !== undefined && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    Distance to next stop
+                  </span>
+                  <span className="font-medium">
+                    {formatMetersAsMiles(distanceToNextMeters)}
+                  </span>
+                </div>
+              )}
+              {rangeMiles !== undefined && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Range on fuel</span>
+                  <span className="font-medium">{formatMiles(rangeMiles)}</span>
+                </div>
+              )}
+              {rangeWithoutReserveMiles !== undefined && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    Range without reserve
+                  </span>
+                  <span className="font-medium">
+                    {formatMiles(rangeWithoutReserveMiles)}
+                  </span>
+                </div>
+              )}
+              {distanceToDestinationMeters !== undefined && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    Distance to destination
+                  </span>
+                  <span className="font-medium">
+                    {formatMetersAsMiles(distanceToDestinationMeters)}
+                  </span>
+                </div>
               )}
             </div>
           )}
-        {activeStep.isFailurePoint && activeStep.status === "reached" && (
-          <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-            Last reachable point; the algorithm could not continue beyond here.
-          </div>
-        )}
-      </div>
+
+          {activeStep.kind === "checkpoint" && (
+            <div className="mt-2 text-xs space-y-1">
+              <div className="text-muted-foreground">
+                Reached without refueling
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Fuel on arrival</span>
+                <span className="font-medium">
+                  {formatGallons(activeStep.fuelGallons)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">
+                  Distance to destination
+                </span>
+                <span className="font-medium">
+                  {formatMetersAsMiles(distanceToDestinationMeters)}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {activeStep.kind === "stop" && (
+            <div className="mt-2 text-xs space-y-1">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Fuel on arrival</span>
+                <span className="font-medium">
+                  {formatGallons(activeStep.fuelBeforeGallons)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Fuel to add</span>
+                <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                  +{formatGallons(activeStep.fuelAddedGallons)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Fuel after refuel</span>
+                <span className="font-medium">
+                  {formatGallons(activeStep.fuelAfterGallons)}
+                  {isFullAfterRefuel && (
+                    <span className="text-muted-foreground"> (full)</span>
+                  )}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Price per gallon</span>
+                <span className="font-medium">
+                  {formatMoney(activeStep.fuelPricePerGallon)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Cost at this stop</span>
+                <span className="font-medium">
+                  {formatMoney(activeStep.fuelCost)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Detour</span>
+                <span className="font-medium">
+                  {formatMeters(activeStep.detourDistanceMeters)} /{" "}
+                  {formatSeconds(activeStep.detourTimeSeconds)}
+                </span>
+              </div>
+              {distanceToNextMeters !== undefined && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    Distance to next stop
+                  </span>
+                  <span className="font-medium">
+                    {formatMetersAsMiles(distanceToNextMeters)}
+                  </span>
+                </div>
+              )}
+              {rangeMiles !== undefined && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Range on fuel</span>
+                  <span className="font-medium">{formatMiles(rangeMiles)}</span>
+                </div>
+              )}
+              {rangeWithoutReserveMiles !== undefined && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    Range without reserve
+                  </span>
+                  <span className="font-medium">
+                    {formatMiles(rangeWithoutReserveMiles)}
+                  </span>
+                </div>
+              )}
+              {distanceToDestinationMeters !== undefined && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    Distance to destination
+                  </span>
+                  <span className="font-medium">
+                    {formatMetersAsMiles(distanceToDestinationMeters)}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeStep.status === "unreachable" && (
+            <div className="mt-2 text-xs space-y-1">
+              <div className="font-semibold text-red-600 dark:text-red-400">
+                {activeStep.isPrimaryFailureTarget
+                  ? "Primary failure target"
+                  : "Unreachable goal"}
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Fuel required</span>
+                <span className="font-medium">
+                  {formatDiagnosticGallons(activeStep.fuelRequiredGallons)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Fuel available</span>
+                <span className="font-medium">
+                  {formatDiagnosticGallons(activeStep.availableFuelGallons)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Required reserve</span>
+                <span className="font-medium">
+                  {formatDiagnosticGallons(activeStep.reserveGallons)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Reserve deficit</span>
+                <span className="font-semibold text-red-600 dark:text-red-400">
+                  {formatDiagnosticGallons(activeStep.deficitGallons)}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {activeStep.kind === "destination" &&
+            activeStep.status === "reached" && (
+              <div className="mt-2 text-xs space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    Remaining fuel on arrival
+                  </span>
+                  <span className="font-medium">
+                    {formatGallons(activeStep.fuelGallons)}
+                  </span>
+                </div>
+                {summary && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        Total fuel purchased
+                      </span>
+                      <span className="font-medium">
+                        {formatGallons(
+                          Number(summary.total_fuel_purchased_gallons),
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        Total fuel cost
+                      </span>
+                      <span className="font-medium">
+                        {formatMoney(Number(summary.total_fuel_cost))}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          {activeStep.isFailurePoint && activeStep.status === "reached" && (
+            <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+              Last reachable point; the algorithm could not continue beyond
+              here.
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Navigation */}
       <div className="flex items-center justify-between border-t border-border/50 px-3 py-2">

@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
+import { Maximize, Minimize } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { calculateFuelOptimization } from "@/api/fuelOptimization"
 import { getAllFuelStations, getRouteOverview, searchAddress } from "@/api/map"
@@ -13,6 +14,7 @@ import type {
   VehiclePublic,
 } from "@/client"
 import type { RestAreaFeatureCollection } from "@/client/types.gen"
+import { FloatingPanel } from "@/components/Map/FloatingPanel"
 import {
   LayerTogglePanel,
   type LayerType,
@@ -62,6 +64,33 @@ interface RouteInfo {
 
 function MapPage() {
   const mapRef = useRef<TomTomMapHandle>(null)
+  const mapContainerRef = useRef<HTMLDivElement>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  useEffect(() => {
+    const onChange = () => {
+      setIsFullscreen(document.fullscreenElement === mapContainerRef.current)
+    }
+    document.addEventListener("fullscreenchange", onChange)
+    return () => {
+      document.removeEventListener("fullscreenchange", onChange)
+      if (document.fullscreenElement === mapContainerRef.current) {
+        void document.exitFullscreen()
+      }
+    }
+  }, [])
+
+  const toggleFullscreen = () => {
+    const container = mapContainerRef.current
+    if (!container) return
+    if (document.fullscreenElement === container) {
+      void document.exitFullscreen()
+      return
+    }
+    container.requestFullscreen().catch(() => {
+      showErrorToast("Full screen mode is not available")
+    })
+  }
   const { showSuccessToast, showErrorToast } = useCustomToast()
 
   // Layer visibility state
@@ -113,6 +142,9 @@ function MapPage() {
   const [deliverySelection, setDeliverySelection] =
     useState<AddressSelection | null>(null)
   const [isPickupSearching, setIsPickupSearching] = useState(false)
+  // Suggestions only appear after the user types, not for prefilled defaults.
+  const [pickupEdited, setPickupEdited] = useState(false)
+  const [deliveryEdited, setDeliveryEdited] = useState(false)
   const [isDeliverySearching, setIsDeliverySearching] = useState(false)
 
   // Layer state - each layer is stored and rendered independently
@@ -139,11 +171,15 @@ function MapPage() {
   const [minRefuelGallons, setMinRefuelGallons] = useState("")
   const [optimizationResult, setOptimizationResult] =
     useState<FuelOptimizationCalculateResponse | null>(null)
+  const [optimizationReserveGallons, setOptimizationReserveGallons] =
+    useState(0)
   const [activeStepIndex, setActiveStepIndex] = useState(0)
 
   // Fetch vehicles list
+  // Distinct key: the fleet page caches a {data, count} object under
+  // ["vehicles"]; invalidating ["vehicles"] still refreshes this list too.
   const { data: vehicles = [] } = useQuery<VehiclePublic[]>({
-    queryKey: ["vehicles"],
+    queryKey: ["vehicles", "list"],
     queryFn: listVehicles,
   })
 
@@ -179,7 +215,7 @@ function MapPage() {
     const query = pickupAddress.trim()
     const selectedAddress = pickupSelection?.formatted_address
 
-    if (query.length < 3 || query === selectedAddress) {
+    if (!pickupEdited || query.length < 3 || query === selectedAddress) {
       setPickupSuggestion(null)
       setIsPickupSearching(false)
       return
@@ -207,14 +243,14 @@ function MapPage() {
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [pickupAddress, pickupSelection])
+  }, [pickupAddress, pickupSelection, pickupEdited])
 
   useEffect(() => {
     let cancelled = false
     const query = deliveryAddress.trim()
     const selectedAddress = deliverySelection?.formatted_address
 
-    if (query.length < 3 || query === selectedAddress) {
+    if (!deliveryEdited || query.length < 3 || query === selectedAddress) {
       setDeliverySuggestion(null)
       setIsDeliverySearching(false)
       return
@@ -242,7 +278,7 @@ function MapPage() {
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [deliveryAddress, deliverySelection])
+  }, [deliveryAddress, deliverySelection, deliveryEdited])
 
   const mutation = useMutation({
     mutationFn: async (forceRefresh: boolean) => {
@@ -360,6 +396,7 @@ function MapPage() {
       // Always keep the full result so rejected stations can be highlighted
       // on the map, even when the optimization itself is infeasible.
       setOptimizationResult(data)
+      setOptimizationReserveGallons(parseFloat(reserveGallons) || 0)
       setActiveStepIndex(0)
       setActiveFuelStationIds(
         new Set((data.stops ?? []).map((stop) => stop.station_id)),
@@ -540,271 +577,312 @@ function MapPage() {
 
   return (
     <div className="flex flex-col w-full gap-2 h-[calc(100vh-100px)] overflow-hidden">
-      {/* Route Calculator - горизонтальная панель сверху */}
-      <div className="flex-shrink-0 border-b border-border/50 bg-background p-2">
-        <div className="flex flex-wrap gap-2 items-end">
-          {/* Pickup Address */}
-          <div className="flex-1 min-w-[220px]">
-            <label htmlFor="pickup-address" className="text-xs font-medium">
-              Pickup
-            </label>
-            <div className="relative">
-              <Input
-                id="pickup-address"
-                placeholder="1521 Hickory Trail..."
-                value={pickupAddress}
-                onChange={(e) => {
-                  setPickupAddress(e.target.value)
-                  if (e.target.value !== pickupSelection?.formatted_address) {
-                    setPickupSelection(null)
-                  }
-                }}
-                className="text-xs h-8"
-              />
-              {isPickupSearching && (
-                <p className="text-xs text-muted-foreground absolute top-8 left-0 z-10">
-                  Searching…
-                </p>
-              )}
-              {pickupSuggestion &&
-                pickupSuggestion.formatted_address !==
-                  pickupSelection?.formatted_address && (
-                  <button
-                    type="button"
-                    className="absolute top-8 left-0 w-full rounded-md border px-2 py-1 text-xs hover:bg-muted bg-white dark:bg-slate-950 z-10"
-                    onClick={() => applySuggestion("pickup", pickupSuggestion)}
-                  >
-                    {pickupSuggestion.formatted_address}
-                  </button>
-                )}
-            </div>
-          </div>
-
-          {/* Delivery Address */}
-          <div className="flex-1 min-w-[220px]">
-            <label htmlFor="delivery-address" className="text-xs font-medium">
-              Delivery
-            </label>
-            <div className="relative">
-              <Input
-                id="delivery-address"
-                placeholder="3660 Gateway Street..."
-                value={deliveryAddress}
-                onChange={(e) => {
-                  setDeliveryAddress(e.target.value)
-                  if (e.target.value !== deliverySelection?.formatted_address) {
-                    setDeliverySelection(null)
-                  }
-                }}
-                className="text-xs h-8"
-              />
-              {isDeliverySearching && (
-                <p className="text-xs text-muted-foreground absolute top-8 left-0 z-10">
-                  Searching…
-                </p>
-              )}
-              {deliverySuggestion &&
-                deliverySuggestion.formatted_address !==
-                  deliverySelection?.formatted_address && (
-                  <button
-                    type="button"
-                    className="absolute top-8 left-0 w-full rounded-md border px-2 py-1 text-xs hover:bg-muted bg-white dark:bg-slate-950 z-10"
-                    onClick={() =>
-                      applySuggestion("delivery", deliverySuggestion)
-                    }
-                  >
-                    {deliverySuggestion.formatted_address}
-                  </button>
-                )}
-            </div>
-          </div>
-
-          {/* Buttons */}
-          <div className="flex gap-2 flex-wrap">
-            <Button
-              onClick={handleCalculateRoute}
-              disabled={mutation.isPending || !canSubmit}
-              className="text-xs h-8 px-3"
-              size="sm"
-            >
-              {mutation.isPending ? "Calculating…" : "Calculate"}
-            </Button>
-            <Button
-              onClick={handleForceRefresh}
-              disabled={mutation.isPending || !canSubmit}
-              variant="outline"
-              className="text-xs h-8 px-3"
-              size="sm"
-            >
-              Refresh
-            </Button>
-          </div>
-
-          {/* Route Info */}
-          {routeInfo && (
-            <div className="flex gap-3 text-xs items-center flex-wrap">
-              <div>
-                <span className="font-medium">Distance:</span>{" "}
-                {routeInfo.distance}
-              </div>
-              <div>
-                <span className="font-medium">Duration:</span>{" "}
-                {routeInfo.duration}
-              </div>
-            </div>
-          )}
-
-          {/* Error Message */}
-          {mutation.isError && (
-            <div className="text-xs text-red-600 dark:text-red-400 flex-wrap">
-              Error calculating route
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Fuel Optimization Panel - показывается после расчета маршрута */}
-      {routeId && (
-        <div className="flex-shrink-0 border-b border-border/50 bg-background p-2">
-          <div className="flex flex-wrap gap-2 items-end">
-            <VehicleSelector
-              vehicles={vehicles}
-              selectedVehicleId={selectedVehicleId}
-              onSelectVehicle={handleSelectVehicle}
-            />
-
-            <div className="flex-1 min-w-[150px]">
-              <label htmlFor="initial-fuel" className="text-xs font-medium">
-                Initial Fuel (gal)
-              </label>
-              <Input
-                id="initial-fuel"
-                type="number"
-                value={initialFuelGallons}
-                onChange={(e) => setInitialFuelGallons(e.target.value)}
-                className="text-xs h-8"
-                placeholder="42"
-              />
-            </div>
-
-            <div className="flex-1 min-w-[150px]">
-              <label htmlFor="reserve-fuel" className="text-xs font-medium">
-                Reserve Fuel (gal)
-              </label>
-              <Input
-                id="reserve-fuel"
-                type="number"
-                min={reserveLimits?.min ?? 0}
-                max={reserveLimits?.max}
-                step="0.1"
-                value={reserveGallons}
-                onKeyDown={(e) => {
-                  if (["-", "+", "e", "E"].includes(e.key)) e.preventDefault()
-                }}
-                onChange={(e) => {
-                  if (!e.target.value.startsWith("-")) {
-                    setReserveGallons(e.target.value)
-                  }
-                }}
-                className="text-xs h-8"
-                placeholder="3"
-              />
-            </div>
-
-            <div className="flex-1 min-w-[150px]">
-              <label htmlFor="min-refuel" className="text-xs font-medium">
-                Min Refuel (gal)
-              </label>
-              <Input
-                id="min-refuel"
-                type="number"
-                min="0"
-                step="0.1"
-                value={minRefuelGallons}
-                onChange={(e) => setMinRefuelGallons(e.target.value)}
-                className="text-xs h-8"
-                placeholder="Optional"
-              />
-            </div>
-
-            <div className="flex-1 min-w-[200px]">
-              <div className="flex justify-between items-center mb-1">
-                <label htmlFor="max-detour" className="text-xs font-medium">
-                  Max Detour (km)
-                </label>
-                <span className="text-xs font-semibold text-muted-foreground">
-                  {(parseInt(maxDetourMeters, 10) / 1000).toFixed(0)}km
-                </span>
-              </div>
-              <div className="flex gap-2 items-center">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const current = parseInt(maxDetourMeters, 10)
-                    const newValue = Math.max(0, current - 1000)
-                    setMaxDetourMeters(String(newValue))
-                  }}
-                  className="px-2 py-1 h-8 rounded border border-border bg-muted hover:bg-muted/80 text-xs font-medium transition-colors"
-                  disabled={parseInt(maxDetourMeters, 10) === 0}
-                  aria-label="Decrease detour distance"
-                >
-                  −
-                </button>
-                <input
-                  id="max-detour"
-                  type="range"
-                  min="0"
-                  max="100000"
-                  step="1000"
-                  value={maxDetourMeters}
-                  onChange={(e) => setMaxDetourMeters(e.target.value)}
-                  className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    const current = parseInt(maxDetourMeters, 10)
-                    const newValue = Math.min(100000, current + 1000)
-                    setMaxDetourMeters(String(newValue))
-                  }}
-                  className="px-2 py-1 h-8 rounded border border-border bg-muted hover:bg-muted/80 text-xs font-medium transition-colors"
-                  disabled={parseInt(maxDetourMeters, 10) === 100000}
-                  aria-label="Increase detour distance"
-                >
-                  +
-                </button>
-              </div>
-              <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                <span>0</span>
-                <span>100km</span>
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <Button
-                onClick={handleOptimizeFuel}
-                disabled={
-                  fuelOptimizationMutation.isPending || !selectedVehicleId
-                }
-                className="text-xs h-8 px-3"
-                size="sm"
-              >
-                {fuelOptimizationMutation.isPending
-                  ? "Optimizing…"
-                  : "Optimize Fuel"}
-              </Button>
-            </div>
-
-            {fuelOptimizationMutation.isError && (
-              <div className="text-xs text-red-600 dark:text-red-400 flex-wrap">
-                Optimization error
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-      <div className="flex-1 min-h-0 relative w-full overflow-hidden">
+      <div
+        ref={mapContainerRef}
+        className="flex-1 min-h-0 relative w-full overflow-hidden"
+      >
         <TomTomMap ref={mapRef} />
+        <div className="pointer-events-none absolute left-2 top-2 z-10 flex max-w-[calc(100%-1rem)] flex-col gap-2">
+          <FloatingPanel
+            title="Route"
+            boundsRef={mapContainerRef}
+            collapsedSummary={
+              routeInfo ? (
+                <span className="text-xs text-muted-foreground">
+                  {routeInfo.distance} · {routeInfo.duration}
+                </span>
+              ) : null
+            }
+          >
+            <div className="flex flex-wrap gap-2 items-end">
+              {/* Pickup Address */}
+              <div className="flex-1 min-w-[220px]">
+                <label htmlFor="pickup-address" className="text-xs font-medium">
+                  Pickup
+                </label>
+                <div className="relative">
+                  <Input
+                    id="pickup-address"
+                    placeholder="1521 Hickory Trail..."
+                    value={pickupAddress}
+                    onChange={(e) => {
+                      setPickupEdited(true)
+                      setPickupAddress(e.target.value)
+                      if (
+                        e.target.value !== pickupSelection?.formatted_address
+                      ) {
+                        setPickupSelection(null)
+                      }
+                    }}
+                    className="text-xs h-8"
+                  />
+                  {isPickupSearching && (
+                    <p className="text-xs text-muted-foreground absolute top-8 left-0 z-10">
+                      Searching…
+                    </p>
+                  )}
+                  {pickupSuggestion &&
+                    pickupSuggestion.formatted_address !==
+                      pickupSelection?.formatted_address && (
+                      <button
+                        type="button"
+                        className="absolute top-8 left-0 w-full rounded-md border px-2 py-1 text-xs hover:bg-muted bg-white dark:bg-slate-950 z-10"
+                        onClick={() =>
+                          applySuggestion("pickup", pickupSuggestion)
+                        }
+                      >
+                        {pickupSuggestion.formatted_address}
+                      </button>
+                    )}
+                </div>
+              </div>
+
+              {/* Delivery Address */}
+              <div className="flex-1 min-w-[220px]">
+                <label
+                  htmlFor="delivery-address"
+                  className="text-xs font-medium"
+                >
+                  Delivery
+                </label>
+                <div className="relative">
+                  <Input
+                    id="delivery-address"
+                    placeholder="3660 Gateway Street..."
+                    value={deliveryAddress}
+                    onChange={(e) => {
+                      setDeliveryEdited(true)
+                      setDeliveryAddress(e.target.value)
+                      if (
+                        e.target.value !== deliverySelection?.formatted_address
+                      ) {
+                        setDeliverySelection(null)
+                      }
+                    }}
+                    className="text-xs h-8"
+                  />
+                  {isDeliverySearching && (
+                    <p className="text-xs text-muted-foreground absolute top-8 left-0 z-10">
+                      Searching…
+                    </p>
+                  )}
+                  {deliverySuggestion &&
+                    deliverySuggestion.formatted_address !==
+                      deliverySelection?.formatted_address && (
+                      <button
+                        type="button"
+                        className="absolute top-8 left-0 w-full rounded-md border px-2 py-1 text-xs hover:bg-muted bg-white dark:bg-slate-950 z-10"
+                        onClick={() =>
+                          applySuggestion("delivery", deliverySuggestion)
+                        }
+                      >
+                        {deliverySuggestion.formatted_address}
+                      </button>
+                    )}
+                </div>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  onClick={handleCalculateRoute}
+                  disabled={mutation.isPending || !canSubmit}
+                  className="text-xs h-8 px-3"
+                  size="sm"
+                >
+                  {mutation.isPending ? "Calculating…" : "Calculate"}
+                </Button>
+                <Button
+                  onClick={handleForceRefresh}
+                  disabled={mutation.isPending || !canSubmit}
+                  variant="outline"
+                  className="text-xs h-8 px-3"
+                  size="sm"
+                >
+                  Refresh
+                </Button>
+              </div>
+
+              {/* Route Info */}
+              {routeInfo && (
+                <div className="flex gap-3 text-xs items-center flex-wrap">
+                  <div>
+                    <span className="font-medium">Distance:</span>{" "}
+                    {routeInfo.distance}
+                  </div>
+                  <div>
+                    <span className="font-medium">Duration:</span>{" "}
+                    {routeInfo.duration}
+                  </div>
+                </div>
+              )}
+
+              {/* Error Message */}
+              {mutation.isError && (
+                <div className="text-xs text-red-600 dark:text-red-400 flex-wrap">
+                  Error calculating route
+                </div>
+              )}
+            </div>
+          </FloatingPanel>
+          {/* Fuel Optimization Panel - показывается после расчета маршрута */}
+          {routeId && (
+            <FloatingPanel
+              title="Fuel Optimization"
+              boundsRef={mapContainerRef}
+            >
+              <div className="flex flex-wrap gap-2 items-end">
+                <VehicleSelector
+                  vehicles={vehicles}
+                  selectedVehicleId={selectedVehicleId}
+                  onSelectVehicle={handleSelectVehicle}
+                />
+
+                <div className="flex-1 min-w-[150px]">
+                  <label htmlFor="initial-fuel" className="text-xs font-medium">
+                    Initial Fuel (gal)
+                  </label>
+                  <Input
+                    id="initial-fuel"
+                    type="number"
+                    value={initialFuelGallons}
+                    onChange={(e) => setInitialFuelGallons(e.target.value)}
+                    className="text-xs h-8"
+                    placeholder="42"
+                  />
+                </div>
+
+                <div className="flex-1 min-w-[150px]">
+                  <label htmlFor="reserve-fuel" className="text-xs font-medium">
+                    Reserve Fuel (gal)
+                  </label>
+                  <Input
+                    id="reserve-fuel"
+                    type="number"
+                    min={reserveLimits?.min ?? 0}
+                    max={reserveLimits?.max}
+                    step="0.1"
+                    value={reserveGallons}
+                    onKeyDown={(e) => {
+                      if (["-", "+", "e", "E"].includes(e.key))
+                        e.preventDefault()
+                    }}
+                    onChange={(e) => {
+                      if (!e.target.value.startsWith("-")) {
+                        setReserveGallons(e.target.value)
+                      }
+                    }}
+                    className="text-xs h-8"
+                    placeholder="3"
+                  />
+                </div>
+
+                <div className="flex-1 min-w-[150px]">
+                  <label htmlFor="min-refuel" className="text-xs font-medium">
+                    Min Refuel (gal)
+                  </label>
+                  <Input
+                    id="min-refuel"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={minRefuelGallons}
+                    onChange={(e) => setMinRefuelGallons(e.target.value)}
+                    className="text-xs h-8"
+                    placeholder="Optional"
+                  />
+                </div>
+
+                <div className="flex-1 min-w-[200px]">
+                  <div className="flex justify-between items-center mb-1">
+                    <label htmlFor="max-detour" className="text-xs font-medium">
+                      Max Detour (km)
+                    </label>
+                    <span className="text-xs font-semibold text-muted-foreground">
+                      {(parseInt(maxDetourMeters, 10) / 1000).toFixed(0)}km
+                    </span>
+                  </div>
+                  <div className="flex gap-2 items-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = parseInt(maxDetourMeters, 10)
+                        const newValue = Math.max(0, current - 1000)
+                        setMaxDetourMeters(String(newValue))
+                      }}
+                      className="px-2 py-1 h-8 rounded border border-border bg-muted hover:bg-muted/80 text-xs font-medium transition-colors"
+                      disabled={parseInt(maxDetourMeters, 10) === 0}
+                      aria-label="Decrease detour distance"
+                    >
+                      −
+                    </button>
+                    <input
+                      id="max-detour"
+                      type="range"
+                      min="0"
+                      max="100000"
+                      step="1000"
+                      value={maxDetourMeters}
+                      onChange={(e) => setMaxDetourMeters(e.target.value)}
+                      className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = parseInt(maxDetourMeters, 10)
+                        const newValue = Math.min(100000, current + 1000)
+                        setMaxDetourMeters(String(newValue))
+                      }}
+                      className="px-2 py-1 h-8 rounded border border-border bg-muted hover:bg-muted/80 text-xs font-medium transition-colors"
+                      disabled={parseInt(maxDetourMeters, 10) === 100000}
+                      aria-label="Increase detour distance"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                    <span>0</span>
+                    <span>100km</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleOptimizeFuel}
+                    disabled={
+                      fuelOptimizationMutation.isPending || !selectedVehicleId
+                    }
+                    className="text-xs h-8 px-3"
+                    size="sm"
+                  >
+                    {fuelOptimizationMutation.isPending
+                      ? "Optimizing…"
+                      : "Optimize Fuel"}
+                  </Button>
+                </div>
+
+                {fuelOptimizationMutation.isError && (
+                  <div className="text-xs text-red-600 dark:text-red-400 flex-wrap">
+                    Optimization error
+                  </div>
+                )}
+              </div>
+            </FloatingPanel>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          aria-label={isFullscreen ? "Exit full screen" : "Enter full screen"}
+          title={isFullscreen ? "Exit full screen" : "Enter full screen"}
+          className="absolute bottom-4 right-4 z-10 flex h-8 w-8 items-center justify-center rounded-md border border-border/70 bg-white text-muted-foreground shadow-md hover:bg-muted dark:bg-slate-950"
+        >
+          {isFullscreen ? (
+            <Minimize className="h-4 w-4" />
+          ) : (
+            <Maximize className="h-4 w-4" />
+          )}
+        </button>
         <MeasureTool mapInstance={mapInstance} />
         <LayerTogglePanel
           visibleLayers={visibleLayers}
@@ -838,6 +916,7 @@ function MapPage() {
                 ?.fuel_profile.consumption_mpg,
             )}
             routeTotalDistanceMeters={routeTotalDistanceMeters}
+            reserveGallons={optimizationReserveGallons}
           />
         )}
         {visibleLayers.has("detour") && (
@@ -896,6 +975,7 @@ function MapPage() {
             }
             summary={optimizationResult?.summary}
             routeTotalDistanceMeters={routeTotalDistanceMeters}
+            reserveGallons={optimizationReserveGallons}
             usableTankGallons={
               vehicles.find((v) => v.id === optimizationResult?.vehicle_id)
                 ?.fuel_profile.usable_tank_capacity_gallons
