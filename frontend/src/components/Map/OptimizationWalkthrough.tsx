@@ -24,6 +24,7 @@ interface OptimizationWalkthroughProps {
   usableTankGallons?: number | string
   summary?: FuelOptimizationSummaryPublic
   routeTotalDistanceMeters?: number
+  reserveGallons?: number
 }
 
 function formatGallons(value: number | undefined): string {
@@ -79,6 +80,7 @@ export function OptimizationWalkthrough({
   usableTankGallons,
   summary,
   routeTotalDistanceMeters,
+  reserveGallons,
 }: OptimizationWalkthroughProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
 
@@ -112,6 +114,10 @@ export function OptimizationWalkthrough({
   const rangeMiles =
     fuelOnDepartureGallons !== undefined && mpg > 0
       ? fuelOnDepartureGallons * mpg
+      : undefined
+  const rangeWithoutReserveMiles =
+    fuelOnDepartureGallons !== undefined && mpg > 0
+      ? Math.max(0, fuelOnDepartureGallons - (reserveGallons ?? 0)) * mpg
       : undefined
   const canGoBack = activeStepIndex > 0
   const canGoNext = activeStepIndex < steps.length - 1
@@ -214,6 +220,16 @@ export function OptimizationWalkthrough({
                   <span className="font-medium">{formatMiles(rangeMiles)}</span>
                 </div>
               )}
+              {rangeWithoutReserveMiles !== undefined && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    Range without reserve
+                  </span>
+                  <span className="font-medium">
+                    {formatMiles(rangeWithoutReserveMiles)}
+                  </span>
+                </div>
+              )}
               {distanceToDestinationMeters !== undefined && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">
@@ -305,6 +321,16 @@ export function OptimizationWalkthrough({
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Range on fuel</span>
                   <span className="font-medium">{formatMiles(rangeMiles)}</span>
+                </div>
+              )}
+              {rangeWithoutReserveMiles !== undefined && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    Range without reserve
+                  </span>
+                  <span className="font-medium">
+                    {formatMiles(rangeWithoutReserveMiles)}
+                  </span>
                 </div>
               )}
               {distanceToDestinationMeters !== undefined && (

@@ -329,14 +329,21 @@ export function sliceRouteByDistance(
  * Route span reachable from a walkthrough step on the fuel it departs with.
  *
  * Uses the same fuel-to-distance conversion as the "Range on fuel" figure
- * in the walkthrough panel. Returns null for steps without a departure
- * (destination) or when the range cannot be computed.
+ * in the walkthrough panel. `reserveStartMeters` marks where the reserve
+ * begins: the span before it is covered on usable fuel, the span after it
+ * on reserve. Returns null for steps without a departure (destination) or
+ * when the range cannot be computed.
  */
 export function getReachableRouteSegmentMeters(
   step: OptimizationStep,
   consumptionMpg: number,
   routeTotalDistanceMeters: number,
-): { startMeters: number; endMeters: number } | null {
+  reserveGallons = 0,
+): {
+  startMeters: number
+  reserveStartMeters: number
+  endMeters: number
+} | null {
   if (step.kind === "destination" || !(consumptionMpg > 0)) {
     return null
   }
@@ -347,15 +354,22 @@ export function getReachableRouteSegmentMeters(
     return null
   }
 
-  const rangeMeters =
-    Math.max(0, fuelOnDeparture) * consumptionMpg * METERS_PER_MILE
+  const metersPerGallon = consumptionMpg * METERS_PER_MILE
   const startMeters = step.routeOffsetMeters
   const endMeters = Math.min(
     routeTotalDistanceMeters,
-    startMeters + rangeMeters,
+    startMeters + Math.max(0, fuelOnDeparture) * metersPerGallon,
+  )
+  const reserveStartMeters = Math.min(
+    endMeters,
+    startMeters +
+      Math.max(0, fuelOnDeparture - Math.max(0, reserveGallons)) *
+        metersPerGallon,
   )
 
-  return endMeters > startMeters ? { startMeters, endMeters } : null
+  return endMeters > startMeters
+    ? { startMeters, reserveStartMeters, endMeters }
+    : null
 }
 
 const DEFAULT_RESERVE_TANK_FRACTION = 0.1

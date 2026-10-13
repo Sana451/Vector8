@@ -139,6 +139,8 @@ function MapPage() {
   const [minRefuelGallons, setMinRefuelGallons] = useState("")
   const [optimizationResult, setOptimizationResult] =
     useState<FuelOptimizationCalculateResponse | null>(null)
+  const [optimizationReserveGallons, setOptimizationReserveGallons] =
+    useState(0)
   const [activeStepIndex, setActiveStepIndex] = useState(0)
 
   // Fetch vehicles list
@@ -360,6 +362,7 @@ function MapPage() {
       // Always keep the full result so rejected stations can be highlighted
       // on the map, even when the optimization itself is infeasible.
       setOptimizationResult(data)
+      setOptimizationReserveGallons(parseFloat(reserveGallons) || 0)
       setActiveStepIndex(0)
       setActiveFuelStationIds(
         new Set((data.stops ?? []).map((stop) => stop.station_id)),
@@ -838,6 +841,7 @@ function MapPage() {
                 ?.fuel_profile.consumption_mpg,
             )}
             routeTotalDistanceMeters={routeTotalDistanceMeters}
+            reserveGallons={optimizationReserveGallons}
           />
         )}
         {visibleLayers.has("detour") && (
@@ -896,6 +900,7 @@ function MapPage() {
             }
             summary={optimizationResult?.summary}
             routeTotalDistanceMeters={routeTotalDistanceMeters}
+            reserveGallons={optimizationReserveGallons}
             usableTankGallons={
               vehicles.find((v) => v.id === optimizationResult?.vehicle_id)
                 ?.fuel_profile.usable_tank_capacity_gallons
