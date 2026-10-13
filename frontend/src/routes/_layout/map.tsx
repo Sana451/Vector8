@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
+import { Maximize, Minimize } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { calculateFuelOptimization } from "@/api/fuelOptimization"
 import { getAllFuelStations, getRouteOverview, searchAddress } from "@/api/map"
@@ -62,6 +63,33 @@ interface RouteInfo {
 
 function MapPage() {
   const mapRef = useRef<TomTomMapHandle>(null)
+  const mapContainerRef = useRef<HTMLDivElement>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  useEffect(() => {
+    const onChange = () => {
+      setIsFullscreen(document.fullscreenElement === mapContainerRef.current)
+    }
+    document.addEventListener("fullscreenchange", onChange)
+    return () => {
+      document.removeEventListener("fullscreenchange", onChange)
+      if (document.fullscreenElement === mapContainerRef.current) {
+        void document.exitFullscreen()
+      }
+    }
+  }, [])
+
+  const toggleFullscreen = () => {
+    const container = mapContainerRef.current
+    if (!container) return
+    if (document.fullscreenElement === container) {
+      void document.exitFullscreen()
+      return
+    }
+    container.requestFullscreen().catch(() => {
+      showErrorToast("Full screen mode is not available")
+    })
+  }
   const { showSuccessToast, showErrorToast } = useCustomToast()
 
   // Layer visibility state
@@ -811,8 +839,24 @@ function MapPage() {
           </div>
         </div>
       )}
-      <div className="flex-1 min-h-0 relative w-full overflow-hidden">
+      <div
+        ref={mapContainerRef}
+        className="flex-1 min-h-0 relative w-full overflow-hidden"
+      >
         <TomTomMap ref={mapRef} />
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          aria-label={isFullscreen ? "Exit full screen" : "Enter full screen"}
+          title={isFullscreen ? "Exit full screen" : "Enter full screen"}
+          className="absolute bottom-4 right-4 z-10 flex h-8 w-8 items-center justify-center rounded-md border border-border/70 bg-white text-muted-foreground shadow-md hover:bg-muted dark:bg-slate-950"
+        >
+          {isFullscreen ? (
+            <Minimize className="h-4 w-4" />
+          ) : (
+            <Maximize className="h-4 w-4" />
+          )}
+        </button>
         <MeasureTool mapInstance={mapInstance} />
         <LayerTogglePanel
           visibleLayers={visibleLayers}
