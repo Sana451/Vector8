@@ -6,8 +6,13 @@
  * simply yields null.
  */
 
+import along from "@turf/along"
+import bearing from "@turf/bearing"
 import buffer from "@turf/buffer"
-import { lineString } from "@turf/helpers"
+import destination from "@turf/destination"
+import difference from "@turf/difference"
+import { featureCollection, lineString, polygon } from "@turf/helpers"
+import length from "@turf/length"
 import type { Feature, FeatureCollection } from "geojson"
 import type {
   FuelStationData,
@@ -63,9 +68,38 @@ export function buildRouteFeature(
 }
 
 /**
+ * Build a rectangle covering the half-plane behind `origin`, i.e. the side
+ * opposite to `towards`. Used to cut off the round end caps of the buffer.
+ */
+function buildBehindHalfPlane(
+  origin: Coordinate,
+  towards: Coordinate,
+  sizeKm: number,
+) {
+  const forward = bearing(origin, towards)
+  const left = destination(origin, sizeKm, forward - 90, {
+    units: "kilometers",
+  })
+  const right = destination(origin, sizeKm, forward + 90, {
+    units: "kilometers",
+  })
+  const behind = (point: { geometry: { coordinates: number[] } }) =>
+    destination(point.geometry.coordinates, sizeKm, forward + 180, {
+      units: "kilometers",
+    }).geometry.coordinates
+  const leftCoords = left.geometry.coordinates
+  const rightCoords = right.geometry.coordinates
+  return polygon([
+    [leftCoords, rightCoords, behind(right), behind(left), leftCoords],
+  ])
+}
+
+/**
  * Build a Polygon feature representing the detour zone around a route.
  *
- * Creates a buffer polygon around the route line by the specified distance in kilometers.
+ * Creates a buffer polygon around the route line by the specified distance in
+ * kilometers. The round caps before the start and after the finish are removed
+ * (stations there are not part of the route), leaving half-circles at the ends.
  *
  * @param coordinates - Array of [longitude, latitude] pairs
  * @param detourDistanceKm - Buffer distance in kilometers
@@ -80,14 +114,41 @@ export function buildDetourFeature(
   }
 
   try {
-    // Create a LineString from route coordinates
     const line = lineString(coordinates)
-
-    // Create a buffer (polygon) around the line
-    // The detourDistanceKm is in kilometers, turf buffer expects kilometers by default
     const buffered = buffer(line, detourDistanceKm, { units: "kilometers" })
+    if (!buffered) {
+      return null
+    }
 
-    return buffered ?? null
+    // The first/last segments can be a few metres long and point anywhere, so
+    // the heading at each end is taken towards a point one detour radius along
+    // the route (capped to half of it for short routes).
+    const lookAheadKm = Math.min(detourDistanceKm, length(line) / 2)
+    if (detourDistanceKm <= 0 || lookAheadKm <= 0) {
+      return buffered
+    }
+    const start = coordinates[0]
+    const end = coordinates[coordinates.length - 1]
+    const afterStart = along(line, lookAheadKm, { units: "kilometers" })
+      .geometry.coordinates as Coordinate
+    const beforeEnd = along(
+      lineString([...coordinates].reverse()),
+      lookAheadKm,
+      {
+        units: "kilometers",
+      },
+    ).geometry.coordinates as Coordinate
+
+    const size = detourDistanceKm * 2
+    const clipped = difference(
+      featureCollection([
+        buffered,
+        buildBehindHalfPlane(start, afterStart, size),
+        buildBehindHalfPlane(end, beforeEnd, size),
+      ]),
+    )
+
+    return clipped ?? buffered
   } catch (error) {
     console.error("[buildDetourFeature] Error creating detour buffer:", error)
     return null

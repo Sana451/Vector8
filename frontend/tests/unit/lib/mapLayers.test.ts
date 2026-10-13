@@ -1,6 +1,8 @@
+import booleanPointInPolygon from "@turf/boolean-point-in-polygon"
 import { describe, expect, it } from "vitest"
 import type { MapOverviewResponse } from "@/client/types.gen"
 import {
+  buildDetourFeature,
   buildFuelFeatures,
   buildRestAreaFeatures,
   buildRouteFeature,
@@ -313,5 +315,49 @@ describe("extractOverviewCoordinates", () => {
     }
 
     expect(extractOverviewCoordinates(response)).toBeNull()
+  })
+})
+
+describe("buildDetourFeature", () => {
+  const route: Coordinate[] = [
+    [-100, 40],
+    [-99, 40],
+    [-98, 40],
+  ]
+
+  it("returns null for fewer than two points", () => {
+    expect(buildDetourFeature([[-100, 40]], 10)).toBeNull()
+    expect(buildDetourFeature(null, 10)).toBeNull()
+  })
+
+  it("keeps the zone beside the route but cuts the caps before start and after finish", () => {
+    const feature = buildDetourFeature(route, 10)
+    if (!feature) throw new Error("expected a feature")
+    const contains = (point: number[]) =>
+      booleanPointInPolygon(point, feature as never)
+
+    expect(contains([-99, 40.05])).toBe(true)
+    expect(contains([-99.99, 40.05])).toBe(true)
+    expect(contains([-98.01, 39.95])).toBe(true)
+    expect(contains([-100.05, 40])).toBe(false)
+    expect(contains([-97.95, 40])).toBe(false)
+  })
+
+  it("cuts perpendicular to the overall heading when the first segment points elsewhere", () => {
+    const feature = buildDetourFeature(
+      [
+        [-100, 40],
+        [-100, 40.02],
+        [-100.05, 40.02],
+        [-101, 40.02],
+      ],
+      10,
+    )
+    if (!feature) throw new Error("expected a feature")
+    const contains = (point: number[]) =>
+      booleanPointInPolygon(point, feature as never)
+
+    expect(contains([-100, 40.01])).toBe(true)
+    expect(contains([-99.95, 40.01])).toBe(false)
   })
 })
