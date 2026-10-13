@@ -8,11 +8,12 @@
  */
 
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import type {
   FuelOptimizationFailurePublic,
   FuelOptimizationSummaryPublic,
 } from "@/client"
+import { useDraggable } from "@/hooks/useDraggable"
 import type { OptimizationStep } from "@/lib/fuelOptimizationWalkthrough"
 
 interface OptimizationWalkthroughProps {
@@ -83,6 +84,8 @@ export function OptimizationWalkthrough({
   reserveGallons,
 }: OptimizationWalkthroughProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const { dragHandlers, dragStyle } = useDraggable(panelRef)
 
   if (steps.length === 0) {
     return null
@@ -123,7 +126,12 @@ export function OptimizationWalkthrough({
   const canGoNext = activeStepIndex < steps.length - 1
 
   return (
-    <div className="absolute bottom-4 left-4 z-10 w-[360px] max-w-[calc(100vw-2rem)] rounded-lg border border-border/70 bg-white dark:bg-slate-950 shadow-md">
+    <div
+      ref={panelRef}
+      {...dragHandlers}
+      style={dragStyle}
+      className="absolute bottom-4 left-4 z-10 w-[360px] max-w-[calc(100vw-2rem)] rounded-lg border border-border/70 bg-white dark:bg-slate-950 shadow-md"
+    >
       {/* Step jump pills */}
       <div className="flex items-center gap-1.5 px-3 pt-3">
         <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">

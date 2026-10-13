@@ -1,6 +1,7 @@
 import type { Map as MapLibreMap, MapMouseEvent } from "maplibre-gl"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { useDraggable } from "@/hooks/useDraggable"
 import {
   formatDistance,
   measureLengthKm,
@@ -20,6 +21,8 @@ export function MeasureTool({ mapInstance }: MeasureToolProps) {
   const [mode, setMode] = useState<Mode>("points")
   const [points, setPoints] = useState<Coordinate[]>([])
   const drawing = useRef(false)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const { dragHandlers, dragStyle } = useDraggable(panelRef)
 
   useEffect(() => {
     if (!mapInstance || !active) {
@@ -106,7 +109,12 @@ export function MeasureTool({ mapInstance }: MeasureToolProps) {
         points={active ? points : []}
         showVertices={mode === "points"}
       />
-      <div className="absolute top-2 left-2 z-10 flex flex-col gap-1 rounded-md border bg-background p-2 shadow text-xs">
+      <div
+        ref={panelRef}
+        {...dragHandlers}
+        style={dragStyle}
+        className="absolute top-2 left-2 z-10 flex flex-col gap-1 rounded-md border bg-background p-2 shadow text-xs"
+      >
         <Button
           size="sm"
           variant={active ? "default" : "outline"}
