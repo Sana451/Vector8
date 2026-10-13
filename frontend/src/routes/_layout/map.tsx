@@ -113,6 +113,9 @@ function MapPage() {
   const [deliverySelection, setDeliverySelection] =
     useState<AddressSelection | null>(null)
   const [isPickupSearching, setIsPickupSearching] = useState(false)
+  // Suggestions only appear after the user types, not for prefilled defaults.
+  const [pickupEdited, setPickupEdited] = useState(false)
+  const [deliveryEdited, setDeliveryEdited] = useState(false)
   const [isDeliverySearching, setIsDeliverySearching] = useState(false)
 
   // Layer state - each layer is stored and rendered independently
@@ -181,7 +184,7 @@ function MapPage() {
     const query = pickupAddress.trim()
     const selectedAddress = pickupSelection?.formatted_address
 
-    if (query.length < 3 || query === selectedAddress) {
+    if (!pickupEdited || query.length < 3 || query === selectedAddress) {
       setPickupSuggestion(null)
       setIsPickupSearching(false)
       return
@@ -209,14 +212,14 @@ function MapPage() {
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [pickupAddress, pickupSelection])
+  }, [pickupAddress, pickupSelection, pickupEdited])
 
   useEffect(() => {
     let cancelled = false
     const query = deliveryAddress.trim()
     const selectedAddress = deliverySelection?.formatted_address
 
-    if (query.length < 3 || query === selectedAddress) {
+    if (!deliveryEdited || query.length < 3 || query === selectedAddress) {
       setDeliverySuggestion(null)
       setIsDeliverySearching(false)
       return
@@ -244,7 +247,7 @@ function MapPage() {
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [deliveryAddress, deliverySelection])
+  }, [deliveryAddress, deliverySelection, deliveryEdited])
 
   const mutation = useMutation({
     mutationFn: async (forceRefresh: boolean) => {
@@ -557,6 +560,7 @@ function MapPage() {
                 placeholder="1521 Hickory Trail..."
                 value={pickupAddress}
                 onChange={(e) => {
+                  setPickupEdited(true)
                   setPickupAddress(e.target.value)
                   if (e.target.value !== pickupSelection?.formatted_address) {
                     setPickupSelection(null)
@@ -594,6 +598,7 @@ function MapPage() {
                 placeholder="3660 Gateway Street..."
                 value={deliveryAddress}
                 onChange={(e) => {
+                  setDeliveryEdited(true)
                   setDeliveryAddress(e.target.value)
                   if (e.target.value !== deliverySelection?.formatted_address) {
                     setDeliverySelection(null)
