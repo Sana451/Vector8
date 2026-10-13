@@ -176,8 +176,10 @@ function MapPage() {
   const [activeStepIndex, setActiveStepIndex] = useState(0)
 
   // Fetch vehicles list
+  // Distinct key: the fleet page caches a {data, count} object under
+  // ["vehicles"]; invalidating ["vehicles"] still refreshes this list too.
   const { data: vehicles = [] } = useQuery<VehiclePublic[]>({
-    queryKey: ["vehicles"],
+    queryKey: ["vehicles", "list"],
     queryFn: listVehicles,
   })
 
