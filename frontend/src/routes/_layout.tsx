@@ -40,7 +40,7 @@ function Layout() {
           <Logo variant="icon" className="md:hidden" />
         </header>
         <main className="flex-1 p-4 md:p-8">
-          <div className="mx-auto flex max-w-7xl flex-col gap-6">
+          <div className="flex w-full flex-col gap-6">
             <Outlet />
           </div>
         </main>
