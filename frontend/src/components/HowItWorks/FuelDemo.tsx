@@ -166,20 +166,20 @@ const STRATEGIES: Strategy[] = [
     decisionFor: decisionForNaiveFull,
   },
   {
-    key: "jit",
-    title: "🚫 Just enough",
-    subtitle: "Refuels at every stop, no price awareness",
-    variant: "naive",
-    compute: computeNaive,
-    decisionFor: decisionForNaive,
-  },
-  {
     key: "greedy",
     title: "✅ Greedy",
     subtitle: "Price-aware, looks ahead before buying",
     variant: "greedy",
     compute: computeGreedy,
     decisionFor: decisionForGreedy,
+  },
+  {
+    key: "jit",
+    title: "🚫 Just enough",
+    subtitle: "Refuels at every stop, no price awareness",
+    variant: "naive",
+    compute: computeNaive,
+    decisionFor: decisionForNaive,
   },
 ]
 
