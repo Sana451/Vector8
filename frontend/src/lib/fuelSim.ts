@@ -17,10 +17,11 @@ export const STATIONS = [
 export const cheapestPrice = Math.min(...STATIONS.map((s) => s.price))
 
 /**
- * Greedy look-ahead strategy: at each stop, find the next station (or the
- * destination) with a lower price. If reachable, buy only enough to get
- * there with RESERVE left. If no cheaper station exists ahead, top up
- * enough to cover the rest of the trip (capped by tank capacity).
+ * Greedy look-ahead strategy: at each stop, look at every station ahead that
+ * is reachable on a full tank and pick the cheapest one that is cheaper than
+ * the current station. Buy only enough to get there with RESERVE left. If no
+ * cheaper station is reachable, top up enough to cover the rest of the trip
+ * (capped by tank capacity).
  */
 export function computeGreedy() {
   let fuel = START_FUEL
@@ -41,13 +42,19 @@ export function computeGreedy() {
       break
     }
 
+    const maxRange = (CAPACITY - RESERVE) * MPG
     let target = null
     for (let j = i + 1; j < points.length; j++) {
       const c = points[j]
-      if (c.isDest || c.price < st.price) {
-        target = c
+      if (c.isDest || c.dist - st.dist > maxRange) {
         break
       }
+      if (c.price < st.price && (!target || c.price < target.price)) {
+        target = c
+      }
+    }
+    if (!target) {
+      target = points.find((c) => c.isDest)
     }
 
     const hasCheaperTarget = !!(target && !target.isDest)

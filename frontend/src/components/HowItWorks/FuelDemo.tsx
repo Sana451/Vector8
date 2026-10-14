@@ -40,7 +40,7 @@ interface Decision {
 function getInitialDecision(): Decision {
   return {
     head: "START — Ready to depart",
-    note: "Begin the journey with a full tank. Different strategies will make different decisions at each stop along the way.",
+    note: `Begin the journey with ${gal(START_FUEL)} of ${gal(CAPACITY)} in the tank. Different strategies will make different decisions at each stop along the way.`,
     figures: [
       ["Current fuel", gal(START_FUEL)],
       ["Remaining trip", `${TOTAL} mi`],
@@ -208,6 +208,10 @@ export default function FuelDemo() {
     Object.fromEntries(STRATEGIES.map((s) => [s.key, new Set()])),
   )
 
+  const [boughtMap, setBoughtMap] = useState(() =>
+    Object.fromEntries(STRATEGIES.map((s) => [s.key, new Set()])),
+  )
+
   const isDone = idx >= 0 && results[0].steps[idx].isDest
 
   function namesUpTo(steps: Step[], i: number): Set<string> {
@@ -215,6 +219,15 @@ export default function FuelDemo() {
     for (let k = 0; k <= i; k++) {
       const st = steps[k]
       if (!st.isDest) s.add(st.station?.name || "")
+    }
+    return s
+  }
+
+  function boughtUpTo(steps: Step[], i: number): Set<string> {
+    const s = new Set<string>()
+    for (let k = 0; k <= i; k++) {
+      const st = steps[k]
+      if (!st.isDest && st.purchase > 0.05) s.add(st.station?.name || "")
     }
     return s
   }
@@ -230,6 +243,7 @@ export default function FuelDemo() {
     }
     setDecisions(initialDecisions)
     setVisitedMap(Object.fromEntries(STRATEGIES.map((s) => [s.key, new Set()])))
+    setBoughtMap(Object.fromEntries(STRATEGIES.map((s) => [s.key, new Set()])))
   }
 
   // Instant jump — revisiting a step already seen. Every track moves together, no animation.
@@ -241,16 +255,19 @@ export default function FuelDemo() {
     const nextFuels: Record<string, number> = {}
     const nextDecisions: Record<string, Decision | null> = {}
     const nextVisited: Record<string, Set<string>> = {}
+    const nextBought: Record<string, Set<string>> = {}
     for (const r of results) {
       const step = r.steps[i]
       nextFuels[r.key] = snapshotFuel(step)
       nextDecisions[r.key] = r.decisionFor(step)
       nextVisited[r.key] = namesUpTo(r.steps, i)
+      nextBought[r.key] = boughtUpTo(r.steps, i)
     }
     setTruckDist(snapshotDist(results[0].steps[i]))
     setFuels(nextFuels)
     setDecisions(nextDecisions)
     setVisitedMap(nextVisited)
+    setBoughtMap(nextBought)
     setIdx(i)
   }
 
@@ -268,6 +285,11 @@ export default function FuelDemo() {
     const upto = refStep.isDest ? i - 1 : i
     setVisitedMap(
       Object.fromEntries(results.map((r) => [r.key, namesUpTo(r.steps, upto)])),
+    )
+    setBoughtMap(
+      Object.fromEntries(
+        results.map((r) => [r.key, boughtUpTo(r.steps, upto)]),
+      ),
     )
     setDecisions(
       Object.fromEntries(
@@ -363,6 +385,7 @@ export default function FuelDemo() {
             fuel={fuels[r.key]}
             decision={decisions[r.key] || null}
             visited={visitedMap[r.key]}
+            bought={boughtMap[r.key]}
           />
         ))}
       </div>

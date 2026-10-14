@@ -27,6 +27,7 @@ interface FuelTrackProps {
     figures: Array<[string, string, boolean?]> | null
   } | null
   visited: Set<string>
+  bought: Set<string>
 }
 
 export default function FuelTrack({
@@ -37,6 +38,7 @@ export default function FuelTrack({
   fuel,
   decision,
   visited,
+  bought,
 }: FuelTrackProps) {
   const reachMiles = Math.max(0, (fuel - RESERVE) * MPG)
   const fromPct = (truckDist / TOTAL) * 100
@@ -79,9 +81,15 @@ export default function FuelTrack({
               className={
                 "fuel-station" +
                 (s.price === cheapestPrice ? " cheapest" : "") +
-                (visited.has(s.name) ? " visited" : "")
+                (visited.has(s.name) ? " visited" : "") +
+                (bought.has(s.name) ? " bought" : "")
               }
               style={{ left: `${(s.dist / TOTAL) * 100}%` }}
+              title={
+                s.price === cheapestPrice
+                  ? "Cheapest station on the entire route"
+                  : undefined
+              }
             >
               <div className="price">${s.price.toFixed(2)}</div>
               <div className="dot" />
@@ -114,9 +122,11 @@ export default function FuelTrack({
 
         {decision && (
           <div className="fuel-decision">
-            <div className="fuel-decision-head">{decision.head}</div>
+            <div className="fuel-decision-top">
+              <div className="fuel-decision-head">{decision.head}</div>
+              <div className="fuel-decision-note">{decision.note}</div>
+            </div>
             <div className="fuel-decision-body">
-              <div>{decision.note}</div>
               {decision.figures && (
                 <div className="fuel-figures">
                   {decision.figures.map(([label, value, highlight]) => (
