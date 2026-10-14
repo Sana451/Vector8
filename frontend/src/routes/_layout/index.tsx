@@ -71,16 +71,20 @@ function Dashboard() {
               </div>
               <span className="badge badge-teal">Ready</span>
             </Link>
-            <div className="row-item">
+            <Link
+              to="/fleet"
+              className="row-item hover:bg-accent/50 transition-colors cursor-pointer"
+            >
               <div>
-                <div className="t">Items & resources</div>
-                <div className="d">
-                  Manage active entities from a calmer data table UI.
-                </div>
+                <div className="t">Fleet management</div>
+                <div className="d">Manage vehicles and fleet data.</div>
               </div>
               <span className="badge badge-amber">Updated</span>
-            </div>
-            <div className="row-item">
+            </Link>
+            <Link
+              to="/admin"
+              className="row-item hover:bg-accent/50 transition-colors cursor-pointer"
+            >
               <div>
                 <div className="t">Admin controls</div>
                 <div className="d">
@@ -88,7 +92,7 @@ function Dashboard() {
                 </div>
               </div>
               <span className="badge badge-outline">Secure</span>
-            </div>
+            </Link>
           </div>
         </div>
 

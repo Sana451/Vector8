@@ -191,8 +191,8 @@
 }
 .badge-outline {
   background: transparent;
-  border: 1px solid var(--ink-line);
-  color: var(--ink-600);
+  border: 1px solid var(--border);
+  color: var(--muted-foreground);
 }
 .badge-success {
   background: var(--success-bg);
@@ -238,8 +238,8 @@
 }
 
 .list-card {
-  background: var(--paper-50);
-  border: 1px solid var(--ink-line);
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 6px;
   overflow: hidden;
 }
@@ -247,8 +247,9 @@
   display: flex;
   justify-content: space-between;
   padding: 12px 15px;
-  border-bottom: 1px solid var(--ink-line);
+  border-bottom: 1px solid var(--border);
   font-size: 13px;
+  color: var(--foreground);
 }
 .list-card .row-item:last-child {
   border-bottom: none;
@@ -258,7 +259,7 @@
 }
 .list-card .row-item .d {
   font-size: 11px;
-  color: var(--ink-600);
+  color: var(--muted-foreground);
 }
 
 /* ---------- alerts ---------- */
