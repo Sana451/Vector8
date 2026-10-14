@@ -1898,17 +1898,6 @@ export type VehicleCreate = {
      * Routing Profile Id
      */
     routing_profile_id?: string | null;
-    fuel_profile: VehicleFuelProfileCreate;
-};
-
-/**
- * VehicleFuelProfileCreate
- */
-export type VehicleFuelProfileCreate = {
-    /**
-     * Name
-     */
-    name: string;
     fuel_type?: VehicleFuelType;
     /**
      * Tank Capacity Gallons
@@ -1918,62 +1907,6 @@ export type VehicleFuelProfileCreate = {
      * Consumption Mpg
      */
     consumption_mpg: number | string;
-};
-
-/**
- * VehicleFuelProfilePublic
- */
-export type VehicleFuelProfilePublic = {
-    /**
-     * Id
-     */
-    id: string;
-    /**
-     * Name
-     */
-    name: string;
-    fuel_type: VehicleFuelType;
-    /**
-     * Tank Capacity Gallons
-     */
-    tank_capacity_gallons: string;
-    /**
-     * Consumption Mpg
-     */
-    consumption_mpg: string;
-    /**
-     * Created At
-     */
-    created_at: string;
-    /**
-     * Updated At
-     */
-    updated_at: string;
-    /**
-     * Usable Tank Capacity Gallons
-     *
-     * Usable tank capacity is always 95% of tank capacity.
-     */
-    readonly usable_tank_capacity_gallons: string;
-};
-
-/**
- * VehicleFuelProfileUpdate
- */
-export type VehicleFuelProfileUpdate = {
-    /**
-     * Name
-     */
-    name?: string | null;
-    fuel_type?: VehicleFuelType | null;
-    /**
-     * Tank Capacity Gallons
-     */
-    tank_capacity_gallons?: number | string | null;
-    /**
-     * Consumption Mpg
-     */
-    consumption_mpg?: number | string | null;
 };
 
 /**
@@ -2015,6 +1948,15 @@ export type VehiclePublic = {
      * Routing Profile Id
      */
     routing_profile_id?: string | null;
+    fuel_type: VehicleFuelType;
+    /**
+     * Tank Capacity Gallons
+     */
+    tank_capacity_gallons: string;
+    /**
+     * Consumption Mpg
+     */
+    consumption_mpg: string;
     /**
      * Created At
      */
@@ -2023,7 +1965,12 @@ export type VehiclePublic = {
      * Updated At
      */
     updated_at: string;
-    fuel_profile: VehicleFuelProfilePublic;
+    /**
+     * Usable Tank Capacity Gallons
+     *
+     * Usable tank capacity is always 95% of tank capacity.
+     */
+    readonly usable_tank_capacity_gallons: string;
 };
 
 /**
@@ -2066,7 +2013,15 @@ export type VehicleUpdate = {
      * Routing Profile Id
      */
     routing_profile_id?: string | null;
-    fuel_profile?: VehicleFuelProfileUpdate | null;
+    fuel_type?: VehicleFuelType | null;
+    /**
+     * Tank Capacity Gallons
+     */
+    tank_capacity_gallons?: number | string | null;
+    /**
+     * Consumption Mpg
+     */
+    consumption_mpg?: number | string | null;
 };
 
 /**
@@ -2081,37 +2036,6 @@ export type VehiclesPublic = {
      * Count
      */
     count: number;
-};
-
-/**
- * VehicleFuelProfilePublic
- */
-export type VehicleFuelProfilePublicWritable = {
-    /**
-     * Id
-     */
-    id: string;
-    /**
-     * Name
-     */
-    name: string;
-    fuel_type: VehicleFuelType;
-    /**
-     * Tank Capacity Gallons
-     */
-    tank_capacity_gallons: string;
-    /**
-     * Consumption Mpg
-     */
-    consumption_mpg: string;
-    /**
-     * Created At
-     */
-    created_at: string;
-    /**
-     * Updated At
-     */
-    updated_at: string;
 };
 
 /**
@@ -2148,6 +2072,15 @@ export type VehiclePublicWritable = {
      * Routing Profile Id
      */
     routing_profile_id?: string | null;
+    fuel_type: VehicleFuelType;
+    /**
+     * Tank Capacity Gallons
+     */
+    tank_capacity_gallons: string;
+    /**
+     * Consumption Mpg
+     */
+    consumption_mpg: string;
     /**
      * Created At
      */
@@ -2156,7 +2089,6 @@ export type VehiclePublicWritable = {
      * Updated At
      */
     updated_at: string;
-    fuel_profile: VehicleFuelProfilePublicWritable;
 };
 
 /**

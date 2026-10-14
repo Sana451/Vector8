@@ -101,14 +101,14 @@ export const columns: ColumnDef<VehiclePublic>[] = [
     },
   },
   {
-    id: "fuel_profile",
-    header: "Fuel Profile",
+    id: "fuel",
+    header: "Fuel",
     cell: ({ row }) => {
-      const profile = row.original.fuel_profile
+      const vehicle = row.original
       return (
         <span className="font-mono text-xs text-muted-foreground">
-          {profile.tank_capacity_gallons} gal tank · {profile.consumption_mpg}{" "}
-          mpg
+          {Number(vehicle.tank_capacity_gallons)} gal tank ·{" "}
+          {Number(vehicle.consumption_mpg)} mpg
         </span>
       )
     },

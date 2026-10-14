@@ -66,7 +66,6 @@ export function VehicleSelector({
           </button>
 
           {vehicles.map((vehicle) => {
-            const fuelProfile = vehicle.fuel_profile
             const isSelected = vehicle.id === selectedVehicleId
 
             return (
@@ -84,26 +83,20 @@ export function VehicleSelector({
                   <div className="font-medium text-xs">
                     {vehicle.name} ({vehicle.unit_number})
                   </div>
-                  {fuelProfile && (
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      <div>
-                        Tank:{" "}
-                        {formatNumber(fuelProfile.tank_capacity_gallons, 1)} gal
-                      </div>
-                      <div>
-                        Usable:{" "}
-                        {formatNumber(
-                          fuelProfile.usable_tank_capacity_gallons,
-                          2,
-                        )}{" "}
-                        gal
-                      </div>
-                      <div>
-                        Consumption:{" "}
-                        {formatNumber(fuelProfile.consumption_mpg, 2)} MPG
-                      </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    <div>
+                      Tank: {formatNumber(vehicle.tank_capacity_gallons, 1)} gal
                     </div>
-                  )}
+                    <div>
+                      Usable:{" "}
+                      {formatNumber(vehicle.usable_tank_capacity_gallons, 2)}{" "}
+                      gal
+                    </div>
+                    <div>
+                      Consumption: {formatNumber(vehicle.consumption_mpg, 2)}{" "}
+                      MPG
+                    </div>
+                  </div>
                 </button>
               </div>
             )

@@ -27,8 +27,20 @@ class VehicleFuelType(StrEnum):
     TRUCK_DIESEL = "truck_diesel"
 
 
-class VehicleFuelProfileBase(SQLModel):
+class VehicleBase(SQLModel):
     name: str = Field(min_length=1, max_length=255)
+    unit_number: str = Field(min_length=1, max_length=64, index=True, unique=True)
+    status: VehicleStatus = Field(
+        default=VehicleStatus.ACTIVE,
+        sa_column=Column(String(length=32), nullable=False),
+    )
+    vehicle_type: VehicleType = Field(
+        sa_column=Column(String(length=32), nullable=False)
+    )
+    make: str | None = Field(default=None, max_length=255)
+    model: str | None = Field(default=None, max_length=255)
+    year: int | None = Field(default=None, ge=1900, le=3000)
+    routing_profile_id: uuid.UUID | None = Field(default=None, index=True)
     fuel_type: VehicleFuelType = Field(
         default=VehicleFuelType.TRUCK_DIESEL,
         sa_column=Column(String(length=64), nullable=False),
@@ -44,54 +56,18 @@ class VehicleFuelProfileBase(SQLModel):
         return self.tank_capacity_gallons * Decimal("0.95")
 
     @model_validator(mode="after")
-    def validate_invariants(self) -> VehicleFuelProfileBase:
+    def validate_fuel_invariants(self) -> VehicleBase:
         if self.tank_capacity_gallons <= 0:
             raise ValueError("tank_capacity_gallons must be greater than 0")
-        usable = self.usable_tank_capacity_gallons
-        if usable <= 0:
-            raise ValueError("usable_tank_capacity_gallons must be greater than 0")
         if self.consumption_mpg <= 0:
             raise ValueError("consumption_mpg must be greater than 0")
         return self
-
-
-class VehicleFuelProfile(VehicleFuelProfileBase, table=True):
-    __tablename__ = "vehicle_fuel_profiles"
-
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    created_at: datetime = Field(
-        default_factory=get_datetime_utc,
-        sa_column=Column(DateTime(timezone=True), nullable=False),
-    )
-    updated_at: datetime = Field(
-        default_factory=get_datetime_utc,
-        sa_column=Column(DateTime(timezone=True), nullable=False),
-    )
-
-
-class VehicleBase(SQLModel):
-    name: str = Field(min_length=1, max_length=255)
-    unit_number: str = Field(min_length=1, max_length=64, index=True, unique=True)
-    status: VehicleStatus = Field(
-        default=VehicleStatus.ACTIVE,
-        sa_column=Column(String(length=32), nullable=False),
-    )
-    vehicle_type: VehicleType = Field(
-        sa_column=Column(String(length=32), nullable=False)
-    )
-    make: str | None = Field(default=None, max_length=255)
-    model: str | None = Field(default=None, max_length=255)
-    year: int | None = Field(default=None, ge=1900, le=3000)
-    routing_profile_id: uuid.UUID | None = Field(default=None, index=True)
 
 
 class Vehicle(VehicleBase, table=True):
     __tablename__ = "vehicles"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    fuel_profile_id: uuid.UUID = Field(
-        foreign_key="vehicle_fuel_profiles.id", nullable=False, index=True
-    )
     created_at: datetime = Field(
         default_factory=get_datetime_utc,
         sa_column=Column(DateTime(timezone=True), nullable=False),

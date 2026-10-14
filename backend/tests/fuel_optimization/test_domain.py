@@ -18,7 +18,6 @@ from app.fuel_optimization.domain import (
     InvalidFuelOptimizationInputError,
     Route,
     Vehicle,
-    VehicleFuelProfile,
 )
 
 
@@ -29,20 +28,16 @@ class DummyDetourCalculator:
 
 def build_vehicle(*, usable: str = "142.5", mpg: str = "10") -> Vehicle:
     # usable is automatically calculated as 95% of tank capacity (150 * 0.95 = 142.5)
-    # reserve is now handled via FuelOptimizationConstraints, not in VehicleFuelProfile
-    profile = VehicleFuelProfile(
-        id=uuid.uuid4(),
-        fuel_type="truck_diesel",
-        tank_capacity_gallons=Decimal("150"),
-        usable_tank_capacity_gallons=Decimal(usable),
-        consumption_mpg=Decimal(mpg),
-    )
+    # reserve is handled via FuelOptimizationConstraints, not in Vehicle
     return Vehicle(
         id=uuid.uuid4(),
         name="Truck 001",
         unit_number="TRK-001",
         vehicle_type="tractor",
-        fuel_profile=profile,
+        fuel_type="truck_diesel",
+        tank_capacity_gallons=Decimal("150"),
+        usable_tank_capacity_gallons=Decimal(usable),
+        consumption_mpg=Decimal(mpg),
     )
 
 
@@ -106,26 +101,29 @@ def build_context(
     )
 
 
-def test_vehicle_fuel_profile_validates_invariants() -> None:
+def _vehicle_kwargs(**overrides):
+    kwargs = {
+        "id": uuid.uuid4(),
+        "name": "Truck 001",
+        "unit_number": "TRK-001",
+        "vehicle_type": "tractor",
+        "fuel_type": "truck_diesel",
+        "tank_capacity_gallons": Decimal("10"),
+        "usable_tank_capacity_gallons": Decimal("9.5"),
+        "consumption_mpg": Decimal("7"),
+    }
+    kwargs.update(overrides)
+    return kwargs
+
+
+def test_vehicle_validates_fuel_invariants() -> None:
     # Test that usable_tank_capacity_gallons cannot exceed tank_capacity_gallons
     with pytest.raises(InvalidFuelOptimizationInputError):
-        VehicleFuelProfile(
-            id=uuid.uuid4(),
-            fuel_type="truck_diesel",
-            tank_capacity_gallons=Decimal("10"),
-            usable_tank_capacity_gallons=Decimal("11"),
-            consumption_mpg=Decimal("7"),
-        )
+        Vehicle(**_vehicle_kwargs(usable_tank_capacity_gallons=Decimal("11")))
 
     # Test that consumption_mpg must be positive
     with pytest.raises(InvalidFuelOptimizationInputError):
-        VehicleFuelProfile(
-            id=uuid.uuid4(),
-            fuel_type="truck_diesel",
-            tank_capacity_gallons=Decimal("10"),
-            usable_tank_capacity_gallons=Decimal("9.5"),
-            consumption_mpg=Decimal("0"),
-        )
+        Vehicle(**_vehicle_kwargs(consumption_mpg=Decimal("0")))
 
 
 def test_constant_mpg_consumption_model_keeps_decimal_precision() -> None:
@@ -236,8 +234,7 @@ def test_greedy_makes_one_necessary_stop() -> None:
     assert plan.number_of_stops == 1
     assert plan.stops[0].station_id == station.station_id
     assert (
-        plan.stops[0].fuel_after_gallons
-        <= context.vehicle.fuel_profile.usable_tank_capacity_gallons
+        plan.stops[0].fuel_after_gallons <= context.vehicle.usable_tank_capacity_gallons
     )
 
 
@@ -257,10 +254,7 @@ def test_greedy_buys_only_enough_to_reach_cheaper_station_ahead() -> None:
     first_stop = plan.stops[0]
     assert first_stop.station_id == expensive.station_id
     assert first_stop.fuel_added_gallons < Decimal("145")
-    assert (
-        first_stop.fuel_after_gallons
-        <= context.vehicle.fuel_profile.usable_tank_capacity_gallons
-    )
+    assert first_stop.fuel_after_gallons <= context.vehicle.usable_tank_capacity_gallons
 
 
 def test_greedy_skips_station_when_min_refuel_cannot_fit_in_tank() -> None:

@@ -10,36 +10,6 @@ from sqlmodel import Field, SQLModel
 from app.fleet.models import VehicleFuelType, VehicleStatus, VehicleType
 
 
-class VehicleFuelProfileCreate(SQLModel):
-    name: str = Field(min_length=1, max_length=255)
-    fuel_type: VehicleFuelType = VehicleFuelType.TRUCK_DIESEL
-    tank_capacity_gallons: Decimal = Field(gt=0)
-    consumption_mpg: Decimal = Field(gt=0)
-
-
-class VehicleFuelProfileUpdate(SQLModel):
-    name: str | None = Field(default=None, min_length=1, max_length=255)
-    fuel_type: VehicleFuelType | None = None
-    tank_capacity_gallons: Decimal | None = Field(default=None, gt=0)
-    consumption_mpg: Decimal | None = Field(default=None, gt=0)
-
-
-class VehicleFuelProfilePublic(SQLModel):
-    id: uuid.UUID
-    name: str
-    fuel_type: VehicleFuelType
-    tank_capacity_gallons: Decimal
-    consumption_mpg: Decimal
-    created_at: datetime
-    updated_at: datetime
-
-    @computed_field  # type: ignore[misc]
-    @property
-    def usable_tank_capacity_gallons(self) -> Decimal:
-        """Usable tank capacity is always 95% of tank capacity."""
-        return self.tank_capacity_gallons * Decimal("0.95")
-
-
 class VehicleCreate(SQLModel):
     name: str = Field(min_length=1, max_length=255)
     unit_number: str = Field(min_length=1, max_length=64)
@@ -49,7 +19,9 @@ class VehicleCreate(SQLModel):
     model: str | None = Field(default=None, max_length=255)
     year: int | None = Field(default=None, ge=1900, le=3000)
     routing_profile_id: uuid.UUID | None = None
-    fuel_profile: VehicleFuelProfileCreate
+    fuel_type: VehicleFuelType = VehicleFuelType.TRUCK_DIESEL
+    tank_capacity_gallons: Decimal = Field(gt=0)
+    consumption_mpg: Decimal = Field(gt=0)
 
 
 class VehicleUpdate(SQLModel):
@@ -61,7 +33,9 @@ class VehicleUpdate(SQLModel):
     model: str | None = Field(default=None, max_length=255)
     year: int | None = Field(default=None, ge=1900, le=3000)
     routing_profile_id: uuid.UUID | None = None
-    fuel_profile: VehicleFuelProfileUpdate | None = None
+    fuel_type: VehicleFuelType | None = None
+    tank_capacity_gallons: Decimal | None = Field(default=None, gt=0)
+    consumption_mpg: Decimal | None = Field(default=None, gt=0)
 
 
 class VehiclePublic(SQLModel):
@@ -74,9 +48,17 @@ class VehiclePublic(SQLModel):
     model: str | None = None
     year: int | None = None
     routing_profile_id: uuid.UUID | None = None
+    fuel_type: VehicleFuelType
+    tank_capacity_gallons: Decimal
+    consumption_mpg: Decimal
     created_at: datetime
     updated_at: datetime
-    fuel_profile: VehicleFuelProfilePublic
+
+    @computed_field  # type: ignore[misc]
+    @property
+    def usable_tank_capacity_gallons(self) -> Decimal:
+        """Usable tank capacity is always 95% of tank capacity."""
+        return self.tank_capacity_gallons * Decimal("0.95")
 
 
 class VehiclesPublic(SQLModel):

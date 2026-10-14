@@ -20,7 +20,7 @@ fileConfig(config.config_file_name)
 
 from app.models import SQLModel  # noqa
 from app.core.config import settings  # noqa
-from app.fleet.models import Vehicle, VehicleFuelProfile  # noqa
+from app.fleet.models import Vehicle  # noqa
 from app.fuel_optimization.models import FuelOptimizationRun, FuelOptimizationStop  # noqa
 from app.routing.models import RouteCalculation  # noqa
 from app.map.models import (  # noqa

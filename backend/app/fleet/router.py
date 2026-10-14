@@ -10,7 +10,6 @@ from app.fleet.models import VehicleFuelType, VehicleStatus, VehicleType
 from app.fleet.repository import VehicleRepository
 from app.fleet.schemas import (
     VehicleCreate,
-    VehicleFuelProfilePublic,
     VehiclePublic,
     VehiclesPublic,
     VehicleUpdate,
@@ -24,10 +23,7 @@ router = APIRouter(
 )
 
 
-def _to_vehicle_public(repository: VehicleRepository, vehicle) -> VehiclePublic:
-    profile = repository.get_fuel_profile(vehicle.fuel_profile_id)
-    if profile is None:
-        raise HTTPException(status_code=404, detail="Vehicle fuel profile not found")
+def _to_vehicle_public(vehicle) -> VehiclePublic:
     return VehiclePublic(
         id=vehicle.id,
         name=vehicle.name,
@@ -38,17 +34,11 @@ def _to_vehicle_public(repository: VehicleRepository, vehicle) -> VehiclePublic:
         model=vehicle.model,
         year=vehicle.year,
         routing_profile_id=vehicle.routing_profile_id,
+        fuel_type=VehicleFuelType(str(vehicle.fuel_type)),
+        tank_capacity_gallons=vehicle.tank_capacity_gallons,
+        consumption_mpg=vehicle.consumption_mpg,
         created_at=vehicle.created_at,
         updated_at=vehicle.updated_at,
-        fuel_profile=VehicleFuelProfilePublic(
-            id=profile.id,
-            name=profile.name,
-            fuel_type=VehicleFuelType(str(profile.fuel_type)),
-            tank_capacity_gallons=profile.tank_capacity_gallons,
-            consumption_mpg=profile.consumption_mpg,
-            created_at=profile.created_at,
-            updated_at=profile.updated_at,
-        ),
     )
 
 
@@ -63,7 +53,7 @@ def create_vehicle(*, session: SessionDep, vehicle_in: VehicleCreate) -> Any:
         vehicle = repository.create(vehicle_in)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return _to_vehicle_public(repository, vehicle)
+    return _to_vehicle_public(vehicle)
 
 
 @router.get("/", response_model=VehiclesPublic)
@@ -73,7 +63,7 @@ def list_vehicles(
     repository = VehicleRepository(session)
     vehicles, count = repository.list(skip=skip, limit=limit)
     return VehiclesPublic(
-        data=[_to_vehicle_public(repository, vehicle) for vehicle in vehicles],
+        data=[_to_vehicle_public(vehicle) for vehicle in vehicles],
         count=count,
     )
 
@@ -84,7 +74,7 @@ def get_vehicle(session: SessionDep, vehicle_id: uuid.UUID) -> VehiclePublic:
     vehicle = repository.get(vehicle_id)
     if vehicle is None:
         raise HTTPException(status_code=404, detail="Vehicle not found")
-    return _to_vehicle_public(repository, vehicle)
+    return _to_vehicle_public(vehicle)
 
 
 @router.patch("/{vehicle_id}", response_model=VehiclePublic)
@@ -110,7 +100,7 @@ def update_vehicle(
         updated = repository.update(vehicle, vehicle_in)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return _to_vehicle_public(repository, updated)
+    return _to_vehicle_public(updated)
 
 
 @router.delete("/{vehicle_id}", response_model=Message)

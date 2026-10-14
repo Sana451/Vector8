@@ -484,9 +484,7 @@ function MapPage() {
 
   const reserveLimits = useMemo(() => {
     const vehicle = vehicles.find((v) => v.id === selectedVehicleId)
-    return getReserveLimits(
-      Number(vehicle?.fuel_profile.usable_tank_capacity_gallons),
-    )
+    return getReserveLimits(Number(vehicle?.usable_tank_capacity_gallons))
   }, [vehicles, selectedVehicleId])
 
   const handleOptimizeFuel = () => {
@@ -534,7 +532,7 @@ function MapPage() {
     setSelectedVehicleId(vehicleId)
     const vehicle = vehicles.find((v) => v.id === vehicleId)
     const reserve = getDefaultReserveGallons(
-      Number(vehicle?.fuel_profile.usable_tank_capacity_gallons),
+      Number(vehicle?.usable_tank_capacity_gallons),
     )
     if (reserve !== null) {
       setReserveGallons(String(reserve))
@@ -913,7 +911,7 @@ function MapPage() {
             activeStep={activeOptimizationStep}
             consumptionMpg={Number(
               vehicles.find((v) => v.id === optimizationResult?.vehicle_id)
-                ?.fuel_profile.consumption_mpg,
+                ?.consumption_mpg,
             )}
             routeTotalDistanceMeters={routeTotalDistanceMeters}
             reserveGallons={optimizationReserveGallons}
@@ -971,14 +969,14 @@ function MapPage() {
             failure={optimizationResult?.failure ?? null}
             consumptionMpg={
               vehicles.find((v) => v.id === optimizationResult?.vehicle_id)
-                ?.fuel_profile.consumption_mpg
+                ?.consumption_mpg
             }
             summary={optimizationResult?.summary}
             routeTotalDistanceMeters={routeTotalDistanceMeters}
             reserveGallons={optimizationReserveGallons}
             usableTankGallons={
               vehicles.find((v) => v.id === optimizationResult?.vehicle_id)
-                ?.fuel_profile.usable_tank_capacity_gallons
+                ?.usable_tank_capacity_gallons
             }
           />
         )}

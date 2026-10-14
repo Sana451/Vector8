@@ -55,9 +55,6 @@ const formSchema = z
     model: z.string().optional(),
     year: z.string().optional(),
     routing_profile_id: z.string().optional(),
-    fuel_profile_name: z
-      .string()
-      .min(1, { message: "Fuel profile name is required" }),
     tank_capacity_gallons: numericString("Tank capacity is required"),
     consumption_mpg: numericString("Consumption is required"),
   })
@@ -92,9 +89,8 @@ const EditVehicle = ({ vehicle, onSuccess }: EditVehicleProps) => {
       model: vehicle.model ?? "",
       year: vehicle.year ? String(vehicle.year) : "",
       routing_profile_id: vehicle.routing_profile_id ?? "",
-      fuel_profile_name: vehicle.fuel_profile.name,
-      tank_capacity_gallons: String(vehicle.fuel_profile.tank_capacity_gallons),
-      consumption_mpg: String(vehicle.fuel_profile.consumption_mpg),
+      tank_capacity_gallons: String(vehicle.tank_capacity_gallons),
+      consumption_mpg: String(vehicle.consumption_mpg),
     },
   })
 
@@ -111,11 +107,8 @@ const EditVehicle = ({ vehicle, onSuccess }: EditVehicleProps) => {
           model: data.model || undefined,
           year: data.year ? Number(data.year) : undefined,
           routing_profile_id: data.routing_profile_id || undefined,
-          fuel_profile: {
-            name: data.fuel_profile_name,
-            tank_capacity_gallons: data.tank_capacity_gallons,
-            consumption_mpg: data.consumption_mpg,
-          },
+          tank_capacity_gallons: data.tank_capacity_gallons,
+          consumption_mpg: data.consumption_mpg,
         },
       }),
     onSuccess: () => {
@@ -298,24 +291,8 @@ const EditVehicle = ({ vehicle, onSuccess }: EditVehicleProps) => {
               />
 
               <div className="border-t pt-4">
-                <h4 className="mb-3 text-sm font-semibold">Fuel Profile</h4>
+                <h4 className="mb-3 text-sm font-semibold">Fuel</h4>
                 <div className="grid gap-4">
-                  <FormField
-                    control={form.control}
-                    name="fuel_profile_name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>
-                          Profile Name{" "}
-                          <span className="text-destructive">*</span>
-                        </FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
