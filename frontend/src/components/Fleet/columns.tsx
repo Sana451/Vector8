@@ -14,7 +14,9 @@ function CopyId({ id }: { id: string }) {
 
   return (
     <div className="flex items-center gap-1.5 group">
-      <span className="font-mono text-xs text-muted-foreground">{id}</span>
+      <span className="font-mono text-xs text-muted-foreground" title={id}>
+        {id.slice(0, 8)}
+      </span>
       <Button
         variant="ghost"
         size="icon"
