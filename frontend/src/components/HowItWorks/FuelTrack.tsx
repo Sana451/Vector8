@@ -91,7 +91,10 @@ export default function FuelTrack({
                   : undefined
               }
             >
-              <div className="price">${s.price.toFixed(2)}</div>
+              <div className="price">
+                <span className="name">{s.name.replace("Station ", "")}</span> $
+                {s.price.toFixed(2)}
+              </div>
               <div className="dot" />
             </div>
           ))}
