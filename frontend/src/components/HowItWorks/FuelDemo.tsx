@@ -331,7 +331,7 @@ export default function FuelDemo() {
       </div>
 
       <section className="fuel-truck-card">
-        <div className="fuel-truck-title">🚛 Freightliner</div>
+        <div className="fuel-truck-title">🚛 Freightliner · Initial data</div>
         <div className="fuel-truck-stats">
           <div>
             <span>Tank</span>
