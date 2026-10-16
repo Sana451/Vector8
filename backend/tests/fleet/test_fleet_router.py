@@ -7,6 +7,59 @@ from app.fleet.models import Vehicle
 
 
 class TestVehicleRouter:
+    def test_vehicle_routing_fields(
+        self,
+        client: TestClient,
+        superuser_token_headers: dict[str, str],
+        db: Session,
+    ) -> None:
+        db.exec(delete(Vehicle))
+        db.commit()
+        base = {
+            "name": "Box 22",
+            "unit_number": "BOX-22",
+            "vehicle_type": "truck",
+            "tank_capacity_gallons": "50",
+            "consumption_mpg": "9",
+        }
+        ok = client.post(
+            "/api/v1/vehicles/",
+            headers=superuser_token_headers,
+            json={
+                **base,
+                "height_in": 150,
+                "width_in": 96,
+                "length_in": 312,
+                "gross_weight_lbs": 26000,
+                "payload_capacity_lbs": 8300,
+                "axle_count": 2,
+            },
+        )
+        assert ok.status_code == 200
+        body = ok.json()
+        assert body["payload_capacity_lbs"] == 8300
+        assert body["trailer_count"] == 0
+        assert "routing_profile_id" not in body
+
+        bad = client.post(
+            "/api/v1/vehicles/",
+            headers=superuser_token_headers,
+            json={
+                **base,
+                "unit_number": "BOX-23",
+                "gross_weight_lbs": 5000,
+                "payload_capacity_lbs": 8300,
+            },
+        )
+        assert bad.status_code in (400, 422)
+
+        bad_trailer = client.post(
+            "/api/v1/vehicles/",
+            headers=superuser_token_headers,
+            json={**base, "unit_number": "BOX-24", "trailer_length_in": 200},
+        )
+        assert bad_trailer.status_code in (400, 422)
+
     def test_vehicle_crud_lifecycle(
         self,
         client: TestClient,

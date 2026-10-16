@@ -36,6 +36,12 @@ import {
 } from "@/components/ui/select"
 import useCustomToast from "@/hooks/useCustomToast"
 import { handleError } from "@/utils"
+import {
+  routingDefaults,
+  routingFieldsShape,
+  routingPayload,
+  VehicleRoutingFields,
+} from "./VehicleRoutingFields"
 
 const numericString = (message: string) =>
   z
@@ -54,7 +60,7 @@ const formSchema = z
     make: z.string().optional(),
     model: z.string().optional(),
     year: z.string().optional(),
-    routing_profile_id: z.string().optional(),
+    ...routingFieldsShape,
     tank_capacity_gallons: numericString("Tank capacity is required"),
     consumption_mpg: numericString("Consumption is required"),
   })
@@ -88,7 +94,7 @@ const EditVehicle = ({ vehicle, onSuccess }: EditVehicleProps) => {
       make: vehicle.make ?? "",
       model: vehicle.model ?? "",
       year: vehicle.year ? String(vehicle.year) : "",
-      routing_profile_id: vehicle.routing_profile_id ?? "",
+      ...routingDefaults(vehicle),
       tank_capacity_gallons: String(vehicle.tank_capacity_gallons),
       consumption_mpg: String(vehicle.consumption_mpg),
     },
@@ -106,7 +112,7 @@ const EditVehicle = ({ vehicle, onSuccess }: EditVehicleProps) => {
           make: data.make || undefined,
           model: data.model || undefined,
           year: data.year ? Number(data.year) : undefined,
-          routing_profile_id: data.routing_profile_id || undefined,
+          ...routingPayload(data),
           tank_capacity_gallons: data.tank_capacity_gallons,
           consumption_mpg: data.consumption_mpg,
         },
@@ -276,19 +282,7 @@ const EditVehicle = ({ vehicle, onSuccess }: EditVehicleProps) => {
                 />
               </div>
 
-              <FormField
-                control={form.control}
-                name="routing_profile_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Routing Profile ID</FormLabel>
-                    <FormControl>
-                      <Input placeholder="UUID (optional)" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <VehicleRoutingFields />
 
               <div className="border-t pt-4">
                 <h4 className="mb-3 text-sm font-semibold">Fuel</h4>

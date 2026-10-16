@@ -392,7 +392,6 @@ class OptimizeFuelUseCase:
             name=vehicle_row.name,
             unit_number=vehicle_row.unit_number,
             vehicle_type=_enum_value(vehicle_row.vehicle_type),
-            routing_profile_id=vehicle_row.routing_profile_id,
             fuel_type=_enum_value(vehicle_row.fuel_type),
             tank_capacity_gallons=vehicle_row.tank_capacity_gallons,
             usable_tank_capacity_gallons=vehicle_row.usable_tank_capacity_gallons,
@@ -425,7 +424,6 @@ class OptimizeFuelUseCase:
                 "name": vehicle.name,
                 "unit_number": vehicle.unit_number,
                 "vehicle_type": vehicle.vehicle_type,
-                "routing_profile_id": vehicle.routing_profile_id,
             }
         )
         debug["vehicle_fuel"] = self._serialize_debug(

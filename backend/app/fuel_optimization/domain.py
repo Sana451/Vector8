@@ -48,7 +48,6 @@ class Vehicle:
     tank_capacity_gallons: Decimal
     usable_tank_capacity_gallons: Decimal
     consumption_mpg: Decimal
-    routing_profile_id: UUID | None = None
 
     def __post_init__(self) -> None:
         if self.tank_capacity_gallons <= ZERO:
