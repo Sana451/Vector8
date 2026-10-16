@@ -31,6 +31,7 @@ from app.routing.schemas import (
     Leg,
     Route,
     RouteSummary,
+    VehicleRoutingProfile,
 )
 
 logger = get_logger(__name__)
@@ -125,7 +126,34 @@ class HereRoutingProvider:
                 for lon, lat in request.route_planning_locations.waypoints.coordinates
             )
 
+        if request.vehicle is not None:
+            params.update(self.vehicle_params(request.vehicle))
+
         return params
+
+    @staticmethod
+    def vehicle_params(vehicle: VehicleRoutingProfile) -> dict[str, str]:
+        """Map a metric vehicle profile onto HERE ``vehicle[...]`` parameters."""
+        values: dict[str, Any] = {
+            "type": vehicle.vehicle_type,
+            "height": vehicle.height_cm,
+            "width": vehicle.width_cm,
+            "length": vehicle.length_cm,
+            "grossWeight": vehicle.gross_weight_kg,
+            "weightPerAxle": vehicle.weight_per_axle_kg,
+            "axleCount": vehicle.axle_count,
+            "tiresCount": vehicle.tires_count,
+            "trailerCount": vehicle.trailer_count or None,
+            "trailerLength": vehicle.trailer_length_cm,
+            "kpraLength": vehicle.kpra_length_cm,
+            "payloadCapacity": vehicle.payload_capacity_kg,
+            "speedCap": vehicle.speed_cap_mps,
+        }
+        return {
+            f"vehicle[{name}]": str(value)
+            for name, value in values.items()
+            if value is not None
+        }
 
     @staticmethod
     def _routing_mode(request: CalculateRouteRequest) -> str:

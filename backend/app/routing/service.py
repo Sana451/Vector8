@@ -79,7 +79,12 @@ class RoutingService:
         )
 
         # Compute request hash for cache lookups
-        request_data_dict = request.model_dump(mode="json")
+        # A missing vehicle is excluded so hashes of pre-existing cache entries
+        # stay valid.
+        request_data_dict = request.model_dump(
+            mode="json",
+            exclude={"vehicle"} if request.vehicle is None else None,
+        )
         request_hash = compute_request_hash(request_data_dict)
 
         # Try cache if not forcing refresh

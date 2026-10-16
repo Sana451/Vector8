@@ -1,5 +1,6 @@
 import { useState } from "react"
 import type { VehiclePublic } from "@/client"
+import { formatRoutingSummary } from "@/lib/vehicleRouting"
 
 interface VehicleSelectorProps {
   vehicles: VehiclePublic[]
@@ -84,6 +85,9 @@ export function VehicleSelector({
                     {vehicle.name} ({vehicle.unit_number})
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
+                    {formatRoutingSummary(vehicle) && (
+                      <div>{formatRoutingSummary(vehicle)}</div>
+                    )}
                     <div>
                       Tank: {formatNumber(vehicle.tank_capacity_gallons, 1)} gal
                     </div>

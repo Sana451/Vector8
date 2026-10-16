@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, Link } from "@tanstack/react-router"
 import { Maximize, Minimize } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { calculateFuelOptimization } from "@/api/fuelOptimization"
@@ -11,6 +11,7 @@ import type {
   GeocodingSearchResponse,
   TrafficLayerData,
   TruckRestrictionData,
+  VehicleConstraintsInfo,
   VehiclePublic,
 } from "@/client"
 import type { RestAreaFeatureCollection } from "@/client/types.gen"
@@ -34,6 +35,7 @@ import { MeasureTool } from "@/components/Map/MeasureTool"
 import { OptimizationWalkthrough } from "@/components/Map/OptimizationWalkthrough"
 import TomTomMap, { type TomTomMapHandle } from "@/components/Map/TomTomMap"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { VehicleSelector } from "@/components/VehicleSelector"
 import useCustomToast from "@/hooks/useCustomToast"
@@ -51,6 +53,12 @@ import {
   createAddressSelection,
 } from "@/lib/mapRequest"
 import { type Coordinate, calculateBoundingBox } from "@/lib/routing"
+import {
+  describeAppliedConstraints,
+  formatRoutingSummary,
+  getMissingRoutingFields,
+  getVehicleConstraintsWarning,
+} from "@/lib/vehicleRouting"
 import { handleError } from "@/utils"
 
 export const Route = createFileRoute("/_layout/map")({
@@ -165,6 +173,14 @@ function MapPage() {
   const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
   const [routeId, setRouteId] = useState<string | null>(null)
   const [selectedVehicleId, setSelectedVehicleId] = useState("")
+  const [useVehicleConstraints, setUseVehicleConstraints] = useState(true)
+  // What the last calculated route was built with, to flag stale routes.
+  const [calculatedWith, setCalculatedWith] = useState<{
+    vehicleId: string
+    enabled: boolean
+  } | null>(null)
+  const [appliedConstraints, setAppliedConstraints] =
+    useState<VehicleConstraintsInfo | null>(null)
   const [maxDetourMeters, setMaxDetourMeters] = useState("5000")
   const [initialFuelGallons, setInitialFuelGallons] = useState("42")
   const [reserveGallons, setReserveGallons] = useState("3")
@@ -206,6 +222,8 @@ function MapPage() {
     setRestAreas(null)
     setRouteInfo(null)
     setRouteId(null)
+    setAppliedConstraints(null)
+    setCalculatedWith(null)
     setOptimizationResult(null)
     setActiveStepIndex(0)
   }
@@ -289,6 +307,8 @@ function MapPage() {
         delivery: buildMapPointFromAddress(
           deliverySelection?.formatted_address ?? deliveryAddress.trim(),
         ),
+        vehicleId: selectedVehicleId || undefined,
+        applyVehicleConstraints: useVehicleConstraints,
       })
 
       return await getRouteOverview(request, forceRefresh)
@@ -306,6 +326,11 @@ function MapPage() {
       // Do NOT update fuel stations - they are loaded once on mount and persist
       setTruckRestrictions(data.truck_restrictions ?? [])
       setRestAreas(data.rest_areas ?? null)
+      setAppliedConstraints(data.vehicle_constraints ?? null)
+      setCalculatedWith({
+        vehicleId: selectedVehicleId,
+        enabled: useVehicleConstraints,
+      })
 
       // Log all layer data for debugging
       console.group("[Map Layers] Route Overview Loaded")
@@ -551,6 +576,19 @@ function MapPage() {
   const canSubmit =
     pickupAddress.trim().length > 0 && deliveryAddress.trim().length > 0
 
+  const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId)
+  const constraintsWarning = useMemo(() => {
+    if (!useVehicleConstraints || !selectedVehicle) return null
+    return getVehicleConstraintsWarning(
+      getMissingRoutingFields(selectedVehicle),
+    )
+  }, [useVehicleConstraints, selectedVehicle])
+  const appliedSummary = describeAppliedConstraints(appliedConstraints)
+  const constraintsStale =
+    calculatedWith !== null &&
+    (calculatedWith.vehicleId !== selectedVehicleId ||
+      calculatedWith.enabled !== useVehicleConstraints)
+
   const applySuggestion = (
     field: "pickup" | "delivery",
     suggestion: GeocodingSearchResponse,
@@ -680,6 +718,68 @@ function MapPage() {
                 </div>
               </div>
 
+              {/* Vehicle & routing constraints */}
+              <div className="flex w-full flex-wrap items-start gap-2">
+                <VehicleSelector
+                  vehicles={vehicles}
+                  selectedVehicleId={selectedVehicleId}
+                  onSelectVehicle={handleSelectVehicle}
+                />
+                <div className="min-w-[220px] flex-1 space-y-1">
+                  <label
+                    htmlFor="use-vehicle-constraints"
+                    className="flex items-center gap-2 pt-4 text-xs font-medium"
+                  >
+                    <Checkbox
+                      id="use-vehicle-constraints"
+                      checked={useVehicleConstraints}
+                      onCheckedChange={(checked) =>
+                        setUseVehicleConstraints(checked === true)
+                      }
+                    />
+                    Use vehicle dimensions &amp; weight in routing
+                  </label>
+                  {useVehicleConstraints && !selectedVehicle && (
+                    <p className="text-xs text-muted-foreground">
+                      Select a vehicle to apply its restrictions.
+                    </p>
+                  )}
+                  {constraintsWarning && (
+                    <p
+                      role="alert"
+                      className="rounded border border-amber-500/50 bg-amber-500/10 px-2 py-1 text-xs text-amber-700 dark:text-amber-400"
+                    >
+                      {constraintsWarning.allMissing
+                        ? "This vehicle has no dimensions or weight set, so HERE will ignore all physical restrictions. "
+                        : `Not set for this vehicle: ${constraintsWarning.missing.join(", ")}. HERE will ignore the matching restrictions. `}
+                      <Link to="/fleet" className="underline">
+                        Edit in Fleet
+                      </Link>
+                    </p>
+                  )}
+                  {selectedVehicle &&
+                    useVehicleConstraints &&
+                    !constraintsWarning &&
+                    formatRoutingSummary(selectedVehicle) && (
+                      <p className="text-xs text-muted-foreground">
+                        {formatRoutingSummary(selectedVehicle)}
+                      </p>
+                    )}
+                  {appliedSummary && !constraintsStale && (
+                    <p className="text-xs text-muted-foreground">
+                      Route built with {appliedSummary.sentCount} vehicle
+                      parameter{appliedSummary.sentCount === 1 ? "" : "s"}.
+                    </p>
+                  )}
+                  {constraintsStale && (
+                    <p className="text-xs text-muted-foreground">
+                      Vehicle settings changed. Recalculate the route to apply
+                      them.
+                    </p>
+                  )}
+                </div>
+              </div>
+
               {/* Buttons */}
               <div className="flex gap-2 flex-wrap">
                 <Button
@@ -730,11 +830,14 @@ function MapPage() {
               boundsRef={mapContainerRef}
             >
               <div className="flex flex-wrap gap-2 items-end">
-                <VehicleSelector
-                  vehicles={vehicles}
-                  selectedVehicleId={selectedVehicleId}
-                  onSelectVehicle={handleSelectVehicle}
-                />
+                <div className="flex-1 min-w-[200px]">
+                  <span className="text-xs font-medium">Vehicle</span>
+                  <div className="flex h-8 items-center text-xs">
+                    {selectedVehicle
+                      ? `${selectedVehicle.name} (${selectedVehicle.unit_number})`
+                      : "Select a vehicle in the Route panel"}
+                  </div>
+                </div>
 
                 <div className="flex-1 min-w-[150px]">
                   <label htmlFor="initial-fuel" className="text-xs font-medium">

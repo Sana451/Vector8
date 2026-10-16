@@ -12,6 +12,8 @@ interface BuildRouteOverviewRequestOptions {
   delivery: MapPointInput
   radiusMeters?: number
   layers?: Array<MapLayer>
+  vehicleId?: string
+  applyVehicleConstraints?: boolean
 }
 
 export function buildMapPointFromAddress(address: string): MapPointInput {
@@ -40,11 +42,14 @@ export function buildRouteOverviewRequest({
   delivery,
   radiusMeters,
   layers,
+  vehicleId,
+  applyVehicleConstraints = true,
 }: BuildRouteOverviewRequestOptions): MapOverviewRequest {
   return {
     pickup,
     delivery,
     ...(radiusMeters !== undefined ? { radius_meters: radiusMeters } : {}),
     ...(layers ? { layers } : {}),
+    ...(vehicleId && applyVehicleConstraints ? { vehicle_id: vehicleId } : {}),
   }
 }

@@ -145,6 +145,10 @@ export type CalculateRouteRequest = {
      */
     arrival_side_preference?: ArrivalSidePreference | null;
     /**
+     * Vehicle dimensions/weight used by the routing provider
+     */
+    vehicle?: VehicleRoutingProfile | null;
+    /**
      * Vehicle Heading In Degrees
      *
      * Vehicle heading in degrees (0-359)
@@ -1054,6 +1058,18 @@ export type MapOverviewRequest = {
      */
     limit?: number | null;
     /**
+     * Vehicle Id
+     *
+     * Vehicle whose dimensions/weight are sent to the routing provider (HERE vehicle[...] parameters)
+     */
+    vehicle_id?: string | null;
+    /**
+     * Apply Vehicle Constraints
+     *
+     * When false, vehicle_id is ignored and no vehicle parameters are sent to the routing provider
+     */
+    apply_vehicle_constraints?: boolean;
+    /**
      * Layers
      *
      * Subset of layers to resolve; all layers when omitted
@@ -1072,6 +1088,7 @@ export type MapOverviewRequest = {
 export type MapOverviewResponse = {
     route?: RouteLayerData | null;
     configured_providers: ConfiguredLayerProviders;
+    vehicle_constraints?: VehicleConstraintsInfo | null;
     traffic?: TrafficLayerData | null;
     /**
      * Fuel Stations
@@ -1869,6 +1886,38 @@ export type ValidationError = {
 };
 
 /**
+ * VehicleConstraintsInfo
+ *
+ * Outcome of applying vehicle constraints to the route calculation.
+ */
+export type VehicleConstraintsInfo = {
+    /**
+     * Vehicle Id
+     */
+    vehicle_id: string;
+    /**
+     * Applied
+     *
+     * True when vehicle parameters were sent to the routing provider
+     */
+    applied: boolean;
+    /**
+     * Sent Parameters
+     *
+     * HERE vehicle[...] parameters that were sent (metric units)
+     */
+    sent_parameters?: {
+        [key: string]: string;
+    };
+    /**
+     * Missing Fields
+     *
+     * Recommended fields not set on the vehicle (height, width, length, gross_weight); the provider ignores the matching restrictions
+     */
+    missing_fields?: Array<string>;
+};
+
+/**
  * VehicleCreate
  */
 export type VehicleCreate = {
@@ -2155,6 +2204,69 @@ export type VehiclePublic = {
      * Usable tank capacity is always 95% of tank capacity.
      */
     readonly usable_tank_capacity_gallons: string;
+};
+
+/**
+ * VehicleRoutingProfile
+ *
+ * Provider-neutral vehicle characteristics in metric units.
+ *
+ * Every value is optional: ``None`` means the parameter is not sent to the
+ * routing provider and the matching road restriction is ignored.
+ */
+export type VehicleRoutingProfile = {
+    /**
+     * Vehicle Type
+     */
+    vehicle_type?: 'StraightTruck' | 'Tractor' | null;
+    /**
+     * Height Cm
+     */
+    height_cm?: number | null;
+    /**
+     * Width Cm
+     */
+    width_cm?: number | null;
+    /**
+     * Length Cm
+     */
+    length_cm?: number | null;
+    /**
+     * Gross Weight Kg
+     */
+    gross_weight_kg?: number | null;
+    /**
+     * Weight Per Axle Kg
+     */
+    weight_per_axle_kg?: number | null;
+    /**
+     * Axle Count
+     */
+    axle_count?: number | null;
+    /**
+     * Tires Count
+     */
+    tires_count?: number | null;
+    /**
+     * Trailer Count
+     */
+    trailer_count?: number;
+    /**
+     * Trailer Length Cm
+     */
+    trailer_length_cm?: number | null;
+    /**
+     * Kpra Length Cm
+     */
+    kpra_length_cm?: number | null;
+    /**
+     * Payload Capacity Kg
+     */
+    payload_capacity_kg?: number | null;
+    /**
+     * Speed Cap Mps
+     */
+    speed_cap_mps?: number | null;
 };
 
 /**

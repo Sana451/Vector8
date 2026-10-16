@@ -8,9 +8,11 @@ its failure propagates to the caller.
 """
 
 import asyncio
+import uuid
 
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.fleet.repository import VehicleRepository
 from app.geocoding.service import GeocodingService
 from app.map.schemas import (
     ConfiguredLayerProviders,
@@ -19,6 +21,7 @@ from app.map.schemas import (
     MapOverviewRequest,
     MapOverviewResponse,
     RouteLayerData,
+    VehicleConstraintsInfo,
     build_rest_area_feature_collection,
 )
 from app.map.services import (
@@ -29,6 +32,7 @@ from app.map.services import (
 )
 from app.providers.exceptions import ProviderError
 from app.providers.geo import GeoJSONLineString
+from app.providers.here.routing import HereRoutingProvider
 from app.providers.schemas import (
     FuelStationData,
     LayerQuery,
@@ -40,10 +44,19 @@ from app.routing.schemas import (
     CalculateRouteRequest,
     CalculateRouteResponse,
     RoutePlanningLocations,
+    VehicleRoutingProfile,
 )
 from app.routing.service import RoutingService
 
 logger = get_logger(__name__)
+
+
+class VehicleNotFoundError(Exception):
+    """Requested vehicle_id does not exist."""
+
+    def __init__(self, vehicle_id: uuid.UUID):
+        super().__init__(f"Vehicle {vehicle_id} not found")
+        self.vehicle_id = vehicle_id
 
 
 class MapLayerService:
@@ -57,6 +70,7 @@ class MapLayerService:
         fuel_service: FuelService,
         truck_restriction_service: TruckRestrictionService,
         rest_area_service: HerePoiService,
+        vehicle_repository: VehicleRepository | None = None,
     ):
         """Initialize the orchestrator.
 
@@ -74,6 +88,7 @@ class MapLayerService:
         self.fuel_service = fuel_service
         self.truck_restriction_service = truck_restriction_service
         self.rest_area_service = rest_area_service
+        self.vehicle_repository = vehicle_repository
 
     async def get_overview(
         self,
@@ -103,6 +118,9 @@ class MapLayerService:
             request,
             force_refresh=force_refresh,
         )
+        route_request, vehicle_constraints = self._apply_vehicle_constraints(
+            request, route_request
+        )
 
         route_response = await self.routing_service.calculate_route(
             request=route_request,
@@ -120,6 +138,7 @@ class MapLayerService:
             return MapOverviewResponse(
                 route=route_layer,
                 configured_providers=self._configured_providers(),
+                vehicle_constraints=vehicle_constraints,
                 errors=errors,
             )
 
@@ -157,6 +176,7 @@ class MapLayerService:
             return MapOverviewResponse(
                 route=route_layer,
                 configured_providers=self._configured_providers(),
+                vehicle_constraints=vehicle_constraints,
                 errors=errors,
             )
 
@@ -184,6 +204,7 @@ class MapLayerService:
         return MapOverviewResponse(
             route=route_layer,
             configured_providers=self._configured_providers(),
+            vehicle_constraints=vehicle_constraints,
             traffic=traffic,
             fuel_stations=fuel_stations,
             truck_restrictions=truck_restrictions,
@@ -232,6 +253,34 @@ class MapLayerService:
                 destination=delivery,
             )
         )
+
+    def _apply_vehicle_constraints(
+        self,
+        request: MapOverviewRequest,
+        route_request: CalculateRouteRequest,
+    ) -> tuple[CalculateRouteRequest, VehicleConstraintsInfo | None]:
+        """Attach the selected vehicle's profile to the routing request."""
+        if request.vehicle_id is None or not request.apply_vehicle_constraints:
+            return route_request, None
+
+        if self.vehicle_repository is None:
+            raise VehicleNotFoundError(request.vehicle_id)
+        vehicle = self.vehicle_repository.get(request.vehicle_id)
+        if vehicle is None:
+            raise VehicleNotFoundError(request.vehicle_id)
+
+        profile = VehicleRoutingProfile.from_vehicle(vehicle)
+        supported = settings.ROUTING_PROVIDER == "here"
+        sent = HereRoutingProvider.vehicle_params(profile) if supported else {}
+        info = VehicleConstraintsInfo(
+            vehicle_id=request.vehicle_id,
+            applied=supported,
+            sent_parameters=sent,
+            missing_fields=profile.missing_recommended,
+        )
+        if not supported:
+            return route_request, info
+        return route_request.model_copy(update={"vehicle": profile}), info
 
     @staticmethod
     def _extract_path(response: CalculateRouteResponse) -> GeoJSONLineString | None:

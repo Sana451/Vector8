@@ -129,8 +129,7 @@ Protocol:
 
 ```python
 class GeocodingProvider(Protocol):
-    async def search(self, query: str) -> GeocodingResult:
-        ...
+    async def search(self, query: str) -> GeocodingResult: ...
 ```
 
 Default provider:
