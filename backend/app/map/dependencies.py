@@ -10,6 +10,7 @@ from fastapi import Depends
 
 from app.api.deps import SessionDep
 from app.core.config import settings
+from app.fleet.repository import VehicleRepository
 from app.geocoding.dependencies import get_geocoding_service
 from app.geocoding.service import GeocodingService
 from app.map.repository import FuelStationRepository
@@ -87,6 +88,7 @@ def get_rest_area_service(
 
 
 def get_map_layer_service(
+    session: SessionDep,
     geocoding_service: GeocodingService = Depends(get_geocoding_service),
     routing_service: RoutingService = Depends(get_routing_service),
     traffic_service: TrafficService = Depends(get_traffic_service),
@@ -104,6 +106,7 @@ def get_map_layer_service(
         fuel_service,
         truck_restriction_service,
         rest_area_service,
+        VehicleRepository(session),
     )
 
 

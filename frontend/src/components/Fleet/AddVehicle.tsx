@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Plus } from "lucide-react"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
@@ -26,6 +26,7 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { LoadingButton } from "@/components/ui/loading-button"
 import {
   Select,
@@ -36,6 +37,12 @@ import {
 } from "@/components/ui/select"
 import useCustomToast from "@/hooks/useCustomToast"
 import { handleError } from "@/utils"
+import {
+  routingDefaults,
+  routingFieldsShape,
+  routingPayload,
+  VehicleRoutingFields,
+} from "./VehicleRoutingFields"
 
 const numericString = (message: string) =>
   z
@@ -54,10 +61,7 @@ const formSchema = z
     make: z.string().optional(),
     model: z.string().optional(),
     year: z.string().optional(),
-    routing_profile_id: z.string().optional(),
-    fuel_profile_name: z
-      .string()
-      .min(1, { message: "Fuel profile name is required" }),
+    ...routingFieldsShape,
     tank_capacity_gallons: numericString("Tank capacity is required"),
     consumption_mpg: numericString("Consumption is required"),
   })
@@ -71,8 +75,18 @@ type FormData = z.infer<typeof formSchema>
 
 const AddVehicle = () => {
   const [isOpen, setIsOpen] = useState(false)
+  const [sourceVehicleId, setSourceVehicleId] = useState("")
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
+
+  const { data: vehiclesResponse } = useQuery({
+    queryKey: ["vehicles"],
+    queryFn: async () =>
+      (await VehiclesService.listVehicles({ query: { skip: 0, limit: 100 } }))
+        .data,
+    enabled: isOpen,
+  })
+  const vehicles = vehiclesResponse?.data ?? []
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -86,8 +100,7 @@ const AddVehicle = () => {
       make: "",
       model: "",
       year: "",
-      routing_profile_id: "",
-      fuel_profile_name: "",
+      ...routingDefaults(),
       tank_capacity_gallons: "",
       consumption_mpg: "",
     },
@@ -99,6 +112,7 @@ const AddVehicle = () => {
     onSuccess: () => {
       showSuccessToast("Vehicle created successfully")
       form.reset()
+      setSourceVehicleId("")
       setIsOpen(false)
     },
     onError: handleError.bind(showErrorToast),
@@ -106,6 +120,24 @@ const AddVehicle = () => {
       queryClient.invalidateQueries({ queryKey: ["vehicles"] })
     },
   })
+
+  const handleCopyVehicle = (vehicleId: string) => {
+    setSourceVehicleId(vehicleId)
+    const source = vehicles.find((vehicle) => vehicle.id === vehicleId)
+    if (!source) return
+    form.reset({
+      name: source.name,
+      unit_number: "",
+      status: source.status,
+      vehicle_type: source.vehicle_type,
+      make: source.make ?? "",
+      model: source.model ?? "",
+      year: source.year ? String(source.year) : "",
+      ...routingDefaults(source),
+      tank_capacity_gallons: String(source.tank_capacity_gallons),
+      consumption_mpg: String(source.consumption_mpg),
+    })
+  }
 
   const onSubmit = (data: FormData) => {
     const payload: VehicleCreate = {
@@ -116,12 +148,9 @@ const AddVehicle = () => {
       make: data.make || undefined,
       model: data.model || undefined,
       year: data.year ? Number(data.year) : undefined,
-      routing_profile_id: data.routing_profile_id || undefined,
-      fuel_profile: {
-        name: data.fuel_profile_name,
-        tank_capacity_gallons: data.tank_capacity_gallons,
-        consumption_mpg: data.consumption_mpg,
-      },
+      ...routingPayload(data),
+      tank_capacity_gallons: data.tank_capacity_gallons,
+      consumption_mpg: data.consumption_mpg,
     }
     mutation.mutate(payload)
   }
@@ -144,6 +173,30 @@ const AddVehicle = () => {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <div className="grid gap-4 py-4">
+              {vehicles.length > 0 && (
+                <div className="grid gap-2">
+                  <Label>Copy from existing vehicle</Label>
+                  <Select
+                    value={sourceVehicleId || undefined}
+                    onValueChange={handleCopyVehicle}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a vehicle to copy (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {vehicles.map((vehicle) => (
+                        <SelectItem key={vehicle.id} value={vehicle.id}>
+                          {vehicle.name} ({vehicle.unit_number})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    All fields are copied except the unit number, which must be
+                    unique.
+                  </p>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -275,39 +328,11 @@ const AddVehicle = () => {
                 />
               </div>
 
-              <FormField
-                control={form.control}
-                name="routing_profile_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Routing Profile ID</FormLabel>
-                    <FormControl>
-                      <Input placeholder="UUID (optional)" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <VehicleRoutingFields />
 
               <div className="border-t pt-4">
-                <h4 className="mb-3 text-sm font-semibold">Fuel Profile</h4>
+                <h4 className="mb-3 text-sm font-semibold">Fuel</h4>
                 <div className="grid gap-4">
-                  <FormField
-                    control={form.control}
-                    name="fuel_profile_name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>
-                          Profile Name{" "}
-                          <span className="text-destructive">*</span>
-                        </FormLabel>
-                        <FormControl>
-                          <Input placeholder="Standard Diesel" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}

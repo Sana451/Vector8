@@ -9,9 +9,5 @@ class VehicleNotFoundError(FuelOptimizationError):
     pass
 
 
-class FuelProfileNotFoundError(FuelOptimizationError):
-    pass
-
-
 class RouteNotFoundError(FuelOptimizationError):
     pass

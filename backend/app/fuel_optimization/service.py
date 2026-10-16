@@ -31,10 +31,8 @@ from app.fuel_optimization.domain import (
     InvalidFuelOptimizationInputError,
     Route,
     Vehicle,
-    VehicleFuelProfile,
 )
 from app.fuel_optimization.exceptions import (
-    FuelProfileNotFoundError,
     RouteNotFoundError,
     VehicleNotFoundError,
 )
@@ -385,11 +383,6 @@ class OptimizeFuelUseCase:
         vehicle_row = self.vehicle_repository.get(request.vehicle_id)
         if vehicle_row is None:
             raise VehicleNotFoundError("Vehicle not found")
-        fuel_profile_row = self.vehicle_repository.get_fuel_profile(
-            vehicle_row.fuel_profile_id
-        )
-        if fuel_profile_row is None:
-            raise FuelProfileNotFoundError("Vehicle fuel profile not found")
         route_row = self.route_repository.get(request.route_id)
         if route_row is None:
             raise RouteNotFoundError("Route not found")
@@ -399,14 +392,10 @@ class OptimizeFuelUseCase:
             name=vehicle_row.name,
             unit_number=vehicle_row.unit_number,
             vehicle_type=_enum_value(vehicle_row.vehicle_type),
-            routing_profile_id=vehicle_row.routing_profile_id,
-            fuel_profile=VehicleFuelProfile(
-                id=fuel_profile_row.id,
-                fuel_type=_enum_value(fuel_profile_row.fuel_type),
-                tank_capacity_gallons=fuel_profile_row.tank_capacity_gallons,
-                usable_tank_capacity_gallons=fuel_profile_row.usable_tank_capacity_gallons,
-                consumption_mpg=fuel_profile_row.consumption_mpg,
-            ),
+            fuel_type=_enum_value(vehicle_row.fuel_type),
+            tank_capacity_gallons=vehicle_row.tank_capacity_gallons,
+            usable_tank_capacity_gallons=vehicle_row.usable_tank_capacity_gallons,
+            consumption_mpg=vehicle_row.consumption_mpg,
         )
         route = self._build_route(route_row)
         self._validate_reserve(request, vehicle)
@@ -435,16 +424,14 @@ class OptimizeFuelUseCase:
                 "name": vehicle.name,
                 "unit_number": vehicle.unit_number,
                 "vehicle_type": vehicle.vehicle_type,
-                "routing_profile_id": vehicle.routing_profile_id,
             }
         )
-        debug["fuel_profile"] = self._serialize_debug(
+        debug["vehicle_fuel"] = self._serialize_debug(
             {
-                "id": vehicle.fuel_profile.id,
-                "fuel_type": vehicle.fuel_profile.fuel_type,
-                "tank_capacity_gallons": vehicle.fuel_profile.tank_capacity_gallons,
-                "usable_tank_capacity_gallons": vehicle.fuel_profile.usable_tank_capacity_gallons,
-                "consumption_mpg": vehicle.fuel_profile.consumption_mpg,
+                "fuel_type": vehicle.fuel_type,
+                "tank_capacity_gallons": vehicle.tank_capacity_gallons,
+                "usable_tank_capacity_gallons": vehicle.usable_tank_capacity_gallons,
+                "consumption_mpg": vehicle.consumption_mpg,
             }
         )
         debug["route"] = self._serialize_debug(
@@ -508,9 +495,7 @@ class OptimizeFuelUseCase:
             candidate_count=len(candidates),
             initial_fuel_gallons=str(request.initial_fuel_gallons),
             reserve_gallons=str(constraints.reserve_gallons),
-            usable_tank_capacity_gallons=str(
-                vehicle.fuel_profile.usable_tank_capacity_gallons
-            ),
+            usable_tank_capacity_gallons=str(vehicle.usable_tank_capacity_gallons),
         )
         logger.info(
             "fuel_optimization_context_resolved",
@@ -651,7 +636,7 @@ class OptimizeFuelUseCase:
     def _validate_reserve(request, vehicle: Vehicle) -> None:
         if request.constraints is None or request.constraints.reserve_gallons is None:
             return
-        usable = vehicle.fuel_profile.usable_tank_capacity_gallons
+        usable = vehicle.usable_tank_capacity_gallons
         max_reserve = usable * Decimal("0.25")
         min_reserve = min(Decimal("5"), max_reserve)
         reserve = request.constraints.reserve_gallons
@@ -1029,7 +1014,7 @@ class OptimizeFuelUseCase:
         key_points = [
             (f"Route length: {cls._fmt_km(route.total_distance_meters)}."),
             (
-                f"Vehicle usable tank: {cls._fmt(vehicle.fuel_profile.usable_tank_capacity_gallons)} gal, reserve: {cls._fmt(constraints.reserve_gallons)} gal, Fuel economy: {cls._fmt(vehicle.fuel_profile.consumption_mpg)} mi/gal."
+                f"Vehicle usable tank: {cls._fmt(vehicle.usable_tank_capacity_gallons)} gal, reserve: {cls._fmt(constraints.reserve_gallons)} gal, Fuel economy: {cls._fmt(vehicle.consumption_mpg)} mi/gal."
             ),
             (
                 f"Station search returned {total_rows} rows; {kept_candidates} candidate station(s) were used in the optimization."

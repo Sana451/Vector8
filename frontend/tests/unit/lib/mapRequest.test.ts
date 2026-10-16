@@ -47,6 +47,25 @@ describe("mapRequest helpers", () => {
     })
   })
 
+  it("sends vehicle_id only when constraints are enabled", () => {
+    const base = {
+      pickup: buildMapPointFromAddress("A"),
+      delivery: buildMapPointFromAddress("B"),
+    }
+
+    expect(
+      buildRouteOverviewRequest({ ...base, vehicleId: "veh-1" }),
+    ).toMatchObject({ vehicle_id: "veh-1" })
+    expect(
+      buildRouteOverviewRequest({
+        ...base,
+        vehicleId: "veh-1",
+        applyVehicleConstraints: false,
+      }),
+    ).not.toHaveProperty("vehicle_id")
+    expect(buildRouteOverviewRequest(base)).not.toHaveProperty("vehicle_id")
+  })
+
   it("stores the selected autocomplete result", () => {
     const selection = createAddressSelection("1521 Hickory", {
       formatted_address: "1521 Hickory Trail, Allen, TX 75002",

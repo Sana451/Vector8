@@ -39,8 +39,11 @@ class InvalidFuelOptimizationInputError(Exception):
 
 
 @dataclass(frozen=True)
-class VehicleFuelProfile:
+class Vehicle:
     id: UUID
+    name: str
+    unit_number: str
+    vehicle_type: str
     fuel_type: str
     tank_capacity_gallons: Decimal
     usable_tank_capacity_gallons: Decimal
@@ -63,16 +66,6 @@ class VehicleFuelProfile:
             raise InvalidFuelOptimizationInputError(
                 "consumption_mpg must be greater than 0"
             )
-
-
-@dataclass(frozen=True)
-class Vehicle:
-    id: UUID
-    name: str
-    unit_number: str
-    vehicle_type: str
-    fuel_profile: VehicleFuelProfile
-    routing_profile_id: UUID | None = None
 
 
 @dataclass(frozen=True)
@@ -225,14 +218,14 @@ class FuelOptimizationContext:
 
 class ConstantMpgFuelConsumptionModel:
     def fuel_required(self, distance_miles: Decimal, vehicle: Vehicle) -> Decimal:
-        return distance_miles / vehicle.fuel_profile.consumption_mpg
+        return distance_miles / vehicle.consumption_mpg
 
 
 class GreedyFuelOptimizationStrategy:
     algorithm_version = "7"
 
     def optimize(self, context: FuelOptimizationContext) -> FuelOptimizationPlan:
-        usable = context.vehicle.fuel_profile.usable_tank_capacity_gallons
+        usable = context.vehicle.usable_tank_capacity_gallons
         reserve = context.constraints.reserve_gallons
         initial = context.initial_fuel_gallons
 

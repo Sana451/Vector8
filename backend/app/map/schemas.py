@@ -162,6 +162,20 @@ class MapOverviewRequest(BaseModel):
         le=settings.MAP_LAYER_RESULT_LIMIT,
         description="Maximum features per point layer (defaults to settings)",
     )
+    vehicle_id: uuid.UUID | None = Field(
+        default=None,
+        description=(
+            "Vehicle whose dimensions/weight are sent to the routing provider "
+            "(HERE vehicle[...] parameters)"
+        ),
+    )
+    apply_vehicle_constraints: bool = Field(
+        default=True,
+        description=(
+            "When false, vehicle_id is ignored and no vehicle parameters are "
+            "sent to the routing provider"
+        ),
+    )
     layers: list[MapLayer] | None = Field(
         default=None,
         description="Subset of layers to resolve; all layers when omitted",
@@ -188,6 +202,26 @@ class MapOverviewRequest(BaseModel):
         return self
 
 
+class VehicleConstraintsInfo(BaseModel):
+    """Outcome of applying vehicle constraints to the route calculation."""
+
+    vehicle_id: uuid.UUID
+    applied: bool = Field(
+        description="True when vehicle parameters were sent to the routing provider"
+    )
+    sent_parameters: dict[str, str] = Field(
+        default_factory=dict,
+        description="HERE vehicle[...] parameters that were sent (metric units)",
+    )
+    missing_fields: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Recommended fields not set on the vehicle (height, width, length, "
+            "gross_weight); the provider ignores the matching restrictions"
+        ),
+    )
+
+
 class MapOverviewResponse(BaseModel):
     """Aggregated map overview response.
 
@@ -197,6 +231,7 @@ class MapOverviewResponse(BaseModel):
 
     route: RouteLayerData | None = None
     configured_providers: ConfiguredLayerProviders
+    vehicle_constraints: VehicleConstraintsInfo | None = None
     traffic: TrafficLayerData | None = None
     fuel_stations: list[FuelStationData] = Field(default_factory=list)
     truck_restrictions: list[TruckRestrictionData] = Field(default_factory=list)

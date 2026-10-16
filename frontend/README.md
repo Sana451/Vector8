@@ -93,30 +93,63 @@ The frontend code is structured as follows:
 
 ## End-to-End Testing with Playwright
 
-The frontend includes initial end-to-end tests using Playwright. To run the tests, you need to have the Docker Compose stack running. Start the stack with the following command:
+The e2e tests create users and vehicles, so they must not run against your development database. The recommended setup uses a separate `app_e2e` database in the same Postgres container, plus separate ports (backend `8001`, Vite `5174`), so it does not touch `app`/`app_test` and does not conflict with `fastapi dev` (8000) / `bun run dev` (5173) or other projects.
+
+One-time prerequisites:
+
+- `docker compose up -d db mailpit` (same as in `development.md`; Mailpit is used by the password-recovery tests).
+- Dependencies installed: `uv sync` in `backend/`, `bun install` in the project root.
+- Playwright browsers installed: `bunx playwright install chromium` (from `frontend/`).
+- Root `.env` contains `POSTGRES_PASSWORD`, `FIRST_SUPERUSER`, `FIRST_SUPERUSER_PASSWORD`, and `frontend/.env` contains `MAILPIT_HOST=http://localhost:8025`.
+- Your usual `fastapi dev` / `bun run dev` may keep running; the e2e stack below uses other ports.
+
+1. Create and migrate the e2e database and the first superuser (from `backend/`, safe to repeat):
 
 ```bash
-docker compose run --rm backend bash scripts/prestart.sh
-docker compose up -d --wait backend
+cd backend
+set -a; source ../.env; set +a
+export E2E_DB=postgresql://postgres:${POSTGRES_PASSWORD}@localhost:5432/app_e2e
+TEST_DATABASE_URL=$E2E_DB uv run python scripts/init_test_db.py
+DATABASE_URL=$E2E_DB uv run python app/initial_data.py
 ```
 
-Then, you can run the tests with the following command:
+2. Start the backend against `app_e2e` (`FASTAPI_ENV=development` is required: tests create users via the private API; `FRONTEND_HOST` must match the Vite origin for CORS):
 
 ```bash
-bunx playwright test
+DATABASE_URL=$E2E_DB FASTAPI_ENV=development FRONTEND_HOST=http://localhost:5174 \
+  uv run fastapi run --port 8001
 ```
 
-You can also run your tests in UI mode to see the browser and interact with it running:
+3. Start the frontend pointing to that backend (from `frontend/`, another terminal):
 
 ```bash
-bunx playwright test --ui
+VITE_API_URL=http://localhost:8001 bun run dev --port 5174 --strictPort
 ```
 
-To stop and remove the Docker Compose stack and clean the data created in tests, use the following command:
+4. Run the tests (third terminal). **You must run them from the `frontend/` directory** (`cd frontend`): the Playwright config lives there, and running `bunx playwright test` from the project root makes every test fail with `Cannot navigate to invalid URL`. `PLAYWRIGHT_BASE_URL` disables Playwright's own web server; `VITE_API_URL` is used by the test helpers; `NO_PROXY` is needed if you have `HTTP_PROXY` set in your shell:
 
 ```bash
-docker compose down -v
+export NO_PROXY=localhost,127.0.0.1
+VITE_API_URL=http://localhost:8001 PLAYWRIGHT_BASE_URL=http://localhost:5174 bunx playwright test
+# or with UI
+VITE_API_URL=http://localhost:8001 PLAYWRIGHT_BASE_URL=http://localhost:5174 bunx playwright test --ui
 ```
+
+In UI mode, make sure both projects (`setup` and `chromium`) are selected in the `Projects` filter; otherwise only a part of the tests is shown. If the Playwright panel of the IDE plugin shows "No tests", it does not know the config/env: run `--ui` from a regular terminal in `frontend/` (as above) or set the plugin's working directory to `frontend/` and add the env vars `VITE_API_URL` and `PLAYWRIGHT_BASE_URL`.
+
+If `frontend/test-results` is owned by root (created earlier by the Docker `playwright` service), run `sudo chown -R $USER frontend/test-results` or pass `--output=/tmp/pw-results`.
+
+To reset only the e2e data (never run this against `app`):
+
+```bash
+docker compose exec db psql -U postgres -c "DROP DATABASE app_e2e"
+```
+
+then repeat step 1.
+
+### Docker variant
+
+`docker compose run --rm backend bash scripts/prestart.sh` followed by `docker compose up -d --wait backend` runs the backend in Docker against the **development** database `app` on port 8000 (it conflicts with a local `fastapi dev`). The `backend` service uses the pre-built `backend:latest` image; if it is stale you will get `Can't locate revision identified by '...'` because the image lacks new migrations. Fix it with `docker compose build backend` (the DB volume is not affected). Use `docker compose down -v` only if you intentionally want to delete all data.
 
 To update the tests, navigate to the tests directory and modify the existing test files or add new ones as needed.
 

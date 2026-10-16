@@ -6,7 +6,6 @@ from types import SimpleNamespace
 
 from app.fleet.models import (
     Vehicle,
-    VehicleFuelProfile,
     VehicleFuelType,
     VehicleStatus,
     VehicleType,
@@ -50,19 +49,11 @@ ROUTE_RESPONSE = {
 
 
 class FakeVehicleRepository:
-    def __init__(self, vehicle: Vehicle | None, profile: VehicleFuelProfile | None):
+    def __init__(self, vehicle: Vehicle | None):
         self.vehicle = vehicle
-        self.profile = profile
 
     def get(self, vehicle_id):
         return self.vehicle if self.vehicle and self.vehicle.id == vehicle_id else None
-
-    def get_fuel_profile(self, fuel_profile_id):
-        return (
-            self.profile
-            if self.profile and self.profile.id == fuel_profile_id
-            else None
-        )
 
 
 class FakeRouteRepository:
@@ -97,25 +88,17 @@ class FakeRunRepository:
         return SimpleNamespace(id=uuid.uuid4())
 
 
-def build_vehicle() -> tuple[Vehicle, VehicleFuelProfile]:
-    profile = VehicleFuelProfile(
-        id=uuid.uuid4(),
-        name="Sleeper profile",
-        fuel_type=VehicleFuelType.TRUCK_DIESEL,
-        tank_capacity_gallons=Decimal("150"),
-        usable_tank_capacity_gallons=Decimal("145"),
-        consumption_mpg=Decimal("10"),
-        reserve_gallons=Decimal("20"),
-    )
-    vehicle = Vehicle(
+def build_vehicle() -> Vehicle:
+    return Vehicle(
         id=uuid.uuid4(),
         name="Truck 001",
         unit_number="TRK-001",
         status=VehicleStatus.ACTIVE,
         vehicle_type=VehicleType.TRACTOR,
-        fuel_profile_id=profile.id,
+        fuel_type=VehicleFuelType.TRUCK_DIESEL,
+        tank_capacity_gallons=Decimal("150"),
+        consumption_mpg=Decimal("10"),
     )
-    return vehicle, profile
 
 
 def build_station_row(
@@ -158,13 +141,13 @@ def build_route_row(*, route_id: uuid.UUID):
 
 
 def test_optimize_fuel_use_case_persists_run() -> None:
-    vehicle, profile = build_vehicle()
+    vehicle = build_vehicle()
     route_id = uuid.uuid4()
     route_row = build_route_row(route_id=route_id)
     station_id = uuid.uuid4()
     run_repository = FakeRunRepository()
     use_case = OptimizeFuelUseCase(
-        vehicle_repository=FakeVehicleRepository(vehicle, profile),
+        vehicle_repository=FakeVehicleRepository(vehicle),
         route_repository=FakeRouteRepository(route_row),
         fuel_station_repository=FakeFuelStationRepository(
             [build_station_row(station_id=station_id)]
@@ -268,13 +251,13 @@ def test_candidate_builder_excludes_station_beyond_destination_near_route_end() 
 
 
 def test_optimize_fuel_use_case_includes_debug_when_requested() -> None:
-    vehicle, profile = build_vehicle()
+    vehicle = build_vehicle()
     route_id = uuid.uuid4()
     route_row = build_route_row(route_id=route_id)
     station_id = uuid.uuid4()
     run_repository = FakeRunRepository()
     use_case = OptimizeFuelUseCase(
-        vehicle_repository=FakeVehicleRepository(vehicle, profile),
+        vehicle_repository=FakeVehicleRepository(vehicle),
         route_repository=FakeRouteRepository(route_row),
         fuel_station_repository=FakeFuelStationRepository(
             [build_station_row(station_id=station_id)]
@@ -307,11 +290,11 @@ def test_optimize_fuel_use_case_includes_debug_when_requested() -> None:
 
 
 def test_infeasible_response_includes_destination_diagnostics_and_itinerary() -> None:
-    vehicle, profile = build_vehicle()
+    vehicle = build_vehicle()
     route_id = uuid.uuid4()
     route_row = build_route_row(route_id=route_id)
     use_case = OptimizeFuelUseCase(
-        vehicle_repository=FakeVehicleRepository(vehicle, profile),
+        vehicle_repository=FakeVehicleRepository(vehicle),
         route_repository=FakeRouteRepository(route_row),
         fuel_station_repository=FakeFuelStationRepository([]),
         run_repository=FakeRunRepository(),
@@ -343,7 +326,7 @@ def test_infeasible_response_includes_destination_diagnostics_and_itinerary() ->
 
 
 def test_infeasible_response_lists_all_stations_and_keeps_target_order() -> None:
-    vehicle, profile = build_vehicle()
+    vehicle = build_vehicle()
     route_id = uuid.uuid4()
     route_row = build_route_row(route_id=route_id)
     nearest = build_station_row(station_id=uuid.uuid4())
@@ -351,7 +334,7 @@ def test_infeasible_response_lists_all_stations_and_keeps_target_order() -> None
     farther = build_station_row(station_id=uuid.uuid4())
     farther.progress_along_route = 0.4
     use_case = OptimizeFuelUseCase(
-        vehicle_repository=FakeVehicleRepository(vehicle, profile),
+        vehicle_repository=FakeVehicleRepository(vehicle),
         route_repository=FakeRouteRepository(route_row),
         fuel_station_repository=FakeFuelStationRepository([farther, nearest]),
         run_repository=FakeRunRepository(),
@@ -381,14 +364,14 @@ def test_infeasible_response_lists_all_stations_and_keeps_target_order() -> None
 
 
 def test_infeasible_response_keeps_reached_refuel_in_itinerary() -> None:
-    vehicle, profile = build_vehicle()
+    vehicle = build_vehicle()
     route_id = uuid.uuid4()
     route_row = build_route_row(route_id=route_id)
     route_row.distance_meters = 3_000_000
     station = build_station_row(station_id=uuid.uuid4())
     station.progress_along_route = 0.2
     use_case = OptimizeFuelUseCase(
-        vehicle_repository=FakeVehicleRepository(vehicle, profile),
+        vehicle_repository=FakeVehicleRepository(vehicle),
         route_repository=FakeRouteRepository(route_row),
         fuel_station_repository=FakeFuelStationRepository([station]),
         run_repository=FakeRunRepository(),
@@ -429,14 +412,14 @@ def test_request_schema_removes_detour_time_constraint_and_examples() -> None:
 def test_candidate_search_uses_default_radius_when_requested_detour_is_smaller() -> (
     None
 ):
-    vehicle, profile = build_vehicle()
+    vehicle = build_vehicle()
     route_id = uuid.uuid4()
     route_row = build_route_row(route_id=route_id)
     station_repository = FakeFuelStationRepository(
         [build_station_row(station_id=uuid.uuid4())]
     )
     use_case = OptimizeFuelUseCase(
-        vehicle_repository=FakeVehicleRepository(vehicle, profile),
+        vehicle_repository=FakeVehicleRepository(vehicle),
         route_repository=FakeRouteRepository(route_row),
         fuel_station_repository=station_repository,
         run_repository=FakeRunRepository(),
@@ -460,14 +443,14 @@ def test_candidate_search_uses_default_radius_when_requested_detour_is_smaller()
 
 
 def test_candidate_search_expands_radius_when_requested_detour_is_larger() -> None:
-    vehicle, profile = build_vehicle()
+    vehicle = build_vehicle()
     route_id = uuid.uuid4()
     route_row = build_route_row(route_id=route_id)
     station_repository = FakeFuelStationRepository(
         [build_station_row(station_id=uuid.uuid4())]
     )
     use_case = OptimizeFuelUseCase(
-        vehicle_repository=FakeVehicleRepository(vehicle, profile),
+        vehicle_repository=FakeVehicleRepository(vehicle),
         route_repository=FakeRouteRepository(route_row),
         fuel_station_repository=station_repository,
         run_repository=FakeRunRepository(),
@@ -493,7 +476,7 @@ def test_candidate_search_expands_radius_when_requested_detour_is_larger() -> No
 def test_expanded_search_radius_makes_farther_station_visible_before_detour_filtering() -> (
     None
 ):
-    vehicle, profile = build_vehicle()
+    vehicle = build_vehicle()
     route_id = uuid.uuid4()
     route_row = build_route_row(route_id=route_id)
     station_id = uuid.uuid4()
@@ -507,7 +490,7 @@ def test_expanded_search_radius_makes_farther_station_visible_before_detour_filt
 
     station_repository = FakeFuelStationRepository(side_effect=find_along_route)
     use_case = OptimizeFuelUseCase(
-        vehicle_repository=FakeVehicleRepository(vehicle, profile),
+        vehicle_repository=FakeVehicleRepository(vehicle),
         route_repository=FakeRouteRepository(route_row),
         fuel_station_repository=station_repository,
         run_repository=FakeRunRepository(),
@@ -536,7 +519,7 @@ def test_expanded_search_radius_makes_farther_station_visible_before_detour_filt
 
 
 def test_candidate_builder_keeps_detour_time_as_informational_only() -> None:
-    vehicle, profile = build_vehicle()
+    vehicle = build_vehicle()
     route_id = uuid.uuid4()
     route_row = build_route_row(route_id=route_id)
     station_id = uuid.uuid4()
@@ -544,7 +527,7 @@ def test_candidate_builder_keeps_detour_time_as_informational_only() -> None:
     station.distance_to_route_meters = 9000.0
 
     use_case = OptimizeFuelUseCase(
-        vehicle_repository=FakeVehicleRepository(vehicle, profile),
+        vehicle_repository=FakeVehicleRepository(vehicle),
         route_repository=FakeRouteRepository(route_row),
         fuel_station_repository=FakeFuelStationRepository([station]),
         run_repository=FakeRunRepository(),

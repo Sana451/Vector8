@@ -14,6 +14,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.fleet.units import in_to_cm, lbs_to_kg, mph_to_mps
+
 # GeoJSON models are shared across all map layer domains and live in
 # app.providers.geo. They are imported here so that existing
 # `from app.routing.schemas import GeoJSONPoint` imports keep working.
@@ -200,6 +202,59 @@ class RoutePlanningLocations(BaseModel):
     )
 
 
+class VehicleRoutingProfile(BaseModel):
+    """Provider-neutral vehicle characteristics in metric units.
+
+    Every value is optional: ``None`` means the parameter is not sent to the
+    routing provider and the matching road restriction is ignored.
+    """
+
+    vehicle_type: Literal["StraightTruck", "Tractor"] | None = None
+    height_cm: int | None = Field(default=None, ge=1, le=5000)
+    width_cm: int | None = Field(default=None, ge=1, le=5000)
+    length_cm: int | None = Field(default=None, ge=1, le=30000)
+    gross_weight_kg: int | None = Field(default=None, ge=1)
+    weight_per_axle_kg: int | None = Field(default=None, ge=1)
+    axle_count: int | None = Field(default=None, ge=2, le=255)
+    tires_count: int | None = Field(default=None, ge=1, le=255)
+    trailer_count: int = Field(default=0, ge=0, le=255)
+    trailer_length_cm: int | None = Field(default=None, ge=1, le=2000)
+    kpra_length_cm: int | None = Field(default=None, ge=1, le=30000)
+    payload_capacity_kg: int | None = Field(default=None, ge=1)
+    speed_cap_mps: float | None = Field(default=None, ge=1, le=70)
+
+    @property
+    def missing_recommended(self) -> list[str]:
+        """Dimension/weight fields HERE needs for the most common restrictions."""
+        names = {
+            "height": self.height_cm,
+            "width": self.width_cm,
+            "length": self.length_cm,
+            "gross_weight": self.gross_weight_kg,
+        }
+        return [name for name, value in names.items() if value is None]
+
+    @classmethod
+    def from_vehicle(cls, vehicle: Any) -> VehicleRoutingProfile:
+        """Build a profile from a fleet ``Vehicle`` row (imperial units)."""
+        vehicle_type = str(getattr(vehicle.vehicle_type, "value", vehicle.vehicle_type))
+        return cls(
+            vehicle_type="Tractor" if vehicle_type == "tractor" else "StraightTruck",
+            height_cm=in_to_cm(vehicle.height_in),
+            width_cm=in_to_cm(vehicle.width_in),
+            length_cm=in_to_cm(vehicle.length_in),
+            gross_weight_kg=lbs_to_kg(vehicle.gross_weight_lbs),
+            weight_per_axle_kg=lbs_to_kg(vehicle.weight_per_axle_lbs),
+            axle_count=vehicle.axle_count,
+            tires_count=vehicle.tires_count,
+            trailer_count=vehicle.trailer_count or 0,
+            trailer_length_cm=in_to_cm(vehicle.trailer_length_in),
+            kpra_length_cm=in_to_cm(vehicle.kpra_length_in),
+            payload_capacity_kg=lbs_to_kg(vehicle.payload_capacity_lbs),
+            speed_cap_mps=mph_to_mps(vehicle.max_speed_mph),
+        )
+
+
 class CalculateRouteRequest(BaseModel):
     """Calculate route request.
 
@@ -257,6 +312,10 @@ class CalculateRouteRequest(BaseModel):
     )
 
     # Vehicle parameters
+    vehicle: VehicleRoutingProfile | None = Field(
+        default=None,
+        description="Vehicle dimensions/weight used by the routing provider",
+    )
     vehicle_heading_in_degrees: int | None = Field(
         default=None,
         ge=0,

@@ -7,7 +7,6 @@ from app.fuel_optimization.domain import (
     UnsupportedOptimizationAlgorithmError,
 )
 from app.fuel_optimization.exceptions import (
-    FuelProfileNotFoundError,
     RouteNotFoundError,
     VehicleNotFoundError,
 )
@@ -33,8 +32,6 @@ def calculate_fuel_optimization(
     except VehicleNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except RouteNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except FuelProfileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except UnsupportedOptimizationAlgorithmError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

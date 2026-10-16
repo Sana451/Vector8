@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 from fastapi.testclient import TestClient
 from sqlmodel import Session, delete, select
 
-from app.fleet.models import Vehicle, VehicleFuelProfile
+from app.fleet.models import Vehicle
 from app.fuel_optimization.models import FuelOptimizationRun, FuelOptimizationStop
 from app.map.models import FuelStation
 from app.map.repository import FuelStationRepository
@@ -73,7 +73,6 @@ class TestFuelOptimizationRouter:
         db.exec(delete(FuelOptimizationStop))
         db.exec(delete(FuelOptimizationRun))
         db.exec(delete(Vehicle))
-        db.exec(delete(VehicleFuelProfile))
         db.exec(delete(FuelStation))
         db.exec(delete(RouteCalculation))
         db.commit()
@@ -102,14 +101,9 @@ class TestFuelOptimizationRouter:
                 "name": "Truck 001",
                 "unit_number": "TRK-OPT-001",
                 "vehicle_type": "tractor",
-                "fuel_profile": {
-                    "name": "Optimization profile",
-                    "fuel_type": "truck_diesel",
-                    "tank_capacity_gallons": "150",
-                    "usable_tank_capacity_gallons": "145",
-                    "consumption_mpg": "10",
-                    "reserve_gallons": "20",
-                },
+                "fuel_type": "truck_diesel",
+                "tank_capacity_gallons": "150",
+                "consumption_mpg": "10",
             },
         )
         assert vehicle_response.status_code == 200

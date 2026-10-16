@@ -12,6 +12,7 @@ from app.core.logging import get_logger
 from app.map.dependencies import MapLayerServiceDep
 from app.map.repository import FuelStationRepository
 from app.map.schemas import MapOverviewRequest, MapOverviewResponse
+from app.map.service import VehicleNotFoundError
 from app.map.services import FuelService
 from app.providers.exceptions import ProviderError
 from app.providers.schemas import FuelStationData
@@ -90,6 +91,8 @@ async def route_overview(
             request=request,
             force_refresh=force_refresh,
         )
+    except VehicleNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except ProviderError as e:
         raise HTTPException(
             status_code=502,

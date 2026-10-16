@@ -23,9 +23,6 @@ const fillRequiredFields = async (
 ) => {
   await page.getByLabel("Name *", { exact: true }).fill(name)
   await page.getByLabel("Unit Number *", { exact: true }).fill(unitNumber)
-  await page
-    .getByLabel("Profile Name *", { exact: true })
-    .fill("Standard Diesel")
   await page.getByLabel("Tank Capacity (gal) *", { exact: true }).fill("150")
   await page.getByLabel("Consumption (MPG) *", { exact: true }).fill("6.8")
 }
@@ -41,7 +38,7 @@ test.describe("Fleet management", () => {
     await page.getByRole("button", { name: "Save" }).click()
 
     await expect(page.getByText("Vehicle created successfully")).toBeVisible()
-    await expect(page.getByText(name)).toBeVisible()
+    await expect(page.getByRole("row").filter({ hasText: name })).toBeVisible()
   })
 
   test("Cancel vehicle creation", async ({ page }) => {

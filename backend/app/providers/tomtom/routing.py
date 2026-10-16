@@ -97,6 +97,12 @@ class TomTomRoutingProvider:
         )
 
         tomtom_request = self._transform_request(request)
+        if request.vehicle is not None:
+            logger.warning(
+                "Vehicle constraints are not supported by TomTom and are ignored",
+                tracking_id=tracking_id,
+                provider=PROVIDER_NAME,
+            )
         headers = self._prepare_headers(request, tracking_id)
 
         try:

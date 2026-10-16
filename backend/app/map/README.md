@@ -104,6 +104,24 @@ generation script.
 
 ### `POST /api/v1/map/route-overview`
 
+#### Vehicle constraints
+
+Optional request fields `vehicle_id` and `apply_vehicle_constraints` (default
+`true`). When `vehicle_id` is set and the flag is true, the vehicle is loaded
+from the fleet and its dimensions and weights are converted to metric units and
+sent to HERE as `vehicle[...]` parameters (`height`, `width`, `length`,
+`grossWeight`, `weightPerAxle`, `axleCount`, `tiresCount`, `trailerCount`,
+`trailerLength`, `kpraLength`, `payloadCapacity`, `speedCap`, `type`). Unset
+fields are not sent, so HERE ignores the matching restrictions. With the flag
+off, or without `vehicle_id`, the request and its cache key are unchanged.
+Unknown `vehicle_id` returns 404; other providers ignore the profile.
+
+The response carries `vehicle_constraints` (`applied`, `sent_parameters`,
+`missing_fields`). `missing_fields` lists the recommended fields (`height`,
+`width`, `length`, `gross_weight`) the vehicle has not set; the UI shows a
+warning for them. The `truck_restrictions` layer is independent of this: it
+lists restrictions found along the route for any vehicle.
+
 The endpoint accepts **two request shapes**.
 
 Modern shape with addresses:

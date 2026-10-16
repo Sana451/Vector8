@@ -239,9 +239,7 @@ def compute_request_hash(request_data: dict[str, Any]) -> str:
         sort_keys=True,
         separators=(",", ":"),
     )
-    request_hash = hashlib.sha256(
-        canonical_json.encode("utf-8")
-    ).hexdigest()
+    request_hash = hashlib.sha256(canonical_json.encode("utf-8")).hexdigest()
     return request_hash
 ```
 
@@ -494,6 +492,7 @@ curl -X POST "http://localhost:8000/api/v1/routing/routes/calculate?force_refres
 import httpx
 import asyncio
 
+
 async def calculate_route():
     async with httpx.AsyncClient() as client:
         # Запрос с кэшем (может быть быстро)
@@ -502,28 +501,32 @@ async def calculate_route():
             json={
                 "route_planning_locations": {
                     "origin": {"type": "Point", "coordinates": [-87.6298, 41.8781]},
-                    "destination": {"type": "Point", "coordinates": [-87.3464, 41.5934]},
+                    "destination": {
+                        "type": "Point",
+                        "coordinates": [-87.3464, 41.5934],
+                    },
                 },
                 "route_type": "fast",
                 "traffic": "live",
                 "travel_mode": "car",
-            }
+            },
         )
         print(f"First call: {response1.elapsed.total_seconds():.2f}s")
 
         # Повторный запрос (будет из кэша)
         response2 = await client.post(
             "http://localhost:8000/api/v1/routing/routes/calculate",
-            json={...}  # Одинаковые параметры
+            json={...},  # Одинаковые параметры
         )
         print(f"Cached call: {response2.elapsed.total_seconds():.2f}s")  # Быстрее!
 
         # Принудительное обновление
         response3 = await client.post(
             "http://localhost:8000/api/v1/routing/routes/calculate?force_refresh=true",
-            json={...}
+            json={...},
         )
         print(f"Force refresh: {response3.elapsed.total_seconds():.2f}s")
+
 
 asyncio.run(calculate_route())
 ```
@@ -715,19 +718,20 @@ alembic revision --autogenerate -m "Description"
 ```python
 def upgrade() -> None:
     # Создание таблицы
-    op.create_table('route_calculations', ...)
+    op.create_table("route_calculations", ...)
 
     # Создание индексов
-    op.create_index('idx_provider', 'route_calculations', ['provider'])
-    op.create_index('idx_request_hash', 'route_calculations', ['request_hash'])
-    op.create_index('idx_origin_geom', ..., postgresql_using='gist')
+    op.create_index("idx_provider", "route_calculations", ["provider"])
+    op.create_index("idx_request_hash", "route_calculations", ["request_hash"])
+    op.create_index("idx_origin_geom", ..., postgresql_using="gist")
 
     # Уникальное ограничение
-    op.create_unique_constraint('uq_route_calc_provider_hash', ...)
+    op.create_unique_constraint("uq_route_calc_provider_hash", ...)
+
 
 def downgrade() -> None:
     # Откат
-    op.drop_table('route_calculations')
+    op.drop_table("route_calculations")
 ```
 
 ---
@@ -742,7 +746,7 @@ def downgrade() -> None:
 ```python
 origin: GeoJSONPoint = {
     "type": "Point",
-    "coordinates": [-87.6298, 41.8781]  # [longitude, latitude]
+    "coordinates": [-87.6298, 41.8781],  # [longitude, latitude]
 }
 ```
 
