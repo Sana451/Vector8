@@ -1080,6 +1080,7 @@ function MapPage() {
             failure={optimizationResult?.failure ?? null}
             economics={optimizationResult?.economics}
             onComparisonOpenChange={setComparisonOpen}
+            onFocusStation={(coordinate) => mapRef.current?.panTo(coordinate)}
             consumptionMpg={
               vehicles.find((v) => v.id === optimizationResult?.vehicle_id)
                 ?.consumption_mpg

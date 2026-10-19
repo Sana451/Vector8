@@ -25,6 +25,7 @@ interface OptimizationWalkthroughProps {
   failure: FuelOptimizationFailurePublic | null
   economics?: FuelOptimizationEconomicsPublic | null
   onComparisonOpenChange?: (open: boolean) => void
+  onFocusStation?: (coordinate: [number, number]) => void
   consumptionMpg?: number | string
   usableTankGallons?: number | string
   summary?: FuelOptimizationSummaryPublic
@@ -83,6 +84,7 @@ export function OptimizationWalkthrough({
   failure,
   economics,
   onComparisonOpenChange,
+  onFocusStation,
   consumptionMpg,
   usableTankGallons,
   summary,
@@ -326,6 +328,7 @@ export function OptimizationWalkthrough({
                 lookahead={activeStep.lookahead}
                 economics={economics}
                 onOpenChange={onComparisonOpenChange}
+                onFocusStation={onFocusStation}
               />
               {distanceToNextMeters !== undefined && (
                 <div className="flex justify-between">

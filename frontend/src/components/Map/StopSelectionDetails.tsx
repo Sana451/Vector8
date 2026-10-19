@@ -22,6 +22,8 @@ interface StopSelectionDetailsProps {
   economics?: FuelOptimizationEconomicsPublic | null
   /** Reports whether the explanation block is expanded (to highlight stations on the map). */
   onOpenChange?: (open: boolean) => void
+  /** Called with [lng, lat] when a compared station is clicked. */
+  onFocusStation?: (coordinate: [number, number]) => void
 }
 
 function money(value: string | number | null | undefined, digits = 2): string {
@@ -119,6 +121,7 @@ export function StopSelectionDetails({
   lookahead,
   economics,
   onOpenChange,
+  onFocusStation,
 }: StopSelectionDetailsProps) {
   const [isOpen, setIsOpen] = useState(false)
 
@@ -207,9 +210,17 @@ export function StopSelectionDetails({
           </div>
           <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
             {alternatives.map((alternative) => (
-              <div
+              <button
+                type="button"
                 key={alternative.station_id}
-                className="rounded border px-2 py-1 space-y-0.5"
+                onClick={() =>
+                  onFocusStation?.([
+                    Number(alternative.longitude),
+                    Number(alternative.latitude),
+                  ])
+                }
+                title="Show on map"
+                className="block w-full cursor-pointer rounded border px-2 py-1 text-left space-y-0.5 hover:bg-muted"
               >
                 <div className="flex justify-between gap-2">
                   <span className="font-medium truncate">
@@ -240,7 +251,7 @@ export function StopSelectionDetails({
                     alternative.stop_overhead_cost != null &&
                     ` (${money(alternative.estimated_savings)} vs ${money(alternative.stop_overhead_cost)})`}
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>
