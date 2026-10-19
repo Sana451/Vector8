@@ -129,6 +129,8 @@ class FuelOptimizationAlternativePublic(BaseModel):
         "no_fuel_to_buy",
         "not_reachable",
         "overhead_exceeds_savings",
+        "nearer_cheaper_station_chosen",
+        "not_cheaper_than_previous",
     ]
     effective_price_per_gallon: Decimal | None = None
     delta_vs_chosen_per_gallon: Decimal | None = Field(
@@ -157,6 +159,10 @@ class FuelOptimizationSelectionPublic(BaseModel):
     shifted_volume_gallons: Decimal | None = None
     alternatives: list[FuelOptimizationAlternativePublic] = Field(default_factory=list)
     alternatives_omitted_count: int = 0
+    next_stop_mandatory: bool = Field(
+        default=False,
+        description="A full tank cannot reach the destination, so a stop here was unavoidable.",
+    )
 
 
 class FuelOptimizationLookaheadPublic(BaseModel):

@@ -19,6 +19,8 @@ const RING_LAYER_ID = "optimization-compared-stations-ring"
 const OUTCOME_COLORS: Record<string, string> = {
   not_reachable: "#6b7280",
   overhead_exceeds_savings: "#f59e0b",
+  nearer_cheaper_station_chosen: "#3b82f6",
+  not_cheaper_than_previous: "#9ca3af",
   higher_effective_price: "#ef4444",
   tie_broken_by_distance: "#3b82f6",
   no_fuel_to_buy: "#9ca3af",

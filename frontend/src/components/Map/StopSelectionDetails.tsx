@@ -52,6 +52,9 @@ const OUTCOME_LABELS: Record<
   no_fuel_to_buy: "Nothing to buy there",
   not_reachable: "Cheaper, but out of reach on the current fuel",
   overhead_exceeds_savings: "Savings do not cover the cost of the extra stop",
+  nearer_cheaper_station_chosen:
+    "Also cheaper than the previous station, but a nearer one was taken",
+  not_cheaper_than_previous: "Not cheaper than the previous station",
 }
 
 function isEconomicsNeutral(
@@ -89,6 +92,16 @@ function Headline({
   selection: FuelOptimizationSelectionPublic
 }) {
   if (selection.rule === "cheaper_ahead_pays_off") {
+    if (selection.next_stop_mandatory) {
+      return (
+        <div className="text-muted-foreground">
+          A full tank does not reach the destination, so another stop was
+          unavoidable. This is the nearest station cheaper than the previous
+          one: filling here instead of there saves{" "}
+          {money(selection.estimated_savings)}.
+        </div>
+      )
+    }
     return (
       <div className="text-muted-foreground">
         A cheaper station that was worth the extra stop: saves{" "}
@@ -188,10 +201,12 @@ export function StopSelectionDetails({
                 label="Estimated savings"
                 value={money(selection.estimated_savings)}
               />
-              <Row
-                label="Extra stop cost"
-                value={money(selection.stop_overhead_cost)}
-              />
+              {!selection.next_stop_mandatory && (
+                <Row
+                  label="Extra stop cost"
+                  value={money(selection.stop_overhead_cost)}
+                />
+              )}
             </>
           )}
           {economics && isEconomicsNeutral(economics) && (
@@ -254,6 +269,12 @@ export function StopSelectionDetails({
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {isOpen && selection && alternatives.length === 0 && (
+        <div className="text-muted-foreground">
+          No other stations were within reach of a full tank to compare with.
         </div>
       )}
 

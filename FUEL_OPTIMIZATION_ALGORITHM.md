@@ -178,7 +178,7 @@ overhead(cand) = detour_fuel(cand)·cand.price        # здесь детур Д
 
 Чтобы пользователь видел, почему выбрана заправка с более высокой ценой на стенде, `stops[]` и точки `itinerary` содержат:
 
-* `selection` — почему приехали сюда: `rule` (`lowest_effective_price` или `cheaper_ahead_pays_off`), цена на стенде, эффективная цена, премия за галлон, топливо на объезд, стоимость времени, фиксированная стоимость, экономия против «обычной» заправки и все рассмотренные `alternatives` (без ограничения по количеству; `alternatives_omitted_count` всегда 0, поле оставлено для совместимости; с `outcome`: `higher_effective_price`, `tie_broken_by_distance`, `no_fuel_to_buy`, `not_reachable`, `overhead_exceeds_savings`).
+* `selection` — почему приехали сюда: `rule` (`lowest_effective_price` или `cheaper_ahead_pays_off`), цена на стенде, эффективная цена, премия за галлон, топливо на объезд, стоимость времени, фиксированная стоимость, экономия против «обычной» заправки и все рассмотренные `alternatives` (без ограничения по количеству; `alternatives_omitted_count` всегда 0, поле оставлено для совместимости; с `outcome`: `higher_effective_price`, `tie_broken_by_distance`, `no_fuel_to_buy`, `not_reachable`, `overhead_exceeds_savings`, `nearer_cheaper_station_chosen`, `not_cheaper_than_previous`); флаг `next_stop_mandatory` — остановка была неизбежна, полный бак не доезжает до пункта назначения.
 * `lookahead` — решение на этой остановке о более дешёвой заправке впереди: `cheaper_ahead_pays_off`, `cheaper_ahead_rejected` или `no_cheaper_ahead`.
 * `economics` в корне ответа — применённые значения стоимости простоя, времени стоянки и фикс. стоимости.
 

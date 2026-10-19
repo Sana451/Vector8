@@ -268,6 +268,7 @@ class StationSelection:
     shifted_volume_gallons: Decimal | None = None
     alternatives: list[StationAlternative] = field(default_factory=list)
     alternatives_omitted_count: int = 0
+    next_stop_mandatory: bool = False
 
 
 @dataclass(frozen=True)
@@ -665,7 +666,13 @@ class GreedyFuelOptimizationStrategy:
             next_selection: StationSelection | None = None
             if chosen_ahead is not None:
                 next_selection = self._lookahead_selection(
-                    context, cost_model, lookahead_result
+                    context,
+                    cost_model,
+                    lookahead_result,
+                    full_reachable,
+                    current_offset,
+                    current_station,
+                    next_stop_is_mandatory=next_stop_is_mandatory,
                 )
             debug_trace.append(
                 {
@@ -1080,31 +1087,65 @@ class GreedyFuelOptimizationStrategy:
         context: FuelOptimizationContext,
         cost_model: EconomicStationCostModel,
         result: _LookaheadResult,
+        full_reachable: list[FuelStationCandidate],
+        current_offset: Decimal,
+        current_station: FuelStationCandidate,
+        *,
+        next_stop_is_mandatory: bool,
     ) -> StationSelection:
-        """Explain an optional stop that was picked because its savings win."""
+        """Explain a stop that was picked because buying there beats filling here.
+
+        Lists every other station ahead within a full tank: the nearer cheaper
+        ones that did not pay off, the cheaper ones further away that were never
+        weighed because a nearer one already won, and the ones that are not
+        cheaper than the station we left.
+        """
         assert result.chosen is not None
         chosen = result.chosen.station
         detour_fuel = cost_model.detour_fuel_gallons(chosen, context.vehicle)
-        alternatives = [
-            StationAlternative(
-                station_id=item.station.station_id,
-                name=item.station.name,
-                latitude=item.station.latitude,
-                longitude=item.station.longitude,
-                route_offset_meters=_q4(item.station.route_offset_meters),
-                fuel_price_per_gallon=_q4(item.station.fuel_price_per_gallon),
-                detour_distance_meters=_q2(item.station.detour.distance_meters),
-                detour_time_seconds=item.station.detour.time_seconds,
-                cheaper_by_sticker=True,
-                outcome="overhead_exceeds_savings",
-                estimated_savings=_money(item.savings),
-                stop_overhead_cost=_money(item.overhead),
+        rejected_by_id = {item.station.station_id: item for item in result.rejected}
+
+        def build(
+            station: FuelStationCandidate,
+            outcome: str,
+            item: _LookaheadEvaluation | None = None,
+        ) -> StationAlternative:
+            return StationAlternative(
+                station_id=station.station_id,
+                name=station.name,
+                latitude=station.latitude,
+                longitude=station.longitude,
+                route_offset_meters=_q4(station.route_offset_meters),
+                fuel_price_per_gallon=_q4(station.fuel_price_per_gallon),
+                detour_distance_meters=_q2(station.detour.distance_meters),
+                detour_time_seconds=station.detour.time_seconds,
+                cheaper_by_sticker=station.fuel_price_per_gallon
+                < chosen.fuel_price_per_gallon,
+                outcome=outcome,
+                estimated_savings=_money(item.savings) if item else None,
+                stop_overhead_cost=_money(item.overhead) if item else None,
             )
-            for item in result.rejected
-        ]
+
+        alternatives: list[StationAlternative] = []
+        for station in full_reachable:
+            if (
+                station.station_id == chosen.station_id
+                or station.route_offset_meters <= current_offset
+            ):
+                continue
+            rejected = rejected_by_id.get(station.station_id)
+            if rejected is not None:
+                alternatives.append(
+                    build(station, "overhead_exceeds_savings", rejected)
+                )
+            elif station.fuel_price_per_gallon < current_station.fuel_price_per_gallon:
+                alternatives.append(build(station, "nearer_cheaper_station_chosen"))
+            else:
+                alternatives.append(build(station, "not_cheaper_than_previous"))
         shown, omitted = _rank_alternatives(alternatives)
         return StationSelection(
             rule="cheaper_ahead_pays_off",
+            next_stop_mandatory=next_stop_is_mandatory,
             sticker_price_per_gallon=_q4(chosen.fuel_price_per_gallon),
             detour_fuel_gallons=_q4(detour_fuel),
             detour_fuel_cost=_money(detour_fuel * chosen.fuel_price_per_gallon),

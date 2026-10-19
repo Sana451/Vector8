@@ -339,7 +339,7 @@ export type FuelOptimizationAlternativePublic = {
     /**
      * Outcome
      */
-    outcome: 'higher_effective_price' | 'tie_broken_by_distance' | 'no_fuel_to_buy' | 'not_reachable' | 'overhead_exceeds_savings';
+    outcome: 'higher_effective_price' | 'tie_broken_by_distance' | 'no_fuel_to_buy' | 'not_reachable' | 'overhead_exceeds_savings' | 'nearer_cheaper_station_chosen' | 'not_cheaper_than_previous';
     /**
      * Effective Price Per Gallon
      */
@@ -816,6 +816,12 @@ export type FuelOptimizationSelectionPublic = {
      * Alternatives Omitted Count
      */
     alternatives_omitted_count?: number;
+    /**
+     * Next Stop Mandatory
+     *
+     * A full tank cannot reach the destination, so a stop here was unavoidable.
+     */
+    next_stop_mandatory?: boolean;
 };
 
 /**

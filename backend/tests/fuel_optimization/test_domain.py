@@ -637,3 +637,42 @@ def test_selection_lists_all_alternatives() -> None:
     assert selection is not None
     assert len(selection.alternatives) == 8
     assert selection.alternatives_omitted_count == 0
+
+
+def test_cheaper_ahead_selection_lists_other_stations_in_reach() -> None:
+    near = build_station(
+        miles_from_start="10",
+        price="4.0000",
+        station_id=uuid.UUID("00000000-0000-0000-0000-0000000000e1"),
+    )
+    chosen = build_station(
+        miles_from_start="200",
+        price="3.9000",
+        station_id=uuid.UUID("00000000-0000-0000-0000-0000000000e2"),
+    )
+    further_cheaper = build_station(
+        miles_from_start="250",
+        price="3.8000",
+        station_id=uuid.UUID("00000000-0000-0000-0000-0000000000e3"),
+    )
+    pricier = build_station(
+        miles_from_start="300",
+        price="4.2000",
+        station_id=uuid.UUID("00000000-0000-0000-0000-0000000000e4"),
+    )
+    context = build_context(
+        initial_fuel="25",
+        route_distance_miles="400",
+        stations=[near, chosen, further_cheaper, pricier],
+        reserve="20",
+        mpg="10",
+    )
+    plan = GreedyFuelOptimizationStrategy().optimize(context)
+    selection = next(
+        stop.selection for stop in plan.stops if stop.station_id == chosen.station_id
+    )
+    assert selection is not None
+    assert selection.rule == "cheaper_ahead_pays_off"
+    outcomes = {a.station_id: a.outcome for a in selection.alternatives}
+    assert outcomes[further_cheaper.station_id] == "nearer_cheaper_station_chosen"
+    assert outcomes[pricier.station_id] == "not_cheaper_than_previous"
