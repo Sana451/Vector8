@@ -9,6 +9,8 @@ import { lineString } from "@turf/helpers"
 import { length } from "@turf/length"
 import type {
   FuelOptimizationCalculateResponse,
+  FuelOptimizationLookaheadPublic,
+  FuelOptimizationSelectionPublic,
   FuelOptimizationSkippedStationPointPublic,
   FuelStationData,
 } from "@/client"
@@ -47,6 +49,10 @@ export interface OptimizationStep {
   deficitGallons?: number
   isPrimaryFailureTarget?: boolean
   isFailurePoint?: boolean
+  /** Why this station was chosen (backend-computed), for "stop" steps */
+  selection?: FuelOptimizationSelectionPublic
+  /** Decision about a cheaper station further ahead, for "stop" steps */
+  lookahead?: FuelOptimizationLookaheadPublic
 }
 
 interface BuildStepsParams {
@@ -171,6 +177,8 @@ export function buildOptimizationSteps({
               : Number(point.deficit_gallons),
           isPrimaryFailureTarget: point.is_primary_failure_target,
           isFailurePoint: point.is_failure_point,
+          selection: point.selection ?? undefined,
+          lookahead: point.lookahead ?? undefined,
         }
         return step
       })
@@ -223,6 +231,8 @@ export function buildOptimizationSteps({
       fuelCost: Number(stop.fuel_cost),
       detourDistanceMeters: Number(stop.detour_distance_meters),
       detourTimeSeconds: stop.detour_time_seconds,
+      selection: stop.selection ?? undefined,
+      lookahead: stop.lookahead ?? undefined,
     })
   }
 

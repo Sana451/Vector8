@@ -23,6 +23,7 @@ import {
 import {
   DetourLayer,
   FuelLayer,
+  OptimizationComparedStationsLayer,
   OptimizationRejectedStationsLayer,
   OptimizationStopsLayer,
   ReachableRouteLayer,
@@ -190,6 +191,7 @@ function MapPage() {
   const [optimizationReserveGallons, setOptimizationReserveGallons] =
     useState(0)
   const [activeStepIndex, setActiveStepIndex] = useState(0)
+  const [comparisonOpen, setComparisonOpen] = useState(false)
 
   // Fetch vehicles list
   // Distinct key: the fleet page caches a {data, count} object under
@@ -1064,12 +1066,21 @@ function MapPage() {
             maxAllowedDetourMeters={parseInt(maxDetourMeters, 10) || null}
           />
         )}
+        {comparisonOpen && activeOptimizationStep?.selection && (
+          <OptimizationComparedStationsLayer
+            mapInstance={mapInstance}
+            alternatives={activeOptimizationStep.selection.alternatives ?? []}
+          />
+        )}
         {optimizationSteps.length > 0 && (
           <OptimizationWalkthrough
             steps={optimizationSteps}
             activeStepIndex={activeStepIndex}
             onStepChange={handleStepChange}
             failure={optimizationResult?.failure ?? null}
+            economics={optimizationResult?.economics}
+            onComparisonOpenChange={setComparisonOpen}
+            onFocusStation={(coordinate) => mapRef.current?.panTo(coordinate)}
             consumptionMpg={
               vehicles.find((v) => v.id === optimizationResult?.vehicle_id)
                 ?.consumption_mpg

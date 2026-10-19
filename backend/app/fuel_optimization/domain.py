@@ -11,6 +11,8 @@ FUEL_QUANT = Decimal("0.0001")
 DISTANCE_QUANT = Decimal("0.01")
 ZERO = Decimal("0")
 MILES_PER_METER = Decimal("0.000621371192237334")
+SECONDS_PER_HOUR = Decimal("3600")
+SECONDS_PER_MINUTE = Decimal("60")
 
 
 class FuelOptimizationAlgorithm(StrEnum):
@@ -107,6 +109,77 @@ class FuelOptimizationConstraints:
 
 
 @dataclass(frozen=True)
+class StopEconomics:
+    """Costs of making a refuelling stop that are not the fuel price itself.
+
+    Used to turn a raw price per gallon into an effective one (defects A1/A2):
+    a station that is $0.02 cheaper but 8 km off the route and 30 minutes of
+    dwell time away is not actually cheaper.
+
+    Money is expressed in the same currency as ``fuel_price_per_gallon``.
+
+    All-zero values (the defaults) disable only the *time* part of the model:
+    the fuel burnt on the detour is always priced in, so plans still differ from
+    ``algorithm_version = "7"`` whenever a candidate sits off the route.
+
+    Note that ``dwell_minutes`` is priced through ``downtime_cost_per_hour``, so
+    it has no effect on its own — enable the two together.
+
+    ``downtime_cost_per_hour`` is the cost of an hour the *whole truck* spends
+    not earning, not just the driver's wage. It is a single lump figure that
+    should cover everything that keeps accruing while the truck stands still:
+
+    * driver pay including payroll taxes and benefits;
+    * vehicle holding cost (lease or depreciation, insurance, permits);
+    * optionally, the revenue lost per hour (rate per mile x average speed).
+
+    Count each item once: if lost revenue is already included, do not add the
+    driver's pay on top of it. Fuel is excluded, it is priced separately.
+    """
+
+    #: Cost of one hour of truck downtime, currency units per hour (see above).
+    downtime_cost_per_hour: Decimal = ZERO
+    #: Minutes spent leaving the route, fuelling and getting back on it.
+    dwell_minutes: Decimal = ZERO
+    #: Flat per-stop charge (parking, service fees); excludes the time cost.
+    fixed_stop_cost: Decimal = ZERO
+
+    def __post_init__(self) -> None:
+        if self.downtime_cost_per_hour < ZERO:
+            raise InvalidFuelOptimizationInputError(
+                "downtime_cost_per_hour must be greater than or equal to 0"
+            )
+        if self.dwell_minutes < ZERO:
+            raise InvalidFuelOptimizationInputError(
+                "dwell_minutes must be greater than or equal to 0"
+            )
+        if self.fixed_stop_cost < ZERO:
+            raise InvalidFuelOptimizationInputError(
+                "fixed_stop_cost must be greater than or equal to 0"
+            )
+
+    def cost_of_seconds(self, seconds: Decimal) -> Decimal:
+        """Price a duration, multiplying before dividing to stay exact.
+
+        ``75 / 3600`` is a repeating decimal, so scaling the rate first would
+        leak rounding error into every comparison.
+        """
+        return (seconds * self.downtime_cost_per_hour) / SECONDS_PER_HOUR
+
+    @property
+    def dwell_seconds(self) -> Decimal:
+        return self.dwell_minutes * SECONDS_PER_MINUTE
+
+    @property
+    def is_neutral(self) -> bool:
+        return (
+            self.downtime_cost_per_hour == ZERO
+            and self.dwell_minutes == ZERO
+            and self.fixed_stop_cost == ZERO
+        )
+
+
+@dataclass(frozen=True)
 class FuelOptimizationRequest:
     route_id: UUID
     vehicle_id: UUID
@@ -119,12 +192,116 @@ class FuelConsumptionModel(Protocol):
     def fuel_required(self, distance_miles: Decimal, vehicle: Vehicle) -> Decimal: ...
 
 
+class StationCostModel(Protocol):
+    def stop_time_cost(self, station: FuelStationCandidate) -> Decimal: ...
+
+    def stop_overhead_cost(
+        self, station: FuelStationCandidate, vehicle: Vehicle | None = None
+    ) -> Decimal: ...
+
+    def effective_price_per_gallon(
+        self,
+        station: FuelStationCandidate,
+        volume_gallons: Decimal,
+        detour_fuel_gallons: Decimal = ZERO,
+    ) -> Decimal | None: ...
+
+
 class DetourCalculator(Protocol):
     def calculate(self, distance_from_route_meters: Decimal) -> Detour: ...
 
 
 class FuelOptimizationStrategy(Protocol):
     def optimize(self, context: FuelOptimizationContext) -> FuelOptimizationPlan: ...
+
+
+@dataclass(frozen=True)
+class StationAlternative:
+    """A station that was weighed against the chosen one and lost (or was out of reach).
+
+    ``outcome`` is one of ``higher_effective_price``, ``tie_broken_by_distance``,
+    ``no_fuel_to_buy``, ``not_reachable`` or ``overhead_exceeds_savings``.
+    """
+
+    station_id: UUID
+    name: str
+    latitude: Decimal
+    longitude: Decimal
+    route_offset_meters: Decimal
+    fuel_price_per_gallon: Decimal
+    detour_distance_meters: Decimal
+    detour_time_seconds: int
+    cheaper_by_sticker: bool
+    outcome: str
+    effective_price_per_gallon: Decimal | None = None
+    delta_vs_chosen_per_gallon: Decimal | None = None
+    total_extra_cost: Decimal | None = None
+    estimated_savings: Decimal | None = None
+    stop_overhead_cost: Decimal | None = None
+
+
+@dataclass(frozen=True)
+class StationSelection:
+    """Why the optimizer drove to a station, with the numbers it used.
+
+    ``rule`` is ``lowest_effective_price`` (mandatory stop, candidates compared
+    by effective price) or ``cheaper_ahead_pays_off`` (an optional extra stop
+    whose savings beat its overhead).
+
+    For ``lowest_effective_price`` the premium over the sticker price satisfies
+    ``premium_per_gallon * delivered_gallons == detour_fuel_cost + time_cost +
+    fixed_stop_cost``. ``cheaper_ahead_pays_off`` has no per-gallon figure:
+    the decision is ``estimated_savings - stop_overhead_cost``.
+    """
+
+    rule: str
+    sticker_price_per_gallon: Decimal
+    detour_fuel_gallons: Decimal
+    detour_fuel_cost: Decimal
+    time_cost: Decimal
+    fixed_stop_cost: Decimal
+    effective_price_per_gallon: Decimal | None = None
+    premium_per_gallon: Decimal | None = None
+    volume_gallons: Decimal | None = None
+    delivered_gallons: Decimal | None = None
+    estimated_savings: Decimal | None = None
+    stop_overhead_cost: Decimal | None = None
+    shifted_volume_gallons: Decimal | None = None
+    alternatives: list[StationAlternative] = field(default_factory=list)
+    alternatives_omitted_count: int = 0
+    next_stop_mandatory: bool = False
+
+
+@dataclass(frozen=True)
+class LookaheadDecision:
+    """What was decided at a stop about continuing to a cheaper station ahead.
+
+    ``rule``: ``cheaper_ahead_pays_off`` (bought the minimum to reach it),
+    ``cheaper_ahead_rejected`` (it was cheaper, but its overhead outweighed the
+    savings, so the tank was filled here) or ``no_cheaper_ahead``.
+    """
+
+    rule: str
+    station_id: UUID | None = None
+    station_name: str | None = None
+    price_difference_per_gallon: Decimal | None = None
+    estimated_savings: Decimal | None = None
+    stop_overhead_cost: Decimal | None = None
+    shifted_volume_gallons: Decimal | None = None
+
+
+@dataclass(frozen=True)
+class _LookaheadEvaluation:
+    station: FuelStationCandidate
+    savings: Decimal
+    overhead: Decimal
+    shifted_volume: Decimal
+
+
+@dataclass(frozen=True)
+class _LookaheadResult:
+    chosen: _LookaheadEvaluation | None
+    rejected: list[_LookaheadEvaluation]
 
 
 @dataclass(frozen=True)
@@ -139,6 +316,8 @@ class FuelOptimizationStop:
     fuel_cost: Decimal
     detour_distance_meters: Decimal
     detour_time_seconds: int
+    selection: StationSelection | None = None
+    lookahead: LookaheadDecision | None = None
 
 
 @dataclass(frozen=True)
@@ -214,6 +393,7 @@ class FuelOptimizationContext:
     constraints: FuelOptimizationConstraints
     consumption_model: FuelConsumptionModel
     detour_calculator: DetourCalculator
+    stop_economics: StopEconomics = field(default_factory=StopEconomics)
 
 
 class ConstantMpgFuelConsumptionModel:
@@ -221,13 +401,80 @@ class ConstantMpgFuelConsumptionModel:
         return distance_miles / vehicle.consumption_mpg
 
 
+class EconomicStationCostModel:
+    """Prices a refuelling stop including detour and time overhead.
+
+    Two different questions need two different formulas:
+
+    * "which reachable station should we drive to" — the stop is mandatory and
+      the candidates are mutually exclusive, so compare the full cost reduced to
+      a per-gallon figure via :meth:`effective_price_per_gallon`. The fuel burnt
+      on the detour must **not** be added to the numerator there: it is already
+      charged by ``_fuel_to_station`` and therefore already inflates the volume
+      to buy. It is discounted from the delivered volume instead.
+    * "should we buy the minimum here and refill at a cheaper station ahead" —
+      the extra stop is optional, so compare the savings against
+      :meth:`stop_overhead_cost`, where the detour fuel *is* an extra cost.
+    """
+
+    def __init__(self, economics: StopEconomics):
+        self.economics = economics
+
+    def stop_time_cost(self, station: FuelStationCandidate) -> Decimal:
+        seconds = Decimal(station.detour.time_seconds) + self.economics.dwell_seconds
+        return self.economics.cost_of_seconds(seconds)
+
+    def detour_fuel_gallons(
+        self, station: FuelStationCandidate, vehicle: Vehicle
+    ) -> Decimal:
+        miles = station.detour.distance_meters * MILES_PER_METER
+        return miles / vehicle.consumption_mpg
+
+    def stop_overhead_cost(
+        self, station: FuelStationCandidate, vehicle: Vehicle | None = None
+    ) -> Decimal:
+        overhead = self.stop_time_cost(station) + self.economics.fixed_stop_cost
+        if vehicle is not None:
+            overhead += (
+                self.detour_fuel_gallons(station, vehicle)
+                * station.fuel_price_per_gallon
+            )
+        return overhead
+
+    def effective_price_per_gallon(
+        self,
+        station: FuelStationCandidate,
+        volume_gallons: Decimal,
+        detour_fuel_gallons: Decimal = ZERO,
+    ) -> Decimal | None:
+        """Cost of one gallon that actually moves the truck along the route.
+
+        ``volume_gallons`` already includes the fuel burnt on the detour (it is
+        charged by ``_fuel_to_station``), so that fuel must not be added to the
+        numerator again. It is instead removed from the denominator: those
+        gallons are paid for but deliver no route progress. With zero detours
+        and neutral economics this collapses to the raw price per gallon.
+        """
+        delivered = volume_gallons - detour_fuel_gallons
+        if volume_gallons <= ZERO or delivered <= ZERO:
+            return None
+        overhead = self.stop_time_cost(station) + self.economics.fixed_stop_cost
+        return (volume_gallons * station.fuel_price_per_gallon + overhead) / delivered
+
+
 class GreedyFuelOptimizationStrategy:
-    algorithm_version = "7"
+    # Changelog:
+    #   "7" — stations compared by raw fuel_price_per_gallon.
+    #   "8" — detour and stop time priced in (defects A1/A2): station choice uses
+    #         the effective price per gallon and the "refill at a cheaper station
+    #         ahead" decision compares savings against the stop overhead.
+    algorithm_version = "8"
 
     def optimize(self, context: FuelOptimizationContext) -> FuelOptimizationPlan:
         usable = context.vehicle.usable_tank_capacity_gallons
         reserve = context.constraints.reserve_gallons
         initial = context.initial_fuel_gallons
+        cost_model = EconomicStationCostModel(context.stop_economics)
 
         if initial < ZERO or initial > usable:
             raise InvalidFuelOptimizationInputError(
@@ -245,6 +492,8 @@ class GreedyFuelOptimizationStrategy:
         total_detour_distance = ZERO
         total_detour_time = 0
         current_station: FuelStationCandidate | None = None
+        # Why the optimizer drove to current_station; attached to its stop.
+        current_selection: StationSelection | None = None
         stops: list[FuelOptimizationStop] = []
         reached_stations: list[FuelOptimizationReachedStation] = []
         debug_trace: list[dict[str, Any]] = [
@@ -330,13 +579,17 @@ class GreedyFuelOptimizationStrategy:
                         total_detour_time=total_detour_time,
                         debug_trace=debug_trace,
                     )
-                next_station = max(
+                (
+                    next_station,
+                    next_station_effective_price,
+                    current_selection,
+                ) = self._select_cheapest_reachable(
+                    context,
+                    cost_model,
                     reachable,
-                    key=lambda item: (
-                        -item.fuel_price_per_gallon,
-                        item.route_offset_meters,
-                        str(item.station_id),
-                    ),
+                    current_offset,
+                    current_fuel,
+                    stations,
                 )
                 fuel_to_station = self._fuel_to_station(
                     context, current_offset, next_station
@@ -344,10 +597,14 @@ class GreedyFuelOptimizationStrategy:
                 debug_trace.append(
                     {
                         "event": "travel_to_initial_station",
-                        "message": "Traveled to the cheapest reachable station before first refuel (farthest among equal prices).",
+                        "message": "Traveled to the station with the lowest effective price (detour time and stop cost included).",
                         "reachable_station_count": len(reachable),
                         "selected_station_id": next_station.station_id,
                         "selected_station_price_per_gallon": next_station.fuel_price_per_gallon,
+                        "selected_station_effective_price_per_gallon": next_station_effective_price,
+                        "selected_station_stop_time_cost": cost_model.stop_time_cost(
+                            next_station
+                        ),
                         "selected_station_route_offset_meters": next_station.route_offset_meters,
                         "selected_station_detour_distance_meters": next_station.detour.distance_meters,
                         "fuel_required_gallons": fuel_to_station,
@@ -379,23 +636,53 @@ class GreedyFuelOptimizationStrategy:
                 debug_trace=debug_trace,
                 phase="search_with_full_tank",
             )
-            cheaper_ahead = next(
-                (
-                    item
-                    for item in full_reachable
-                    if item.route_offset_meters > current_offset
-                    and item.fuel_price_per_gallon
-                    < current_station.fuel_price_per_gallon
-                ),
-                None,
+            fuel_to_destination = self._fuel_between(
+                context, current_offset, context.route.total_distance_meters, ZERO
             )
+            fill_here_target = min(usable, fuel_to_destination + reserve)
+            # If a full tank is not enough to finish the route, the next stop is
+            # unavoidable: its overhead is not an extra cost of this decision.
+            next_stop_is_mandatory = usable - fuel_to_destination < reserve
+            lookahead_result = self._select_cheaper_station_ahead(
+                context,
+                cost_model,
+                full_reachable,
+                current_offset,
+                current_station,
+                fill_here_target,
+                reserve,
+                charge_overhead=not next_stop_is_mandatory,
+            )
+            chosen_ahead = lookahead_result.chosen
+            cheaper_ahead = chosen_ahead.station if chosen_ahead else None
+            cheaper_ahead_savings = chosen_ahead.savings if chosen_ahead else None
+            cheaper_ahead_overhead = chosen_ahead.overhead if chosen_ahead else None
+            cheaper_ahead_shifted_volume = (
+                chosen_ahead.shifted_volume if chosen_ahead else None
+            )
+            rejected_by_overhead = bool(lookahead_result.rejected)
+            lookahead_decision = self._lookahead_decision(
+                lookahead_result, current_station
+            )
+            next_selection: StationSelection | None = None
+            if chosen_ahead is not None:
+                next_selection = self._lookahead_selection(
+                    context,
+                    cost_model,
+                    lookahead_result,
+                    full_reachable,
+                    current_offset,
+                    current_station,
+                    next_stop_is_mandatory=next_stop_is_mandatory,
+                )
             debug_trace.append(
                 {
                     "event": "lookahead_for_cheaper_station",
-                    "message": "Searched for a cheaper reachable station ahead, assuming full tank.",
+                    "message": "Searched ahead for a station whose savings outweigh the cost of an extra stop (full tank assumed).",
                     "current_station_id": current_station.station_id,
                     "current_station_price_per_gallon": current_station.fuel_price_per_gallon,
                     "full_tank_reachable_count": len(full_reachable),
+                    "next_stop_is_mandatory": next_stop_is_mandatory,
                     "cheaper_station_found": cheaper_ahead is not None,
                     "cheaper_station_id": cheaper_ahead.station_id
                     if cheaper_ahead is not None
@@ -409,6 +696,10 @@ class GreedyFuelOptimizationStrategy:
                     )
                     if cheaper_ahead is not None
                     else None,
+                    "shifted_volume_gallons": cheaper_ahead_shifted_volume,
+                    "estimated_savings": cheaper_ahead_savings,
+                    "stop_overhead_cost": cheaper_ahead_overhead,
+                    "rejected_because_overhead_exceeds_savings": rejected_by_overhead,
                 }
             )
 
@@ -481,6 +772,8 @@ class GreedyFuelOptimizationStrategy:
                             current_station.detour.distance_meters
                         ),
                         detour_time_seconds=current_station.detour.time_seconds,
+                        selection=current_selection,
+                        lookahead=lookahead_decision,
                     )
                 )
 
@@ -569,13 +862,13 @@ class GreedyFuelOptimizationStrategy:
                         total_detour_time=total_detour_time,
                         debug_trace=debug_trace,
                     )
-                next_target = max(
+                next_target, _, next_selection = self._select_cheapest_reachable(
+                    context,
+                    cost_model,
                     reachable_after_refuel,
-                    key=lambda item: (
-                        -item.fuel_price_per_gallon,
-                        item.route_offset_meters,
-                        str(item.station_id),
-                    ),
+                    current_offset,
+                    current_fuel,
+                    stations,
                 )
 
             fuel_to_station = self._fuel_to_station(
@@ -619,6 +912,9 @@ class GreedyFuelOptimizationStrategy:
                     "message": "Departed current station and traveled to the selected next station.",
                     "selected_station_id": next_target.station_id,
                     "selected_station_price_per_gallon": next_target.fuel_price_per_gallon,
+                    "selected_station_stop_time_cost": cost_model.stop_time_cost(
+                        next_target
+                    ),
                     "selected_station_route_offset_meters": next_target.route_offset_meters,
                     "selected_station_detour_distance_meters": next_target.detour.distance_meters,
                     "fuel_before_departure_gallons": current_fuel,
@@ -630,6 +926,7 @@ class GreedyFuelOptimizationStrategy:
             total_consumed += fuel_to_station
             current_offset = next_target.route_offset_meters
             current_station = next_target
+            current_selection = next_selection
             reached_stations.append(
                 FuelOptimizationReachedStation(
                     station_id=next_target.station_id,
@@ -733,6 +1030,335 @@ class GreedyFuelOptimizationStrategy:
             context, current_offset, context.route.total_distance_meters, ZERO
         )
         return current_fuel - fuel_to_destination >= reserve
+
+    def _select_cheaper_station_ahead(
+        self,
+        context: FuelOptimizationContext,
+        cost_model: EconomicStationCostModel,
+        full_reachable: list[FuelStationCandidate],
+        current_offset: Decimal,
+        current_station: FuelStationCandidate,
+        fill_here_target: Decimal,
+        reserve: Decimal,
+        *,
+        charge_overhead: bool,
+    ) -> _LookaheadResult:
+        """Decide whether buying the minimum here and refilling ahead pays off.
+
+        Instead of the raw ``candidate.price < current.price`` test, the volume
+        that would move to the candidate is priced against the cost of the extra
+        stop: the fuel burnt on the detour (genuinely extra here, unlike in
+        :meth:`_select_cheapest_reachable`), the downtime cost and the fixed cost.
+
+        Returns the nearest candidate that pays off and every cheaper candidate
+        evaluated (and rejected) before it, with the figures used for each.
+        """
+        rejected: list[_LookaheadEvaluation] = []
+
+        for station in full_reachable:
+            if station.route_offset_meters <= current_offset:
+                continue
+            if station.fuel_price_per_gallon >= current_station.fuel_price_per_gallon:
+                continue
+
+            fuel_to_candidate = self._fuel_to_station(context, current_offset, station)
+            shifted_volume = max(ZERO, fill_here_target - (fuel_to_candidate + reserve))
+            savings = (
+                current_station.fuel_price_per_gallon - station.fuel_price_per_gallon
+            ) * shifted_volume
+            overhead = (
+                cost_model.stop_overhead_cost(station, context.vehicle)
+                if charge_overhead
+                else ZERO
+            )
+            evaluation = _LookaheadEvaluation(
+                station=station,
+                savings=savings,
+                overhead=overhead,
+                shifted_volume=shifted_volume,
+            )
+            if savings > overhead:
+                return _LookaheadResult(chosen=evaluation, rejected=rejected)
+            rejected.append(evaluation)
+
+        return _LookaheadResult(chosen=None, rejected=rejected)
+
+    def _lookahead_selection(
+        self,
+        context: FuelOptimizationContext,
+        cost_model: EconomicStationCostModel,
+        result: _LookaheadResult,
+        full_reachable: list[FuelStationCandidate],
+        current_offset: Decimal,
+        current_station: FuelStationCandidate,
+        *,
+        next_stop_is_mandatory: bool,
+    ) -> StationSelection:
+        """Explain a stop that was picked because buying there beats filling here.
+
+        Lists every other station ahead within a full tank: the nearer cheaper
+        ones that did not pay off, the cheaper ones further away that were never
+        weighed because a nearer one already won, and the ones that are not
+        cheaper than the station we left.
+        """
+        assert result.chosen is not None
+        chosen = result.chosen.station
+        detour_fuel = cost_model.detour_fuel_gallons(chosen, context.vehicle)
+        rejected_by_id = {item.station.station_id: item for item in result.rejected}
+
+        def build(
+            station: FuelStationCandidate,
+            outcome: str,
+            item: _LookaheadEvaluation | None = None,
+        ) -> StationAlternative:
+            return StationAlternative(
+                station_id=station.station_id,
+                name=station.name,
+                latitude=station.latitude,
+                longitude=station.longitude,
+                route_offset_meters=_q4(station.route_offset_meters),
+                fuel_price_per_gallon=_q4(station.fuel_price_per_gallon),
+                detour_distance_meters=_q2(station.detour.distance_meters),
+                detour_time_seconds=station.detour.time_seconds,
+                cheaper_by_sticker=station.fuel_price_per_gallon
+                < chosen.fuel_price_per_gallon,
+                outcome=outcome,
+                estimated_savings=_money(item.savings) if item else None,
+                stop_overhead_cost=_money(item.overhead) if item else None,
+            )
+
+        alternatives: list[StationAlternative] = []
+        for station in full_reachable:
+            if (
+                station.station_id == chosen.station_id
+                or station.route_offset_meters <= current_offset
+            ):
+                continue
+            rejected = rejected_by_id.get(station.station_id)
+            if rejected is not None:
+                alternatives.append(
+                    build(station, "overhead_exceeds_savings", rejected)
+                )
+            elif station.fuel_price_per_gallon < current_station.fuel_price_per_gallon:
+                alternatives.append(build(station, "nearer_cheaper_station_chosen"))
+            else:
+                alternatives.append(build(station, "not_cheaper_than_previous"))
+        shown, omitted = _rank_alternatives(alternatives)
+        return StationSelection(
+            rule="cheaper_ahead_pays_off",
+            next_stop_mandatory=next_stop_is_mandatory,
+            sticker_price_per_gallon=_q4(chosen.fuel_price_per_gallon),
+            detour_fuel_gallons=_q4(detour_fuel),
+            detour_fuel_cost=_money(detour_fuel * chosen.fuel_price_per_gallon),
+            time_cost=_money(cost_model.stop_time_cost(chosen)),
+            fixed_stop_cost=_money(cost_model.economics.fixed_stop_cost),
+            estimated_savings=_money(result.chosen.savings),
+            stop_overhead_cost=_money(result.chosen.overhead),
+            shifted_volume_gallons=_q4(result.chosen.shifted_volume),
+            alternatives=shown,
+            alternatives_omitted_count=omitted,
+        )
+
+    @staticmethod
+    def _lookahead_decision(
+        result: _LookaheadResult, current_station: FuelStationCandidate
+    ) -> LookaheadDecision:
+        if result.chosen is not None:
+            item = result.chosen
+            rule = "cheaper_ahead_pays_off"
+        elif result.rejected:
+            # The near miss is the most informative one to show.
+            item = max(
+                result.rejected, key=lambda entry: entry.savings - entry.overhead
+            )
+            rule = "cheaper_ahead_rejected"
+        else:
+            return LookaheadDecision(rule="no_cheaper_ahead")
+        return LookaheadDecision(
+            rule=rule,
+            station_id=item.station.station_id,
+            station_name=item.station.name,
+            price_difference_per_gallon=_q4(
+                current_station.fuel_price_per_gallon
+                - item.station.fuel_price_per_gallon
+            ),
+            estimated_savings=_money(item.savings),
+            stop_overhead_cost=_money(item.overhead),
+            shifted_volume_gallons=_q4(item.shifted_volume),
+        )
+
+    def _select_cheapest_reachable(
+        self,
+        context: FuelOptimizationContext,
+        cost_model: EconomicStationCostModel,
+        candidates: list[FuelStationCandidate],
+        current_offset: Decimal,
+        current_fuel: Decimal,
+        all_stations: list[FuelStationCandidate],
+    ) -> tuple[FuelStationCandidate, Decimal | None, StationSelection]:
+        """Pick the station with the lowest effective price per gallon.
+
+        The stop is mandatory here, so the detour fuel is not charged on top of
+        the purchase: it is already burnt by ``_fuel_to_station`` and therefore
+        already inflates the volume to buy. It is discounted from the delivered
+        volume instead — see
+        :meth:`EconomicStationCostModel.effective_price_per_gallon`.
+
+        Stations whose purchase would deliver nothing (``volume <= 0`` or the
+        whole purchase swallowed by the detour) get the worst rank. Ties keep
+        the historical behaviour: the farthest station first, then ``station_id``.
+
+        Also returns a :class:`StationSelection` explaining the choice. Its
+        alternatives are the other reachable candidates plus stations that are
+        cheaper by sticker and within a full tank, but not reachable right now.
+        """
+        usable = context.vehicle.usable_tank_capacity_gallons
+        priced: list[
+            tuple[
+                tuple[int, Decimal, Decimal, str],
+                FuelStationCandidate,
+                Decimal | None,
+                Decimal,
+            ]
+        ] = []
+
+        for station in candidates:
+            volume = usable - (
+                current_fuel - self._fuel_to_station(context, current_offset, station)
+            )
+            detour_fuel = cost_model.detour_fuel_gallons(station, context.vehicle)
+            effective_price = cost_model.effective_price_per_gallon(
+                station, volume, detour_fuel
+            )
+            # max() below: refuellable stations first, then the lowest effective
+            # price, then the farthest station, then the highest station_id.
+            key = (
+                0 if effective_price is None else 1,
+                -(effective_price if effective_price is not None else ZERO),
+                station.route_offset_meters,
+                str(station.station_id),
+            )
+            priced.append((key, station, effective_price, volume))
+
+        _, best, best_price, best_volume = max(priced, key=lambda item: item[0])
+
+        alternatives: list[StationAlternative] = []
+        for _, station, effective_price, _ in priced:
+            if station.station_id == best.station_id:
+                continue
+            if effective_price is None:
+                outcome = "no_fuel_to_buy"
+            elif best_price is not None and effective_price == best_price:
+                outcome = "tie_broken_by_distance"
+            else:
+                outcome = "higher_effective_price"
+            alternatives.append(
+                self._alternative(
+                    station,
+                    outcome=outcome,
+                    best=best,
+                    effective_price=effective_price,
+                    chosen_effective_price=best_price,
+                    chosen_volume=best_volume,
+                )
+            )
+
+        reachable_ids = {station.station_id for station in candidates}
+        reserve = context.constraints.reserve_gallons
+        for station in all_stations:
+            if (
+                station.station_id in reachable_ids
+                or station.route_offset_meters <= current_offset
+                or station.route_offset_meters > context.route.total_distance_meters
+                or station.fuel_price_per_gallon >= best.fuel_price_per_gallon
+            ):
+                continue
+            # Only stations a full tank could reach: further ones are just noise.
+            if (
+                self._fuel_to_station(context, current_offset, station)
+                > usable - reserve
+            ):
+                continue
+            alternatives.append(
+                self._alternative(
+                    station,
+                    outcome="not_reachable",
+                    best=best,
+                    effective_price=None,
+                    chosen_effective_price=best_price,
+                )
+            )
+
+        shown, omitted = _rank_alternatives(alternatives)
+        detour_fuel = cost_model.detour_fuel_gallons(best, context.vehicle)
+        delivered = best_volume - detour_fuel
+        return (
+            best,
+            best_price,
+            StationSelection(
+                rule="lowest_effective_price",
+                sticker_price_per_gallon=_q4(best.fuel_price_per_gallon),
+                detour_fuel_gallons=_q4(detour_fuel),
+                detour_fuel_cost=_money(detour_fuel * best.fuel_price_per_gallon),
+                time_cost=_money(cost_model.stop_time_cost(best)),
+                fixed_stop_cost=_money(cost_model.economics.fixed_stop_cost),
+                effective_price_per_gallon=(
+                    _q4(best_price) if best_price is not None else None
+                ),
+                premium_per_gallon=(
+                    _q4(best_price - best.fuel_price_per_gallon)
+                    if best_price is not None
+                    else None
+                ),
+                volume_gallons=_q4(best_volume),
+                delivered_gallons=_q4(delivered),
+                alternatives=shown,
+                alternatives_omitted_count=omitted,
+            ),
+        )
+
+    @staticmethod
+    def _alternative(
+        station: FuelStationCandidate,
+        *,
+        outcome: str,
+        best: FuelStationCandidate,
+        effective_price: Decimal | None,
+        chosen_effective_price: Decimal | None,
+        chosen_volume: Decimal | None = None,
+    ) -> StationAlternative:
+        delta = (
+            effective_price - chosen_effective_price
+            if effective_price is not None and chosen_effective_price is not None
+            else None
+        )
+        # Per-gallon gap scaled to the gallons bought at the chosen station, so the
+        # user sees the real amount instead of a 1-gallon difference.
+        total_extra = (
+            _money(delta * chosen_volume)
+            if delta is not None
+            and chosen_volume is not None
+            and outcome == "higher_effective_price"
+            else None
+        )
+        return StationAlternative(
+            station_id=station.station_id,
+            name=station.name,
+            latitude=station.latitude,
+            longitude=station.longitude,
+            route_offset_meters=_q4(station.route_offset_meters),
+            fuel_price_per_gallon=_q4(station.fuel_price_per_gallon),
+            detour_distance_meters=_q2(station.detour.distance_meters),
+            detour_time_seconds=station.detour.time_seconds,
+            cheaper_by_sticker=station.fuel_price_per_gallon
+            < best.fuel_price_per_gallon,
+            outcome=outcome,
+            effective_price_per_gallon=(
+                _q4(effective_price) if effective_price is not None else None
+            ),
+            delta_vs_chosen_per_gallon=_q4(delta) if delta is not None else None,
+            total_extra_cost=total_extra,
+        )
 
     def _fuel_to_station(
         self,
@@ -990,6 +1616,30 @@ class FuelOptimizationStrategyRegistry:
         if strategy is None:
             raise UnsupportedOptimizationAlgorithmError(str(algorithm))
         return strategy
+
+
+def _rank_alternatives(
+    alternatives: list[StationAlternative],
+) -> tuple[list[StationAlternative], int]:
+    """Order alternatives by how much they need explaining and cap the list.
+
+    Stations cheaper by sticker price come first (the user's natural question
+    is "why not this one?"), those within reach before those that were not,
+    then everything else by effective price.
+    """
+
+    def sort_key(item: StationAlternative) -> tuple[int, Decimal, Decimal]:
+        if item.cheaper_by_sticker:
+            group = 1 if item.outcome == "not_reachable" else 0
+            return (group, item.fuel_price_per_gallon, item.route_offset_meters)
+        effective = item.effective_price_per_gallon
+        return (
+            2 if effective is not None else 3,
+            effective if effective is not None else ZERO,
+            item.route_offset_meters,
+        )
+
+    return sorted(alternatives, key=sort_key), 0
 
 
 def _money(value: Decimal) -> Decimal:

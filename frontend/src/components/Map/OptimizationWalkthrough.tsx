@@ -10,9 +10,11 @@
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react"
 import { useRef, useState } from "react"
 import type {
+  FuelOptimizationEconomicsPublic,
   FuelOptimizationFailurePublic,
   FuelOptimizationSummaryPublic,
 } from "@/client"
+import { StopSelectionDetails } from "@/components/Map/StopSelectionDetails"
 import { useDraggable } from "@/hooks/useDraggable"
 import type { OptimizationStep } from "@/lib/fuelOptimizationWalkthrough"
 
@@ -21,6 +23,9 @@ interface OptimizationWalkthroughProps {
   activeStepIndex: number
   onStepChange: (index: number) => void
   failure: FuelOptimizationFailurePublic | null
+  economics?: FuelOptimizationEconomicsPublic | null
+  onComparisonOpenChange?: (open: boolean) => void
+  onFocusStation?: (coordinate: [number, number]) => void
   consumptionMpg?: number | string
   usableTankGallons?: number | string
   summary?: FuelOptimizationSummaryPublic
@@ -77,6 +82,9 @@ export function OptimizationWalkthrough({
   activeStepIndex,
   onStepChange,
   failure,
+  economics,
+  onComparisonOpenChange,
+  onFocusStation,
   consumptionMpg,
   usableTankGallons,
   summary,
@@ -315,6 +323,13 @@ export function OptimizationWalkthrough({
                   {formatSeconds(activeStep.detourTimeSeconds)}
                 </span>
               </div>
+              <StopSelectionDetails
+                selection={activeStep.selection}
+                lookahead={activeStep.lookahead}
+                economics={economics}
+                onOpenChange={onComparisonOpenChange}
+                onFocusStation={onFocusStation}
+              />
               {distanceToNextMeters !== undefined && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">

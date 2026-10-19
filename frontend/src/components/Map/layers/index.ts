@@ -8,6 +8,7 @@
 export { DetourLayer } from "./DetourLayer"
 export { FuelLayer } from "./FuelLayer"
 export { MeasureLayer } from "./MeasureLayer"
+export { OptimizationComparedStationsLayer } from "./OptimizationComparedStationsLayer"
 export { OptimizationRejectedStationsLayer } from "./OptimizationRejectedStationsLayer"
 export { OptimizationStopsLayer } from "./OptimizationStopsLayer"
 export { ReachableRouteLayer } from "./ReachableRouteLayer"
