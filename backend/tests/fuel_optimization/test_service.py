@@ -4,6 +4,7 @@ import uuid
 from decimal import Decimal
 from types import SimpleNamespace
 
+from app.core.config import settings
 from app.fleet.models import (
     Vehicle,
     VehicleFuelType,
@@ -18,6 +19,7 @@ from app.fuel_optimization.domain import (
 from app.fuel_optimization.schemas import (
     FuelOptimizationCalculateRequest,
     FuelOptimizationConstraintsInput,
+    FuelOptimizationEconomicsInput,
 )
 from app.fuel_optimization.service import (
     ApproximateDetourCalculator,
@@ -407,6 +409,37 @@ def test_request_schema_removes_detour_time_constraint_and_examples() -> None:
     assert request_schema["examples"][0]["constraints"] == {
         "max_allowed_detour_meters": "100000"
     }
+
+
+def test_economics_block_is_optional_and_falls_back_to_settings() -> None:
+    request = FuelOptimizationCalculateRequest(
+        route_id=uuid.uuid4(),
+        vehicle_id=uuid.uuid4(),
+        initial_fuel_gallons=Decimal("60"),
+    )
+    assert request.economics is None
+
+    economics = OptimizeFuelUseCase._build_stop_economics(request)
+    assert economics.downtime_cost_per_hour == settings.FUEL_OPT_DOWNTIME_COST_PER_HOUR
+    assert economics.dwell_minutes == settings.FUEL_OPT_STOP_DWELL_MINUTES
+    assert economics.fixed_stop_cost == settings.FUEL_OPT_FIXED_STOP_COST
+
+
+def test_economics_block_overrides_settings_per_request() -> None:
+    request = FuelOptimizationCalculateRequest(
+        route_id=uuid.uuid4(),
+        vehicle_id=uuid.uuid4(),
+        initial_fuel_gallons=Decimal("60"),
+        economics=FuelOptimizationEconomicsInput(
+            downtime_cost_per_hour=Decimal("75"), dwell_minutes=Decimal("30")
+        ),
+    )
+
+    economics = OptimizeFuelUseCase._build_stop_economics(request)
+    assert economics.downtime_cost_per_hour == Decimal("75")
+    assert economics.dwell_minutes == Decimal("30")
+    # Not supplied in the request, so it still comes from the settings.
+    assert economics.fixed_stop_cost == settings.FUEL_OPT_FIXED_STOP_COST
 
 
 def test_candidate_search_uses_default_radius_when_requested_detour_is_smaller() -> (

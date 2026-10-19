@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import replace
 from decimal import Decimal
 
 import pytest
@@ -8,6 +9,7 @@ import pytest
 from app.fuel_optimization.domain import (
     ConstantMpgFuelConsumptionModel,
     Detour,
+    EconomicStationCostModel,
     FuelOptimizationAlgorithm,
     FuelOptimizationConstraints,
     FuelOptimizationContext,
@@ -17,6 +19,7 @@ from app.fuel_optimization.domain import (
     GreedyFuelOptimizationStrategy,
     InvalidFuelOptimizationInputError,
     Route,
+    StopEconomics,
     Vehicle,
 )
 
@@ -55,6 +58,7 @@ def build_station(
     miles_from_start: str,
     price: str,
     detour_meters: str = "0",
+    detour_seconds: int = 60,
     station_id: uuid.UUID | None = None,
 ) -> FuelStationCandidate:
     route_offset_meters = Decimal(miles_from_start) * Decimal("1609.344")
@@ -68,7 +72,9 @@ def build_station(
         fuel_type="truck_diesel",
         fuel_price_per_gallon=Decimal(price),
         truck_accessible=True,
-        detour=Detour(distance_meters=Decimal(detour_meters), time_seconds=60),
+        detour=Detour(
+            distance_meters=Decimal(detour_meters), time_seconds=detour_seconds
+        ),
     )
 
 
@@ -81,6 +87,7 @@ def build_context(
     usable: str = "142.5",
     mpg: str = "10",
     min_refuel: str | None = None,
+    economics: StopEconomics | None = None,
 ) -> FuelOptimizationContext:
     vehicle = build_vehicle(usable=usable, mpg=mpg)
     route = build_route(
@@ -98,6 +105,7 @@ def build_context(
         ),
         consumption_model=ConstantMpgFuelConsumptionModel(),
         detour_calculator=DummyDetourCalculator(),
+        stop_economics=economics or StopEconomics(),
     )
 
 
@@ -336,3 +344,296 @@ def test_greedy_is_deterministic_for_same_offset_candidates() -> None:
     first = strategy.optimize(context)
     second = strategy.optimize(context)
     assert first == second
+
+
+def test_effective_price_collapses_to_raw_price_without_detour_or_economics() -> None:
+    station = build_station(miles_from_start="50", price="4.0000")
+    model = EconomicStationCostModel(StopEconomics())
+    assert model.effective_price_per_gallon(station, Decimal("100")) == Decimal(
+        "4.0000"
+    )
+
+
+def test_effective_price_penalizes_detour_fuel() -> None:
+    station = build_station(
+        miles_from_start="50", price="3.9800", detour_meters="40000"
+    )
+    model = EconomicStationCostModel(StopEconomics())
+    raw = station.fuel_price_per_gallon
+    effective = model.effective_price_per_gallon(
+        station, Decimal("115"), Decimal("2.485")
+    )
+    assert effective is not None
+    assert effective > raw
+
+
+def test_effective_price_is_none_when_detour_swallows_the_purchase() -> None:
+    station = build_station(miles_from_start="50", price="4.0000")
+    model = EconomicStationCostModel(StopEconomics())
+    assert model.effective_price_per_gallon(station, Decimal("2"), Decimal("3")) is None
+    assert model.effective_price_per_gallon(station, Decimal("0")) is None
+
+
+def test_greedy_prefers_pricier_station_without_detour_over_cheaper_with_detour() -> (
+    None
+):
+    # Neutral economics (the defaults): detour *fuel* is still priced in, so the
+    # $0.02 discount does not pay for a 40 km round trip.
+    on_route = build_station(
+        miles_from_start="50",
+        price="4.0000",
+        station_id=uuid.UUID("00000000-0000-0000-0000-0000000000a1"),
+    )
+    far_off_route = build_station(
+        miles_from_start="51",
+        price="3.9800",
+        detour_meters="40000",
+        station_id=uuid.UUID("00000000-0000-0000-0000-0000000000a2"),
+    )
+    context = build_context(
+        initial_fuel="35",
+        route_distance_miles="200",
+        stations=[on_route, far_off_route],
+        reserve="20",
+        mpg="10",
+    )
+    plan = GreedyFuelOptimizationStrategy().optimize(context)
+    assert plan.reached_stations[0].station_id == on_route.station_id
+
+
+def test_greedy_still_picks_cheaper_station_when_detour_is_small() -> None:
+    on_route = build_station(
+        miles_from_start="50",
+        price="4.0000",
+        station_id=uuid.UUID("00000000-0000-0000-0000-0000000000b1"),
+    )
+    slightly_off_route = build_station(
+        miles_from_start="51",
+        price="3.5000",
+        detour_meters="1000",
+        station_id=uuid.UUID("00000000-0000-0000-0000-0000000000b2"),
+    )
+    context = build_context(
+        initial_fuel="35",
+        route_distance_miles="200",
+        stations=[on_route, slightly_off_route],
+        reserve="20",
+        mpg="10",
+    )
+    plan = GreedyFuelOptimizationStrategy().optimize(context)
+    assert plan.reached_stations[0].station_id == slightly_off_route.station_id
+
+
+def _two_station_lookahead_context(economics: StopEconomics) -> FuelOptimizationContext:
+    near = build_station(
+        miles_from_start="10",
+        price="4.0000",
+        station_id=uuid.UUID("00000000-0000-0000-0000-0000000000c1"),
+    )
+    marginally_cheaper = build_station(
+        miles_from_start="200",
+        price="3.9800",
+        station_id=uuid.UUID("00000000-0000-0000-0000-0000000000c2"),
+    )
+    return build_context(
+        initial_fuel="25",
+        route_distance_miles="400",
+        stations=[near, marginally_cheaper],
+        reserve="20",
+        mpg="10",
+        economics=economics,
+    )
+
+
+def test_marginally_cheaper_station_is_used_when_stops_are_free() -> None:
+    plan = GreedyFuelOptimizationStrategy().optimize(
+        _two_station_lookahead_context(StopEconomics())
+    )
+    assert plan.status == FuelOptimizationStatus.SUCCESS
+    assert plan.number_of_stops == 2
+
+
+def test_dwell_and_downtime_cost_suppress_a_marginally_cheaper_extra_stop() -> None:
+    economics = StopEconomics(
+        downtime_cost_per_hour=Decimal("75"), dwell_minutes=Decimal("30")
+    )
+    plan = GreedyFuelOptimizationStrategy().optimize(
+        _two_station_lookahead_context(economics)
+    )
+    assert plan.status == FuelOptimizationStatus.SUCCESS
+    assert plan.number_of_stops == 1
+
+
+def test_mandatory_next_stop_is_not_penalized_by_stop_overhead() -> None:
+    # A full tank (142.5 gal / 10 mpg = 1425 mi) cannot finish a 3000 mi route,
+    # so the stop ahead is unavoidable and its overhead must not be charged.
+    near = build_station(
+        miles_from_start="10",
+        price="4.0000",
+        station_id=uuid.UUID("00000000-0000-0000-0000-0000000000d1"),
+    )
+    ahead = build_station(
+        miles_from_start="1000",
+        price="3.9800",
+        station_id=uuid.UUID("00000000-0000-0000-0000-0000000000d2"),
+    )
+    economics = StopEconomics(
+        downtime_cost_per_hour=Decimal("500"), dwell_minutes=Decimal("60")
+    )
+    context = build_context(
+        initial_fuel="25",
+        route_distance_miles="3000",
+        stations=[near, ahead],
+        reserve="20",
+        mpg="10",
+        economics=economics,
+    )
+    plan = GreedyFuelOptimizationStrategy().optimize(context)
+    reached = [station.station_id for station in plan.reached_stations]
+    assert ahead.station_id in reached
+
+
+def test_dwell_minutes_have_no_effect_while_downtime_cost_is_zero() -> None:
+    # Dwell time is converted to money through the driver cost, so configuring
+    # it alone silently does nothing. Guards against a misleading .env setup.
+    station = build_station(miles_from_start="50", price="4.0000")
+    without = EconomicStationCostModel(StopEconomics())
+    dwell_only = EconomicStationCostModel(StopEconomics(dwell_minutes=Decimal("30")))
+
+    assert (
+        dwell_only.stop_time_cost(station)
+        == without.stop_time_cost(station)
+        == Decimal("0")
+    )
+    assert dwell_only.effective_price_per_gallon(
+        station, Decimal("100")
+    ) == without.effective_price_per_gallon(station, Decimal("100"))
+
+
+def test_dwell_minutes_apply_once_downtime_cost_is_set() -> None:
+    station = build_station(miles_from_start="50", price="4.0000", detour_seconds=0)
+    model = EconomicStationCostModel(
+        StopEconomics(downtime_cost_per_hour=Decimal("75"), dwell_minutes=Decimal("30"))
+    )
+    # Half an hour of a $75/h truck.
+    assert model.stop_time_cost(station) == Decimal("37.5")
+
+
+def test_stop_economics_rejects_negative_values() -> None:
+    with pytest.raises(InvalidFuelOptimizationInputError):
+        StopEconomics(downtime_cost_per_hour=Decimal("-1"))
+    with pytest.raises(InvalidFuelOptimizationInputError):
+        StopEconomics(dwell_minutes=Decimal("-1"))
+    with pytest.raises(InvalidFuelOptimizationInputError):
+        StopEconomics(fixed_stop_cost=Decimal("-1"))
+
+
+def test_neutral_stop_economics_is_reported_as_neutral() -> None:
+    assert StopEconomics().is_neutral is True
+    assert StopEconomics(dwell_minutes=Decimal("30")).is_neutral is False
+
+
+def _selection_context() -> tuple[FuelOptimizationContext, uuid.UUID, uuid.UUID]:
+    on_route = build_station(
+        miles_from_start="50",
+        price="4.0000",
+        station_id=uuid.UUID("00000000-0000-0000-0000-0000000000d1"),
+    )
+    far_off_route = build_station(
+        miles_from_start="51",
+        price="3.9800",
+        detour_meters="40000",
+        station_id=uuid.UUID("00000000-0000-0000-0000-0000000000d2"),
+    )
+    context = build_context(
+        initial_fuel="35",
+        route_distance_miles="200",
+        stations=[on_route, far_off_route],
+        reserve="20",
+        mpg="10",
+    )
+    return context, on_route.station_id, far_off_route.station_id
+
+
+def test_stop_selection_explains_why_pricier_station_won() -> None:
+    context, chosen_id, rejected_id = _selection_context()
+    plan = GreedyFuelOptimizationStrategy().optimize(context)
+
+    stop = plan.stops[0]
+    assert stop.station_id == chosen_id
+    selection = stop.selection
+    assert selection is not None
+    assert selection.rule == "lowest_effective_price"
+    assert selection.sticker_price_per_gallon == Decimal("4.0000")
+    assert selection.effective_price_per_gallon is not None
+    alternative = selection.alternatives[0]
+    assert alternative.station_id == rejected_id
+    assert alternative.cheaper_by_sticker is True
+    assert alternative.outcome == "higher_effective_price"
+    assert alternative.delta_vs_chosen_per_gallon is not None
+    assert alternative.delta_vs_chosen_per_gallon > 0
+
+
+def test_selection_premium_reconciles_with_cost_breakdown() -> None:
+    economics = StopEconomics(
+        downtime_cost_per_hour=Decimal("60"), dwell_minutes=Decimal("30")
+    )
+    context, _, _ = _selection_context()
+    context = replace(context, stop_economics=economics)
+    selection = GreedyFuelOptimizationStrategy().optimize(context).stops[0].selection
+    assert selection is not None
+    assert selection.premium_per_gallon is not None
+    assert selection.delivered_gallons is not None
+    total = selection.detour_fuel_cost + selection.time_cost + selection.fixed_stop_cost
+    reconstructed = selection.premium_per_gallon * selection.delivered_gallons
+    assert abs(reconstructed - total) < Decimal("0.05")
+
+
+def test_cheaper_ahead_stop_records_savings_and_lookahead() -> None:
+    plan = GreedyFuelOptimizationStrategy().optimize(
+        _two_station_lookahead_context(StopEconomics())
+    )
+    first, second = plan.stops
+    assert first.lookahead is not None
+    assert first.lookahead.rule == "cheaper_ahead_pays_off"
+    assert second.selection is not None
+    assert second.selection.rule == "cheaper_ahead_pays_off"
+    assert second.selection.estimated_savings is not None
+    assert second.selection.effective_price_per_gallon is None
+
+
+def test_rejected_cheaper_ahead_is_reported_in_lookahead() -> None:
+    economics = StopEconomics(
+        downtime_cost_per_hour=Decimal("75"), dwell_minutes=Decimal("30")
+    )
+    plan = GreedyFuelOptimizationStrategy().optimize(
+        _two_station_lookahead_context(economics)
+    )
+    lookahead = plan.stops[0].lookahead
+    assert lookahead is not None
+    assert lookahead.rule == "cheaper_ahead_rejected"
+    assert lookahead.stop_overhead_cost is not None
+    assert lookahead.estimated_savings is not None
+    assert lookahead.stop_overhead_cost > lookahead.estimated_savings
+
+
+def test_selection_lists_all_alternatives() -> None:
+    stations = [
+        build_station(
+            miles_from_start=str(40 + index),
+            price=f"4.{index:02d}00",
+            station_id=uuid.UUID(f"00000000-0000-0000-0000-0000000001{index:02d}"),
+        )
+        for index in range(9)
+    ]
+    context = build_context(
+        initial_fuel="35",
+        route_distance_miles="200",
+        stations=stations,
+        reserve="20",
+        mpg="10",
+    )
+    selection = GreedyFuelOptimizationStrategy().optimize(context).stops[0].selection
+    assert selection is not None
+    assert len(selection.alternatives) == 8
+    assert selection.alternatives_omitted_count == 0

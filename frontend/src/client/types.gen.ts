@@ -295,6 +295,72 @@ export type EngineType = 'combustion' | 'electric';
 export type FuelOptimizationAlgorithm = 'greedy';
 
 /**
+ * FuelOptimizationAlternativePublic
+ *
+ * A station weighed against the chosen one and not picked.
+ */
+export type FuelOptimizationAlternativePublic = {
+    /**
+     * Station Id
+     */
+    station_id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Latitude
+     */
+    latitude: string;
+    /**
+     * Longitude
+     */
+    longitude: string;
+    /**
+     * Route Offset Meters
+     */
+    route_offset_meters: string;
+    /**
+     * Fuel Price Per Gallon
+     */
+    fuel_price_per_gallon: string;
+    /**
+     * Detour Distance Meters
+     */
+    detour_distance_meters: string;
+    /**
+     * Detour Time Seconds
+     */
+    detour_time_seconds: number;
+    /**
+     * Cheaper By Sticker
+     */
+    cheaper_by_sticker: boolean;
+    /**
+     * Outcome
+     */
+    outcome: 'higher_effective_price' | 'tie_broken_by_distance' | 'no_fuel_to_buy' | 'not_reachable' | 'overhead_exceeds_savings';
+    /**
+     * Effective Price Per Gallon
+     */
+    effective_price_per_gallon?: string | null;
+    /**
+     * Delta Vs Chosen Per Gallon
+     *
+     * Effective price minus the chosen one's; positive means worse.
+     */
+    delta_vs_chosen_per_gallon?: string | null;
+    /**
+     * Estimated Savings
+     */
+    estimated_savings?: string | null;
+    /**
+     * Stop Overhead Cost
+     */
+    stop_overhead_cost?: string | null;
+};
+
+/**
  * FuelOptimizationCalculateRequest
  */
 export type FuelOptimizationCalculateRequest = {
@@ -312,6 +378,7 @@ export type FuelOptimizationCalculateRequest = {
      */
     initial_fuel_gallons: number | string;
     constraints?: FuelOptimizationConstraintsInput | null;
+    economics?: FuelOptimizationEconomicsInput | null;
     /**
      * Include Debug
      */
@@ -351,6 +418,7 @@ export type FuelOptimizationCalculateResponse = {
     itinerary: Array<FuelOptimizationItineraryPointPublic>;
     failure: FuelOptimizationFailurePublic | null;
     explanation: FuelOptimizationExplanationPublic;
+    economics?: FuelOptimizationEconomicsPublic | null;
     /**
      * Debug
      */
@@ -379,6 +447,59 @@ export type FuelOptimizationConstraintsInput = {
      * Max Allowed Detour Meters
      */
     max_allowed_detour_meters?: number | string | null;
+};
+
+/**
+ * FuelOptimizationEconomicsInput
+ *
+ * Costs of a refuelling stop beyond the fuel price itself.
+ *
+ * Money is expressed in the same currency as the diesel price (USD).
+ * Omitted fields fall back to the server defaults (``FUEL_OPT_*`` settings),
+ * which are zero unless configured.
+ *
+ * With everything at zero the optimizer still prices the fuel burnt on the
+ * detour, but ignores how long the stop takes.
+ */
+export type FuelOptimizationEconomicsInput = {
+    /**
+     * Downtime Cost Per Hour
+     *
+     * Cost of one hour the whole truck spends standing still, in currency units per hour. This is a single lump figure, not just the driver's wage: include driver pay with taxes and benefits, vehicle holding cost (lease or depreciation, insurance, permits) and, if you use it, the revenue lost per hour. Count each item once. Fuel is excluded. Set to 0 to ignore stop duration entirely.
+     */
+    downtime_cost_per_hour?: number | string | null;
+    /**
+     * Dwell Minutes
+     *
+     * Minutes spent leaving the route, fuelling and getting back on it. Priced through downtime_cost_per_hour, so it has no effect while that value is 0.
+     */
+    dwell_minutes?: number | string | null;
+    /**
+     * Fixed Stop Cost
+     *
+     * Flat charge per stop in currency units (parking, service fees). Excludes the cost of time, which is already covered by downtime_cost_per_hour.
+     */
+    fixed_stop_cost?: number | string | null;
+};
+
+/**
+ * FuelOptimizationEconomicsPublic
+ *
+ * Stop-cost assumptions the plan was computed with (USD).
+ */
+export type FuelOptimizationEconomicsPublic = {
+    /**
+     * Downtime Cost Per Hour
+     */
+    downtime_cost_per_hour: string;
+    /**
+     * Dwell Minutes
+     */
+    dwell_minutes: string;
+    /**
+     * Fixed Stop Cost
+     */
+    fixed_stop_cost: string;
 };
 
 /**
@@ -565,6 +686,8 @@ export type FuelOptimizationItineraryPointPublic = {
      * Detour Time Seconds
      */
     detour_time_seconds?: number | null;
+    selection?: FuelOptimizationSelectionPublic | null;
+    lookahead?: FuelOptimizationLookaheadPublic | null;
     /**
      * Fuel Required Gallons
      */
@@ -589,6 +712,110 @@ export type FuelOptimizationItineraryPointPublic = {
      * Is Failure Point
      */
     is_failure_point?: boolean;
+};
+
+/**
+ * FuelOptimizationLookaheadPublic
+ *
+ * What was decided at a stop about a cheaper station further ahead.
+ */
+export type FuelOptimizationLookaheadPublic = {
+    /**
+     * Rule
+     */
+    rule: 'cheaper_ahead_pays_off' | 'cheaper_ahead_rejected' | 'no_cheaper_ahead';
+    /**
+     * Station Id
+     */
+    station_id?: string | null;
+    /**
+     * Station Name
+     */
+    station_name?: string | null;
+    /**
+     * Price Difference Per Gallon
+     */
+    price_difference_per_gallon?: string | null;
+    /**
+     * Estimated Savings
+     */
+    estimated_savings?: string | null;
+    /**
+     * Stop Overhead Cost
+     */
+    stop_overhead_cost?: string | null;
+    /**
+     * Shifted Volume Gallons
+     */
+    shifted_volume_gallons?: string | null;
+};
+
+/**
+ * FuelOptimizationSelectionPublic
+ *
+ * Why the optimizer drove to this station, with the numbers it used.
+ */
+export type FuelOptimizationSelectionPublic = {
+    /**
+     * Rule
+     */
+    rule: 'lowest_effective_price' | 'cheaper_ahead_pays_off';
+    /**
+     * Sticker Price Per Gallon
+     */
+    sticker_price_per_gallon: string;
+    /**
+     * Detour Fuel Gallons
+     */
+    detour_fuel_gallons: string;
+    /**
+     * Detour Fuel Cost
+     */
+    detour_fuel_cost: string;
+    /**
+     * Time Cost
+     */
+    time_cost: string;
+    /**
+     * Fixed Stop Cost
+     */
+    fixed_stop_cost: string;
+    /**
+     * Effective Price Per Gallon
+     */
+    effective_price_per_gallon?: string | null;
+    /**
+     * Premium Per Gallon
+     */
+    premium_per_gallon?: string | null;
+    /**
+     * Volume Gallons
+     */
+    volume_gallons?: string | null;
+    /**
+     * Delivered Gallons
+     */
+    delivered_gallons?: string | null;
+    /**
+     * Estimated Savings
+     */
+    estimated_savings?: string | null;
+    /**
+     * Stop Overhead Cost
+     */
+    stop_overhead_cost?: string | null;
+    /**
+     * Shifted Volume Gallons
+     */
+    shifted_volume_gallons?: string | null;
+    /**
+     * Alternatives
+     */
+    alternatives?: Array<FuelOptimizationAlternativePublic>;
+    /**
+     * Alternatives Omitted Count
+     */
+    alternatives_omitted_count?: number;
 };
 
 /**
@@ -692,6 +919,8 @@ export type FuelOptimizationStopPublic = {
      * Detour Time Seconds
      */
     detour_time_seconds: number;
+    selection?: FuelOptimizationSelectionPublic | null;
+    lookahead?: FuelOptimizationLookaheadPublic | null;
 };
 
 /**

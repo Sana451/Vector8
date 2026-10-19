@@ -30,6 +30,7 @@ from app.fuel_optimization.domain import (
     GreedyFuelOptimizationStrategy,
     InvalidFuelOptimizationInputError,
     Route,
+    StopEconomics,
     Vehicle,
 )
 from app.fuel_optimization.exceptions import (
@@ -43,6 +44,7 @@ from app.fuel_optimization.repository import (
 from app.fuel_optimization.schemas import (
     FuelOptimizationCalculateRequest,
     FuelOptimizationCalculateResponse,
+    FuelOptimizationEconomicsPublic,
     FuelOptimizationExplanationPublic,
     FuelOptimizationFailurePublic,
     FuelOptimizationFailureTargetPublic,
@@ -418,6 +420,7 @@ class OptimizeFuelUseCase:
                 else None
             ),
         )
+        economics = self._build_stop_economics(request)
         debug["vehicle"] = self._serialize_debug(
             {
                 "id": vehicle.id,
@@ -450,6 +453,13 @@ class OptimizeFuelUseCase:
                 "min_refuel_gallons": constraints.min_refuel_gallons,
                 "max_refuel_gallons": constraints.max_refuel_gallons,
                 "max_allowed_detour_meters": constraints.max_allowed_detour_meters,
+            }
+        )
+        debug["effective_economics"] = self._serialize_debug(
+            {
+                "downtime_cost_per_hour": economics.downtime_cost_per_hour,
+                "dwell_minutes": economics.dwell_minutes,
+                "fixed_stop_cost": economics.fixed_stop_cost,
             }
         )
         candidate_builder = FuelStationCandidateBuilder(
@@ -485,6 +495,7 @@ class OptimizeFuelUseCase:
             constraints=constraints,
             consumption_model=ConstantMpgFuelConsumptionModel(),
             detour_calculator=self.detour_calculator,
+            stop_economics=economics,
         )
 
         logger.info(
@@ -597,6 +608,7 @@ class OptimizeFuelUseCase:
             constraints=constraints,
             build_result=build_result,
             plan=plan,
+            economics=economics,
         )
         public_stops = [
             FuelOptimizationStopPublic.model_validate(stop, from_attributes=True)
@@ -629,7 +641,28 @@ class OptimizeFuelUseCase:
             ),
             failure=failure,
             explanation=explanation,
+            economics=FuelOptimizationEconomicsPublic(
+                downtime_cost_per_hour=economics.downtime_cost_per_hour,
+                dwell_minutes=economics.dwell_minutes,
+                fixed_stop_cost=economics.fixed_stop_cost,
+            ),
             debug=self._serialize_debug(debug) if request.include_debug else None,
+        )
+
+    @staticmethod
+    def _build_stop_economics(request) -> StopEconomics:
+        economics = getattr(request, "economics", None)
+
+        def pick(field_name: str, fallback: Decimal) -> Decimal:
+            value = getattr(economics, field_name, None) if economics else None
+            return fallback if value is None else value
+
+        return StopEconomics(
+            downtime_cost_per_hour=pick(
+                "downtime_cost_per_hour", settings.FUEL_OPT_DOWNTIME_COST_PER_HOUR
+            ),
+            dwell_minutes=pick("dwell_minutes", settings.FUEL_OPT_STOP_DWELL_MINUTES),
+            fixed_stop_cost=pick("fixed_stop_cost", settings.FUEL_OPT_FIXED_STOP_COST),
         )
 
     @staticmethod
@@ -778,6 +811,8 @@ class OptimizeFuelUseCase:
                         stop.detour_distance_meters if stop else None
                     ),
                     detour_time_seconds=stop.detour_time_seconds if stop else None,
+                    selection=stop.selection if stop else None,
+                    lookahead=stop.lookahead if stop else None,
                     is_failure_point=failure is not None
                     and visit.station_id == failure.last_reachable_station_id,
                 )
@@ -1008,6 +1043,7 @@ class OptimizeFuelUseCase:
         constraints: FuelOptimizationConstraints,
         build_result: CandidateBuildResult,
         plan: FuelOptimizationPlan,
+        economics: StopEconomics | None = None,
     ) -> FuelOptimizationExplanationPublic:
         kept_candidates = build_result.metadata["candidate_count"]
         total_rows = build_result.metadata["rows_received_from_repository"]
@@ -1020,6 +1056,18 @@ class OptimizeFuelUseCase:
                 f"Station search returned {total_rows} rows; {kept_candidates} candidate station(s) were used in the optimization."
             ),
         ]
+        if economics is not None and not economics.is_neutral:
+            key_points.append(
+                f"Stations were compared by effective price: fuel on the detour, "
+                f"{cls._fmt(economics.dwell_minutes, 0)} min of dwell time and detour time at "
+                f"${cls._fmt(economics.downtime_cost_per_hour)}/h of truck downtime, plus "
+                f"${cls._fmt(economics.fixed_stop_cost)} per stop."
+            )
+        else:
+            key_points.append(
+                "Stations were compared by effective price: fuel burnt on the detour is "
+                "priced in, stop time is not (downtime cost and dwell time are set to zero)."
+            )
         excluded_counts: dict[str, int] = {}
         for audit_entry in build_result.audit:
             reason = audit_entry.get("reason")
@@ -1050,6 +1098,15 @@ class OptimizeFuelUseCase:
         warnings.append(
             "Detour distance/time is approximate in MVP and is derived from distance to the route rather than road-network routing."
         )
+        if (
+            economics is not None
+            and economics.dwell_minutes > Decimal("0")
+            and economics.downtime_cost_per_hour == Decimal("0")
+        ):
+            warnings.append(
+                "dwell_minutes is set but downtime_cost_per_hour is 0, so stop duration "
+                "had no effect on station choice. Set both to price stop time in."
+            )
 
         if kept_candidates == 0:
             warnings.append(

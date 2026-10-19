@@ -1,4 +1,5 @@
 import warnings
+from decimal import Decimal
 from typing import Literal, Self
 
 from pydantic import (
@@ -125,6 +126,16 @@ class Settings(BaseSettings):
     # Map overview defaults
     MAP_LAYER_RADIUS_METERS: int = 5000
     MAP_LAYER_RESULT_LIMIT: int = 5000
+
+    # Fuel optimization stop economics (defects A1/A2).
+    # Money is in the same currency as the diesel price (USD).
+    # Fuel burnt on a detour is always priced in; these settings add the cost of
+    # the *time* a stop takes. Dwell minutes are converted to money through
+    # the downtime cost, so leaving it at 0 disables them too.
+    # Typical US values: 75 / 30 / 0.
+    FUEL_OPT_DOWNTIME_COST_PER_HOUR: Decimal = Decimal("0")
+    FUEL_OPT_STOP_DWELL_MINUTES: Decimal = Decimal("0")
+    FUEL_OPT_FIXED_STOP_COST: Decimal = Decimal("0")
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
