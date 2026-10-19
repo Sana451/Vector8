@@ -235,6 +235,7 @@ class StationAlternative:
     outcome: str
     effective_price_per_gallon: Decimal | None = None
     delta_vs_chosen_per_gallon: Decimal | None = None
+    total_extra_cost: Decimal | None = None
     estimated_savings: Decimal | None = None
     stop_overhead_cost: Decimal | None = None
 
@@ -1258,6 +1259,7 @@ class GreedyFuelOptimizationStrategy:
                     best=best,
                     effective_price=effective_price,
                     chosen_effective_price=best_price,
+                    chosen_volume=best_volume,
                 )
             )
 
@@ -1323,10 +1325,20 @@ class GreedyFuelOptimizationStrategy:
         best: FuelStationCandidate,
         effective_price: Decimal | None,
         chosen_effective_price: Decimal | None,
+        chosen_volume: Decimal | None = None,
     ) -> StationAlternative:
         delta = (
             effective_price - chosen_effective_price
             if effective_price is not None and chosen_effective_price is not None
+            else None
+        )
+        # Per-gallon gap scaled to the gallons bought at the chosen station, so the
+        # user sees the real amount instead of a 1-gallon difference.
+        total_extra = (
+            _money(delta * chosen_volume)
+            if delta is not None
+            and chosen_volume is not None
+            and outcome == "higher_effective_price"
             else None
         )
         return StationAlternative(
@@ -1345,6 +1357,7 @@ class GreedyFuelOptimizationStrategy:
                 _q4(effective_price) if effective_price is not None else None
             ),
             delta_vs_chosen_per_gallon=_q4(delta) if delta is not None else None,
+            total_extra_cost=total_extra,
         )
 
     def _fuel_to_station(

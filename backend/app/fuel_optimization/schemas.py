@@ -137,6 +137,14 @@ class FuelOptimizationAlternativePublic(BaseModel):
         default=None,
         description="Effective price minus the chosen one's; positive means worse.",
     )
+    total_extra_cost: Decimal | None = Field(
+        default=None,
+        description=(
+            "Extra cost of buying the chosen station's gallons here instead "
+            "(per-gallon difference times the chosen station's volume). "
+            "Set only for higher_effective_price."
+        ),
+    )
     estimated_savings: Decimal | None = None
     stop_overhead_cost: Decimal | None = None
 

@@ -637,9 +637,16 @@ def test_selection_lists_all_alternatives() -> None:
     assert selection is not None
     assert len(selection.alternatives) == 8
     assert selection.alternatives_omitted_count == 0
+    priced = [
+        alternative
+        for alternative in selection.alternatives
+        if alternative.outcome == "higher_effective_price"
+    ]
+    assert priced
+    for alternative in priced:
+        assert alternative.total_extra_cost is not None
+        assert alternative.total_extra_cost > alternative.delta_vs_chosen_per_gallon
 
-
-def test_cheaper_ahead_selection_lists_other_stations_in_reach() -> None:
     near = build_station(
         miles_from_start="10",
         price="4.0000",

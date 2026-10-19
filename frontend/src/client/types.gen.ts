@@ -351,6 +351,12 @@ export type FuelOptimizationAlternativePublic = {
      */
     delta_vs_chosen_per_gallon?: string | null;
     /**
+     * Total Extra Cost
+     *
+     * Extra cost of buying the chosen station's gallons here instead (per-gallon difference times the chosen station's volume). Set only for higher_effective_price.
+     */
+    total_extra_cost?: string | null;
+    /**
      * Estimated Savings
      */
     estimated_savings?: string | null;

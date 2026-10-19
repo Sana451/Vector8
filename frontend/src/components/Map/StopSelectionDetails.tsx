@@ -266,6 +266,11 @@ export function StopSelectionDetails({
                     alternative.stop_overhead_cost != null &&
                     ` (${money(alternative.estimated_savings)} vs ${money(alternative.stop_overhead_cost)})`}
                 </div>
+                {alternative.total_extra_cost != null && (
+                  <div className="text-amber-600 dark:text-amber-400">
+                    {`${signedPrice(alternative.total_extra_cost)} more for this fill`}
+                  </div>
+                )}
               </button>
             ))}
           </div>
