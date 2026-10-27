@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.deps import get_current_active_superuser
-from app.fuel_optimization.dependencies import OptimizeFuelUseCaseDep
+from app.fuel_optimization.dependencies import (
+    FuelOptimizationExplainerDep,
+    OptimizeFuelUseCaseDep,
+)
 from app.fuel_optimization.domain import (
     InvalidFuelOptimizationInputError,
     UnsupportedOptimizationAlgorithmError,
@@ -13,6 +16,8 @@ from app.fuel_optimization.exceptions import (
 from app.fuel_optimization.schemas import (
     FuelOptimizationCalculateRequest,
     FuelOptimizationCalculateResponse,
+    FuelOptimizationExplainRequest,
+    FuelOptimizationExplainResponse,
 )
 
 router = APIRouter(
@@ -37,3 +42,19 @@ def calculate_fuel_optimization(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except InvalidFuelOptimizationInputError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/explain", response_model=FuelOptimizationExplainResponse)
+async def explain_fuel_optimization(
+    request: FuelOptimizationExplainRequest,
+    explainer: FuelOptimizationExplainerDep,
+) -> FuelOptimizationExplainResponse:
+    """Explain an optimizer result in plain language and answer follow-ups."""
+    answer, source = await explainer.explain(
+        request.optimization,
+        stop_sequence=request.stop_sequence,
+        question=request.question,
+        history=[message.model_dump() for message in request.history],
+        language=request.language,
+    )
+    return FuelOptimizationExplainResponse(answer=answer, source=source)

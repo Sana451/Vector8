@@ -10,10 +10,10 @@
 import { ChevronDown, ChevronUp } from "lucide-react"
 import { useEffect, useState } from "react"
 import type {
-  FuelOptimizationAlternativePublic,
-  FuelOptimizationEconomicsPublic,
-  FuelOptimizationLookaheadPublic,
-  FuelOptimizationSelectionPublic,
+  FuelOptimizationAlternativePublic_Output as FuelOptimizationAlternativePublic,
+  FuelOptimizationEconomicsPublic_Output as FuelOptimizationEconomicsPublic,
+  FuelOptimizationLookaheadPublic_Output as FuelOptimizationLookaheadPublic,
+  FuelOptimizationSelectionPublic_Output as FuelOptimizationSelectionPublic,
 } from "@/client"
 
 interface StopSelectionDetailsProps {

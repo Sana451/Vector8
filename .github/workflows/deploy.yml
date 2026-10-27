@@ -58,3 +58,4 @@ jobs:
           HERE_API_KEY: ${{ secrets.HERE_API_KEY }}
           PUMPPRICE_MOBILE_EMAIL: ${{ secrets.PUMPPRICE_MOBILE_EMAIL }}
           PUMPPRICE_MOBILE_PASSWORD: ${{ secrets.PUMPPRICE_MOBILE_PASSWORD }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}

@@ -1,12 +1,12 @@
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { Maximize, Minimize } from "lucide-react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react"
 import { calculateFuelOptimization } from "@/api/fuelOptimization"
 import { getAllFuelStations, getRouteOverview, searchAddress } from "@/api/map"
 import { listVehicles } from "@/api/vehicles"
 import type {
-  FuelOptimizationCalculateResponse,
+  FuelOptimizationCalculateResponse_Output as FuelOptimizationCalculateResponse,
   FuelStationData,
   GeocodingSearchResponse,
   TrafficLayerData,
@@ -15,6 +15,7 @@ import type {
   VehiclePublic,
 } from "@/client"
 import type { RestAreaFeatureCollection } from "@/client/types.gen"
+import { FloatingOpacityControl } from "@/components/Map/FloatingOpacityControl"
 import { FloatingPanel } from "@/components/Map/FloatingPanel"
 import {
   LayerTogglePanel,
@@ -40,6 +41,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { VehicleSelector } from "@/components/VehicleSelector"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useFloatingOpacity } from "@/hooks/useFloatingOpacity"
 import {
   buildOptimizationSteps,
   calculateRouteTotalDistanceMeters,
@@ -74,6 +76,7 @@ interface RouteInfo {
 function MapPage() {
   const mapRef = useRef<TomTomMapHandle>(null)
   const mapContainerRef = useRef<HTMLDivElement>(null)
+  const floatingOpacity = useFloatingOpacity()
   const [isFullscreen, setIsFullscreen] = useState(false)
 
   useEffect(() => {
@@ -618,12 +621,14 @@ function MapPage() {
       <div
         ref={mapContainerRef}
         className="flex-1 min-h-0 relative w-full overflow-hidden"
+        style={{ "--floating-opacity": floatingOpacity } as CSSProperties}
       >
         <TomTomMap ref={mapRef} />
-        <div className="pointer-events-none absolute left-2 top-2 z-10 flex max-w-[calc(100%-1rem)] flex-col gap-2">
+        <div className="pointer-events-none absolute inset-0">
           <FloatingPanel
             title="Route"
             boundsRef={mapContainerRef}
+            initialPosition={{ left: 8, top: 8 }}
             collapsedSummary={
               routeInfo ? (
                 <span className="text-xs text-muted-foreground">
@@ -726,6 +731,7 @@ function MapPage() {
                   vehicles={vehicles}
                   selectedVehicleId={selectedVehicleId}
                   onSelectVehicle={handleSelectVehicle}
+                  containerRef={mapContainerRef}
                 />
                 <div className="min-w-[220px] flex-1 space-y-1">
                   <label
@@ -830,6 +836,8 @@ function MapPage() {
             <FloatingPanel
               title="Fuel Optimization"
               boundsRef={mapContainerRef}
+              initialPosition={{ left: 776, top: 8 }}
+              defaultWidth={600}
             >
               <div className="flex flex-wrap gap-2 items-end">
                 <div className="flex-1 min-w-[200px]">
@@ -986,6 +994,7 @@ function MapPage() {
             <Maximize className="h-4 w-4" />
           )}
         </button>
+        <FloatingOpacityControl />
         <MeasureTool mapInstance={mapInstance} />
         <LayerTogglePanel
           visibleLayers={visibleLayers}
@@ -1075,6 +1084,7 @@ function MapPage() {
         {optimizationSteps.length > 0 && (
           <OptimizationWalkthrough
             steps={optimizationSteps}
+            optimization={optimizationResult}
             activeStepIndex={activeStepIndex}
             onStepChange={handleStepChange}
             failure={optimizationResult?.failure ?? null}
@@ -1088,6 +1098,7 @@ function MapPage() {
             summary={optimizationResult?.summary}
             routeTotalDistanceMeters={routeTotalDistanceMeters}
             reserveGallons={optimizationReserveGallons}
+            explainPortalContainer={mapContainerRef.current}
             usableTankGallons={
               vehicles.find((v) => v.id === optimizationResult?.vehicle_id)
                 ?.usable_tank_capacity_gallons

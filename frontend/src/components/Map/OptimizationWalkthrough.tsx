@@ -7,19 +7,33 @@
  * Stepping does not change the map zoom level.
  */
 
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react"
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Sparkles,
+} from "lucide-react"
 import { useRef, useState } from "react"
 import type {
-  FuelOptimizationEconomicsPublic,
-  FuelOptimizationFailurePublic,
-  FuelOptimizationSummaryPublic,
+  FuelOptimizationCalculateResponse_Output as FuelOptimizationCalculateResponse,
+  FuelOptimizationEconomicsPublic_Output as FuelOptimizationEconomicsPublic,
+  FuelOptimizationFailurePublic_Output as FuelOptimizationFailurePublic,
+  FuelOptimizationSummaryPublic_Output as FuelOptimizationSummaryPublic,
 } from "@/client"
+import { AiExplainDialog } from "@/components/Map/AiExplainDialog"
+import { ExplainLanguageSelect } from "@/components/Map/ExplainLanguageSelect"
+import { ResizeHandles } from "@/components/Map/ResizeHandles"
 import { StopSelectionDetails } from "@/components/Map/StopSelectionDetails"
 import { useDraggable } from "@/hooks/useDraggable"
+import { usePanelStack } from "@/hooks/usePanelStack"
+import { useResizable } from "@/hooks/useResizable"
 import type { OptimizationStep } from "@/lib/fuelOptimizationWalkthrough"
 
 interface OptimizationWalkthroughProps {
   steps: OptimizationStep[]
+  /** Full optimizer result; enables the "Explain with AI" buttons. */
+  optimization?: FuelOptimizationCalculateResponse | null
   activeStepIndex: number
   onStepChange: (index: number) => void
   failure: FuelOptimizationFailurePublic | null
@@ -31,6 +45,8 @@ interface OptimizationWalkthroughProps {
   summary?: FuelOptimizationSummaryPublic
   routeTotalDistanceMeters?: number
   reserveGallons?: number
+  /** Map container the explain panel renders into (keeps it on the map, fullscreen-safe). */
+  explainPortalContainer?: HTMLElement | null
 }
 
 function formatGallons(value: number | undefined): string {
@@ -79,6 +95,7 @@ function stepBadgeLabel(step: OptimizationStep): string {
 
 export function OptimizationWalkthrough({
   steps,
+  optimization,
   activeStepIndex,
   onStepChange,
   failure,
@@ -90,10 +107,22 @@ export function OptimizationWalkthrough({
   summary,
   routeTotalDistanceMeters,
   reserveGallons,
+  explainPortalContainer,
 }: OptimizationWalkthroughProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const [explainTarget, setExplainTarget] = useState<"plan" | "step" | null>(
+    null,
+  )
   const panelRef = useRef<HTMLDivElement>(null)
-  const { dragHandlers, dragStyle } = useDraggable(panelRef)
+  const { dragHandlers, dragStyle, setOffset } = useDraggable(panelRef)
+  const { sizeStyle, startResize } = useResizable(panelRef, {
+    setOffset,
+    minWidth: 280,
+    minHeight: 160,
+  })
+  const { zIndex, onPointerDownCapture } = usePanelStack(
+    "optimization-walkthrough",
+  )
 
   if (steps.length === 0) {
     return null
@@ -137,9 +166,16 @@ export function OptimizationWalkthrough({
     <div
       ref={panelRef}
       {...dragHandlers}
-      style={dragStyle}
-      className="absolute bottom-4 left-4 z-10 w-[360px] max-w-[calc(100vw-2rem)] rounded-lg border border-border/70 bg-white dark:bg-slate-950 shadow-md"
+      onPointerDownCapture={onPointerDownCapture}
+      style={{
+        ...dragStyle,
+        ...(isCollapsed ? {} : sizeStyle),
+        zIndex,
+        opacity: "var(--floating-opacity, 1)",
+      }}
+      className={`absolute bottom-4 left-4 flex flex-col rounded-lg border border-border/70 bg-white dark:bg-slate-950 shadow-md max-w-[calc(100%-2rem)] ${isCollapsed ? "w-[480px]" : "w-[480px] max-h-[calc(100%-2rem)]"}`}
     >
+      {!isCollapsed && <ResizeHandles onResizeStart={startResize} />}
       {/* Step jump pills */}
       <div className="flex items-center gap-1.5 px-3 pt-3">
         <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
@@ -181,7 +217,7 @@ export function OptimizationWalkthrough({
 
       {/* Step details */}
       {!isCollapsed && (
-        <div className="px-4 py-3">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold truncate">
               {activeStep.label}
@@ -330,6 +366,19 @@ export function OptimizationWalkthrough({
                 onOpenChange={onComparisonOpenChange}
                 onFocusStation={onFocusStation}
               />
+              {optimization && activeStep.sequence !== undefined && (
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setExplainTarget("step")}
+                    className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Explain this stop with AI
+                  </button>
+                  <ExplainLanguageSelect />
+                </div>
+              )}
               {distanceToNextMeters !== undefined && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">
@@ -458,6 +507,19 @@ export function OptimizationWalkthrough({
           <ChevronLeft className="h-3.5 w-3.5" />
           Back
         </button>
+        {optimization && (
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setExplainTarget("plan")}
+              className="flex items-center gap-1 text-xs font-medium px-2 py-1.5 rounded-md text-primary hover:bg-muted"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Explain plan with AI
+            </button>
+            <ExplainLanguageSelect />
+          </div>
+        )}
         <button
           type="button"
           onClick={() => onStepChange(activeStepIndex + 1)}
@@ -468,6 +530,18 @@ export function OptimizationWalkthrough({
           <ChevronRight className="h-3.5 w-3.5" />
         </button>
       </div>
+      {optimization && explainTarget !== null && (
+        <AiExplainDialog
+          open
+          onOpenChange={(open) => !open && setExplainTarget(null)}
+          optimization={optimization}
+          stopSequence={
+            explainTarget === "step" ? activeStep.sequence : undefined
+          }
+          stopLabel={explainTarget === "step" ? activeStep.label : undefined}
+          portalContainer={explainPortalContainer}
+        />
+      )}
     </div>
   )
 }

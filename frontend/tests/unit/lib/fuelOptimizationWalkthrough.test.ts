@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import type {
-  FuelOptimizationCalculateResponse,
-  FuelOptimizationItineraryPointPublic,
+  FuelOptimizationCalculateResponse_Output as FuelOptimizationCalculateResponse,
+  FuelOptimizationItineraryPointPublic_Output as FuelOptimizationItineraryPointPublic,
 } from "@/client"
 import {
   buildOptimizationSteps,

@@ -299,7 +299,79 @@ export type FuelOptimizationAlgorithm = 'greedy';
  *
  * A station weighed against the chosen one and not picked.
  */
-export type FuelOptimizationAlternativePublic = {
+export type FuelOptimizationAlternativePublic_Input = {
+    /**
+     * Station Id
+     */
+    station_id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Latitude
+     */
+    latitude: number | string;
+    /**
+     * Longitude
+     */
+    longitude: number | string;
+    /**
+     * Route Offset Meters
+     */
+    route_offset_meters: number | string;
+    /**
+     * Fuel Price Per Gallon
+     */
+    fuel_price_per_gallon: number | string;
+    /**
+     * Detour Distance Meters
+     */
+    detour_distance_meters: number | string;
+    /**
+     * Detour Time Seconds
+     */
+    detour_time_seconds: number;
+    /**
+     * Cheaper By Sticker
+     */
+    cheaper_by_sticker: boolean;
+    /**
+     * Outcome
+     */
+    outcome: 'higher_effective_price' | 'tie_broken_by_distance' | 'no_fuel_to_buy' | 'not_reachable' | 'overhead_exceeds_savings' | 'nearer_cheaper_station_chosen' | 'not_cheaper_than_previous';
+    /**
+     * Effective Price Per Gallon
+     */
+    effective_price_per_gallon?: number | string | null;
+    /**
+     * Delta Vs Chosen Per Gallon
+     *
+     * Effective price minus the chosen one's; positive means worse.
+     */
+    delta_vs_chosen_per_gallon?: number | string | null;
+    /**
+     * Total Extra Cost
+     *
+     * Extra cost of buying the chosen station's gallons here instead (per-gallon difference times the chosen station's volume). Set only for higher_effective_price.
+     */
+    total_extra_cost?: number | string | null;
+    /**
+     * Estimated Savings
+     */
+    estimated_savings?: number | string | null;
+    /**
+     * Stop Overhead Cost
+     */
+    stop_overhead_cost?: number | string | null;
+};
+
+/**
+ * FuelOptimizationAlternativePublic
+ *
+ * A station weighed against the chosen one and not picked.
+ */
+export type FuelOptimizationAlternativePublic_Output = {
     /**
      * Station Id
      */
@@ -394,7 +466,7 @@ export type FuelOptimizationCalculateRequest = {
 /**
  * FuelOptimizationCalculateResponse
  */
-export type FuelOptimizationCalculateResponse = {
+export type FuelOptimizationCalculateResponse_Input = {
     /**
      * Route Id
      */
@@ -413,24 +485,80 @@ export type FuelOptimizationCalculateResponse = {
      * Algorithm Version
      */
     algorithm_version: string;
-    summary: FuelOptimizationSummaryPublic;
+    summary: FuelOptimizationSummaryPublic_Input;
     /**
      * Stops
      */
-    stops: Array<FuelOptimizationStopPublic>;
+    stops: Array<FuelOptimizationStopPublic_Input>;
     /**
      * Itinerary
      */
-    itinerary: Array<FuelOptimizationItineraryPointPublic>;
-    failure: FuelOptimizationFailurePublic | null;
-    explanation: FuelOptimizationExplanationPublic;
-    economics?: FuelOptimizationEconomicsPublic | null;
+    itinerary: Array<FuelOptimizationItineraryPointPublic_Input>;
+    failure: FuelOptimizationFailurePublic_Input | null;
+    explanation: FuelOptimizationExplanationPublic_Input;
+    economics?: FuelOptimizationEconomicsPublic_Input | null;
     /**
      * Debug
      */
     debug?: {
         [key: string]: unknown;
     } | null;
+};
+
+/**
+ * FuelOptimizationCalculateResponse
+ */
+export type FuelOptimizationCalculateResponse_Output = {
+    /**
+     * Route Id
+     */
+    route_id: string;
+    /**
+     * Vehicle Id
+     */
+    vehicle_id: string;
+    /**
+     * Optimization Run Id
+     */
+    optimization_run_id: string;
+    status: FuelOptimizationStatus;
+    algorithm: FuelOptimizationAlgorithm;
+    /**
+     * Algorithm Version
+     */
+    algorithm_version: string;
+    summary: FuelOptimizationSummaryPublic_Output;
+    /**
+     * Stops
+     */
+    stops: Array<FuelOptimizationStopPublic_Output>;
+    /**
+     * Itinerary
+     */
+    itinerary: Array<FuelOptimizationItineraryPointPublic_Output>;
+    failure: FuelOptimizationFailurePublic_Output | null;
+    explanation: FuelOptimizationExplanationPublic_Output;
+    economics?: FuelOptimizationEconomicsPublic_Output | null;
+    /**
+     * Debug
+     */
+    debug?: {
+        [key: string]: unknown;
+    } | null;
+};
+
+/**
+ * FuelOptimizationChatMessage
+ */
+export type FuelOptimizationChatMessage = {
+    /**
+     * Role
+     */
+    role: 'user' | 'assistant';
+    /**
+     * Content
+     */
+    content: string;
 };
 
 /**
@@ -493,7 +621,27 @@ export type FuelOptimizationEconomicsInput = {
  *
  * Stop-cost assumptions the plan was computed with (USD).
  */
-export type FuelOptimizationEconomicsPublic = {
+export type FuelOptimizationEconomicsPublic_Input = {
+    /**
+     * Downtime Cost Per Hour
+     */
+    downtime_cost_per_hour: number | string;
+    /**
+     * Dwell Minutes
+     */
+    dwell_minutes: number | string;
+    /**
+     * Fixed Stop Cost
+     */
+    fixed_stop_cost: number | string;
+};
+
+/**
+ * FuelOptimizationEconomicsPublic
+ *
+ * Stop-cost assumptions the plan was computed with (USD).
+ */
+export type FuelOptimizationEconomicsPublic_Output = {
     /**
      * Downtime Cost Per Hour
      */
@@ -509,9 +657,50 @@ export type FuelOptimizationEconomicsPublic = {
 };
 
 /**
+ * FuelOptimizationExplainRequest
+ */
+export type FuelOptimizationExplainRequest = {
+    optimization: FuelOptimizationCalculateResponse_Input;
+    /**
+     * Stop Sequence
+     *
+     * Itinerary point to focus on; omit to explain the whole plan.
+     */
+    stop_sequence?: number | null;
+    /**
+     * Question
+     */
+    question?: string | null;
+    /**
+     * History
+     */
+    history?: Array<FuelOptimizationChatMessage>;
+    /**
+     * Language
+     */
+    language?: 'en' | 'ru';
+};
+
+/**
+ * FuelOptimizationExplainResponse
+ */
+export type FuelOptimizationExplainResponse = {
+    /**
+     * Answer
+     */
+    answer: string;
+    /**
+     * Source
+     *
+     * 'fallback' means the AI was unavailable and a template was used.
+     */
+    source: 'ai' | 'fallback';
+};
+
+/**
  * FuelOptimizationExplanationPublic
  */
-export type FuelOptimizationExplanationPublic = {
+export type FuelOptimizationExplanationPublic_Input = {
     /**
      * Summary
      */
@@ -531,13 +720,76 @@ export type FuelOptimizationExplanationPublic = {
     /**
      * Skipped Station Stats
      */
-    skipped_station_stats?: Array<FuelOptimizationSkippedStationStatPublic>;
+    skipped_station_stats?: Array<FuelOptimizationSkippedStationStatPublic_Input>;
+};
+
+/**
+ * FuelOptimizationExplanationPublic
+ */
+export type FuelOptimizationExplanationPublic_Output = {
+    /**
+     * Summary
+     */
+    summary: string;
+    /**
+     * Outcome
+     */
+    outcome: string;
+    /**
+     * Key Points
+     */
+    key_points?: Array<string>;
+    /**
+     * Warnings
+     */
+    warnings?: Array<string>;
+    /**
+     * Skipped Station Stats
+     */
+    skipped_station_stats?: Array<FuelOptimizationSkippedStationStatPublic_Output>;
 };
 
 /**
  * FuelOptimizationFailurePublic
  */
-export type FuelOptimizationFailurePublic = {
+export type FuelOptimizationFailurePublic_Input = {
+    reason: FuelOptimizationFailureReason;
+    /**
+     * Message
+     */
+    message: string;
+    /**
+     * Stopped At Route Offset Meters
+     */
+    stopped_at_route_offset_meters: number | string;
+    /**
+     * Last Reachable Station Id
+     */
+    last_reachable_station_id?: string | null;
+    /**
+     * Last Reachable Route Offset Meters
+     */
+    last_reachable_route_offset_meters: number | string;
+    /**
+     * Available Fuel Gallons
+     */
+    available_fuel_gallons: number | string;
+    /**
+     * Reserve Gallons
+     */
+    reserve_gallons: number | string;
+    primary_target: FuelOptimizationFailureTargetPublic_Input;
+    /**
+     * Unreachable Stations
+     */
+    unreachable_stations?: Array<FuelOptimizationFailureTargetPublic_Input>;
+    destination?: FuelOptimizationFailureTargetPublic_Input | null;
+};
+
+/**
+ * FuelOptimizationFailurePublic
+ */
+export type FuelOptimizationFailurePublic_Output = {
     reason: FuelOptimizationFailureReason;
     /**
      * Message
@@ -563,12 +815,12 @@ export type FuelOptimizationFailurePublic = {
      * Reserve Gallons
      */
     reserve_gallons: string;
-    primary_target: FuelOptimizationFailureTargetPublic;
+    primary_target: FuelOptimizationFailureTargetPublic_Output;
     /**
      * Unreachable Stations
      */
-    unreachable_stations?: Array<FuelOptimizationFailureTargetPublic>;
-    destination?: FuelOptimizationFailureTargetPublic | null;
+    unreachable_stations?: Array<FuelOptimizationFailureTargetPublic_Output>;
+    destination?: FuelOptimizationFailureTargetPublic_Output | null;
 };
 
 /**
@@ -579,7 +831,56 @@ export type FuelOptimizationFailureReason = 'initial_fuel_below_reserve' | 'no_r
 /**
  * FuelOptimizationFailureTargetPublic
  */
-export type FuelOptimizationFailureTargetPublic = {
+export type FuelOptimizationFailureTargetPublic_Input = {
+    /**
+     * Kind
+     */
+    kind: 'start' | 'station' | 'destination';
+    /**
+     * Station Id
+     */
+    station_id?: string | null;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Route Offset Meters
+     */
+    route_offset_meters: number | string;
+    /**
+     * Coordinate
+     */
+    coordinate: [
+        number | string,
+        number | string
+    ];
+    /**
+     * Fuel Required Gallons
+     */
+    fuel_required_gallons: number | string;
+    /**
+     * Available Fuel Gallons
+     */
+    available_fuel_gallons: number | string;
+    /**
+     * Reserve Gallons
+     */
+    reserve_gallons: number | string;
+    /**
+     * Projected Arrival Fuel Gallons
+     */
+    projected_arrival_fuel_gallons: number | string;
+    /**
+     * Deficit Gallons
+     */
+    deficit_gallons: number | string;
+};
+
+/**
+ * FuelOptimizationFailureTargetPublic
+ */
+export type FuelOptimizationFailureTargetPublic_Output = {
     /**
      * Kind
      */
@@ -628,7 +929,102 @@ export type FuelOptimizationFailureTargetPublic = {
 /**
  * FuelOptimizationItineraryPointPublic
  */
-export type FuelOptimizationItineraryPointPublic = {
+export type FuelOptimizationItineraryPointPublic_Input = {
+    /**
+     * Sequence
+     */
+    sequence: number;
+    /**
+     * Kind
+     */
+    kind: 'start' | 'station' | 'refuel' | 'destination' | 'unreachable_station';
+    /**
+     * Status
+     */
+    status: 'reached' | 'unreachable';
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Station Id
+     */
+    station_id?: string | null;
+    /**
+     * Route Offset Meters
+     */
+    route_offset_meters: number | string;
+    /**
+     * Coordinate
+     */
+    coordinate: [
+        number | string,
+        number | string
+    ];
+    /**
+     * Fuel Gallons
+     */
+    fuel_gallons?: number | string | null;
+    /**
+     * Fuel Before Gallons
+     */
+    fuel_before_gallons?: number | string | null;
+    /**
+     * Fuel Added Gallons
+     */
+    fuel_added_gallons?: number | string | null;
+    /**
+     * Fuel After Gallons
+     */
+    fuel_after_gallons?: number | string | null;
+    /**
+     * Fuel Price Per Gallon
+     */
+    fuel_price_per_gallon?: number | string | null;
+    /**
+     * Fuel Cost
+     */
+    fuel_cost?: number | string | null;
+    /**
+     * Detour Distance Meters
+     */
+    detour_distance_meters?: number | string | null;
+    /**
+     * Detour Time Seconds
+     */
+    detour_time_seconds?: number | null;
+    selection?: FuelOptimizationSelectionPublic_Input | null;
+    lookahead?: FuelOptimizationLookaheadPublic_Input | null;
+    /**
+     * Fuel Required Gallons
+     */
+    fuel_required_gallons?: number | string | null;
+    /**
+     * Available Fuel Gallons
+     */
+    available_fuel_gallons?: number | string | null;
+    /**
+     * Reserve Gallons
+     */
+    reserve_gallons?: number | string | null;
+    /**
+     * Deficit Gallons
+     */
+    deficit_gallons?: number | string | null;
+    /**
+     * Is Primary Failure Target
+     */
+    is_primary_failure_target?: boolean;
+    /**
+     * Is Failure Point
+     */
+    is_failure_point?: boolean;
+};
+
+/**
+ * FuelOptimizationItineraryPointPublic
+ */
+export type FuelOptimizationItineraryPointPublic_Output = {
     /**
      * Sequence
      */
@@ -692,8 +1088,8 @@ export type FuelOptimizationItineraryPointPublic = {
      * Detour Time Seconds
      */
     detour_time_seconds?: number | null;
-    selection?: FuelOptimizationSelectionPublic | null;
-    lookahead?: FuelOptimizationLookaheadPublic | null;
+    selection?: FuelOptimizationSelectionPublic_Output | null;
+    lookahead?: FuelOptimizationLookaheadPublic_Output | null;
     /**
      * Fuel Required Gallons
      */
@@ -725,7 +1121,43 @@ export type FuelOptimizationItineraryPointPublic = {
  *
  * What was decided at a stop about a cheaper station further ahead.
  */
-export type FuelOptimizationLookaheadPublic = {
+export type FuelOptimizationLookaheadPublic_Input = {
+    /**
+     * Rule
+     */
+    rule: 'cheaper_ahead_pays_off' | 'cheaper_ahead_rejected' | 'no_cheaper_ahead';
+    /**
+     * Station Id
+     */
+    station_id?: string | null;
+    /**
+     * Station Name
+     */
+    station_name?: string | null;
+    /**
+     * Price Difference Per Gallon
+     */
+    price_difference_per_gallon?: number | string | null;
+    /**
+     * Estimated Savings
+     */
+    estimated_savings?: number | string | null;
+    /**
+     * Stop Overhead Cost
+     */
+    stop_overhead_cost?: number | string | null;
+    /**
+     * Shifted Volume Gallons
+     */
+    shifted_volume_gallons?: number | string | null;
+};
+
+/**
+ * FuelOptimizationLookaheadPublic
+ *
+ * What was decided at a stop about a cheaper station further ahead.
+ */
+export type FuelOptimizationLookaheadPublic_Output = {
     /**
      * Rule
      */
@@ -761,7 +1193,81 @@ export type FuelOptimizationLookaheadPublic = {
  *
  * Why the optimizer drove to this station, with the numbers it used.
  */
-export type FuelOptimizationSelectionPublic = {
+export type FuelOptimizationSelectionPublic_Input = {
+    /**
+     * Rule
+     */
+    rule: 'lowest_effective_price' | 'cheaper_ahead_pays_off';
+    /**
+     * Sticker Price Per Gallon
+     */
+    sticker_price_per_gallon: number | string;
+    /**
+     * Detour Fuel Gallons
+     */
+    detour_fuel_gallons: number | string;
+    /**
+     * Detour Fuel Cost
+     */
+    detour_fuel_cost: number | string;
+    /**
+     * Time Cost
+     */
+    time_cost: number | string;
+    /**
+     * Fixed Stop Cost
+     */
+    fixed_stop_cost: number | string;
+    /**
+     * Effective Price Per Gallon
+     */
+    effective_price_per_gallon?: number | string | null;
+    /**
+     * Premium Per Gallon
+     */
+    premium_per_gallon?: number | string | null;
+    /**
+     * Volume Gallons
+     */
+    volume_gallons?: number | string | null;
+    /**
+     * Delivered Gallons
+     */
+    delivered_gallons?: number | string | null;
+    /**
+     * Estimated Savings
+     */
+    estimated_savings?: number | string | null;
+    /**
+     * Stop Overhead Cost
+     */
+    stop_overhead_cost?: number | string | null;
+    /**
+     * Shifted Volume Gallons
+     */
+    shifted_volume_gallons?: number | string | null;
+    /**
+     * Alternatives
+     */
+    alternatives?: Array<FuelOptimizationAlternativePublic_Input>;
+    /**
+     * Alternatives Omitted Count
+     */
+    alternatives_omitted_count?: number;
+    /**
+     * Next Stop Mandatory
+     *
+     * A full tank cannot reach the destination, so a stop here was unavoidable.
+     */
+    next_stop_mandatory?: boolean;
+};
+
+/**
+ * FuelOptimizationSelectionPublic
+ *
+ * Why the optimizer drove to this station, with the numbers it used.
+ */
+export type FuelOptimizationSelectionPublic_Output = {
     /**
      * Rule
      */
@@ -817,7 +1323,7 @@ export type FuelOptimizationSelectionPublic = {
     /**
      * Alternatives
      */
-    alternatives?: Array<FuelOptimizationAlternativePublic>;
+    alternatives?: Array<FuelOptimizationAlternativePublic_Output>;
     /**
      * Alternatives Omitted Count
      */
@@ -833,7 +1339,33 @@ export type FuelOptimizationSelectionPublic = {
 /**
  * FuelOptimizationSkippedStationPointPublic
  */
-export type FuelOptimizationSkippedStationPointPublic = {
+export type FuelOptimizationSkippedStationPointPublic_Input = {
+    /**
+     * Station Id
+     */
+    station_id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Latitude
+     */
+    latitude: number | string;
+    /**
+     * Longitude
+     */
+    longitude: number | string;
+    /**
+     * Route Offset Meters
+     */
+    route_offset_meters: number | string;
+};
+
+/**
+ * FuelOptimizationSkippedStationPointPublic
+ */
+export type FuelOptimizationSkippedStationPointPublic_Output = {
     /**
      * Station Id
      */
@@ -859,7 +1391,7 @@ export type FuelOptimizationSkippedStationPointPublic = {
 /**
  * FuelOptimizationSkippedStationStatPublic
  */
-export type FuelOptimizationSkippedStationStatPublic = {
+export type FuelOptimizationSkippedStationStatPublic_Input = {
     /**
      * Reason
      */
@@ -875,7 +1407,33 @@ export type FuelOptimizationSkippedStationStatPublic = {
     /**
      * Sample Points
      */
-    sample_points?: Array<FuelOptimizationSkippedStationPointPublic>;
+    sample_points?: Array<FuelOptimizationSkippedStationPointPublic_Input>;
+    /**
+     * Omitted Points Count
+     */
+    omitted_points_count?: number;
+};
+
+/**
+ * FuelOptimizationSkippedStationStatPublic
+ */
+export type FuelOptimizationSkippedStationStatPublic_Output = {
+    /**
+     * Reason
+     */
+    reason: string;
+    /**
+     * Description
+     */
+    description: string;
+    /**
+     * Count
+     */
+    count: number;
+    /**
+     * Sample Points
+     */
+    sample_points?: Array<FuelOptimizationSkippedStationPointPublic_Output>;
     /**
      * Omitted Points Count
      */
@@ -890,7 +1448,55 @@ export type FuelOptimizationStatus = 'success' | 'infeasible';
 /**
  * FuelOptimizationStopPublic
  */
-export type FuelOptimizationStopPublic = {
+export type FuelOptimizationStopPublic_Input = {
+    /**
+     * Sequence
+     */
+    sequence: number;
+    /**
+     * Station Id
+     */
+    station_id: string;
+    /**
+     * Route Offset Meters
+     */
+    route_offset_meters: number | string;
+    /**
+     * Fuel Before Gallons
+     */
+    fuel_before_gallons: number | string;
+    /**
+     * Fuel Added Gallons
+     */
+    fuel_added_gallons: number | string;
+    /**
+     * Fuel After Gallons
+     */
+    fuel_after_gallons: number | string;
+    /**
+     * Fuel Price Per Gallon
+     */
+    fuel_price_per_gallon: number | string;
+    /**
+     * Fuel Cost
+     */
+    fuel_cost: number | string;
+    /**
+     * Detour Distance Meters
+     */
+    detour_distance_meters: number | string;
+    /**
+     * Detour Time Seconds
+     */
+    detour_time_seconds: number;
+    selection?: FuelOptimizationSelectionPublic_Input | null;
+    lookahead?: FuelOptimizationLookaheadPublic_Input | null;
+};
+
+/**
+ * FuelOptimizationStopPublic
+ */
+export type FuelOptimizationStopPublic_Output = {
     /**
      * Sequence
      */
@@ -931,14 +1537,48 @@ export type FuelOptimizationStopPublic = {
      * Detour Time Seconds
      */
     detour_time_seconds: number;
-    selection?: FuelOptimizationSelectionPublic | null;
-    lookahead?: FuelOptimizationLookaheadPublic | null;
+    selection?: FuelOptimizationSelectionPublic_Output | null;
+    lookahead?: FuelOptimizationLookaheadPublic_Output | null;
 };
 
 /**
  * FuelOptimizationSummaryPublic
  */
-export type FuelOptimizationSummaryPublic = {
+export type FuelOptimizationSummaryPublic_Input = {
+    /**
+     * Total Fuel Consumed Gallons
+     */
+    total_fuel_consumed_gallons: number | string;
+    /**
+     * Total Fuel Purchased Gallons
+     */
+    total_fuel_purchased_gallons: number | string;
+    /**
+     * Total Fuel Cost
+     */
+    total_fuel_cost: number | string;
+    /**
+     * Total Detour Distance Meters
+     */
+    total_detour_distance_meters: number | string;
+    /**
+     * Total Detour Time Seconds
+     */
+    total_detour_time_seconds: number;
+    /**
+     * Number Of Stops
+     */
+    number_of_stops: number;
+    /**
+     * Remaining Fuel Gallons
+     */
+    remaining_fuel_gallons: number | string;
+};
+
+/**
+ * FuelOptimizationSummaryPublic
+ */
+export type FuelOptimizationSummaryPublic_Output = {
     /**
      * Total Fuel Consumed Gallons
      */
@@ -3615,10 +4255,35 @@ export type fuelOptimizationCalculateFuelOptimizationResponses = {
     /**
      * Successful Response
      */
-    200: FuelOptimizationCalculateResponse;
+    200: FuelOptimizationCalculateResponse_Output;
 };
 
 export type fuelOptimizationCalculateFuelOptimizationResponse = fuelOptimizationCalculateFuelOptimizationResponses[keyof fuelOptimizationCalculateFuelOptimizationResponses];
+
+export type fuelOptimizationExplainFuelOptimizationData = {
+    body: FuelOptimizationExplainRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/fuel-optimization/explain';
+};
+
+export type fuelOptimizationExplainFuelOptimizationErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type fuelOptimizationExplainFuelOptimizationError = fuelOptimizationExplainFuelOptimizationErrors[keyof fuelOptimizationExplainFuelOptimizationErrors];
+
+export type fuelOptimizationExplainFuelOptimizationResponses = {
+    /**
+     * Successful Response
+     */
+    200: FuelOptimizationExplainResponse;
+};
+
+export type fuelOptimizationExplainFuelOptimizationResponse = fuelOptimizationExplainFuelOptimizationResponses[keyof fuelOptimizationExplainFuelOptimizationResponses];
 
 export type geocodingSearchData = {
     body: GeocodingSearchRequest;

@@ -15,7 +15,7 @@ import {
   Popup,
 } from "maplibre-gl"
 import { useCallback, useEffect, useMemo } from "react"
-import type { FuelOptimizationSkippedStationStatPublic } from "@/client"
+import type { FuelOptimizationSkippedStationStatPublic_Output as FuelOptimizationSkippedStationStatPublic } from "@/client"
 import {
   findNearbySkippedStationIds,
   type OptimizationStep,

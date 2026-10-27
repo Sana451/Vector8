@@ -2,7 +2,7 @@ import type { PointerEvent as ReactPointerEvent, RefObject } from "react"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 const INTERACTIVE_SELECTOR =
-  "button, input, select, textarea, a, label, [role='button'], [data-no-drag]"
+  "button, input, select, textarea, a, label, [role='button'], [role='combobox'], [role='listbox'], [role='option'], [data-no-drag]"
 
 interface Offset {
   x: number
@@ -30,6 +30,8 @@ export function useDraggable<T extends HTMLElement>(
     if (event.button !== 0) return
     const target = event.target as HTMLElement
     if (target.closest(INTERACTIVE_SELECTOR)) return
+    // Portaled content (e.g. select menus) bubbles through the React tree
+    if (!event.currentTarget.contains(target)) return
     dragRef.current = {
       pointerId: event.pointerId,
       lastX: event.clientX,
@@ -93,5 +95,7 @@ export function useDraggable<T extends HTMLElement>(
       cursor: isDragging ? "grabbing" : undefined,
       userSelect: isDragging ? ("none" as const) : undefined,
     },
+    offset,
+    setOffset,
   }
 }

@@ -8,10 +8,10 @@
 import { lineString } from "@turf/helpers"
 import { length } from "@turf/length"
 import type {
-  FuelOptimizationCalculateResponse,
-  FuelOptimizationLookaheadPublic,
-  FuelOptimizationSelectionPublic,
-  FuelOptimizationSkippedStationPointPublic,
+  FuelOptimizationCalculateResponse_Output as FuelOptimizationCalculateResponse,
+  FuelOptimizationLookaheadPublic_Output as FuelOptimizationLookaheadPublic,
+  FuelOptimizationSelectionPublic_Output as FuelOptimizationSelectionPublic,
+  FuelOptimizationSkippedStationPointPublic_Output as FuelOptimizationSkippedStationPointPublic,
   FuelStationData,
 } from "@/client"
 import type { Coordinate } from "@/lib/routing"
@@ -29,6 +29,8 @@ export interface OptimizationStep {
   status: OptimizationStepStatus
   /** 0-based index within the steps array */
   index: number
+  /** Server itinerary sequence this step came from, when available */
+  sequence?: number
   label: string
   coordinate: Coordinate
   routeOffsetMeters: number
@@ -110,6 +112,7 @@ export function buildOptimizationSteps({
           kind,
           status: point.status,
           index,
+          sequence: point.sequence,
           label: point.label,
           coordinate: [
             Number(point.coordinate[0]),

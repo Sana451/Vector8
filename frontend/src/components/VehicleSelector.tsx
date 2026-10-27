@@ -1,4 +1,5 @@
-import { useState } from "react"
+import { type RefObject, useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import type { VehiclePublic } from "@/client"
 import { formatRoutingSummary } from "@/lib/vehicleRouting"
 
@@ -7,6 +8,43 @@ interface VehicleSelectorProps {
   selectedVehicleId: string
   onSelectVehicle: (vehicleId: string) => void
   disabled?: boolean
+  /** Element the list is portaled into, so it is not clipped by the host panel. */
+  containerRef?: RefObject<HTMLElement | null>
+}
+
+const LIST_MAX_HEIGHT = 300
+const MIN_COMFORTABLE_HEIGHT = 160
+const GAP = 4
+
+interface ListPlacement {
+  left: number
+  width: number
+  maxHeight: number
+  top?: number
+  bottom?: number
+}
+
+function computePlacement(trigger: HTMLElement): ListPlacement {
+  const rect = trigger.getBoundingClientRect()
+  const spaceBelow = window.innerHeight - rect.bottom - GAP
+  const spaceAbove = rect.top - GAP
+  const left = rect.left
+  const width = rect.width
+
+  if (spaceBelow >= MIN_COMFORTABLE_HEIGHT || spaceBelow >= spaceAbove) {
+    return {
+      left,
+      width,
+      top: rect.bottom + GAP,
+      maxHeight: Math.min(LIST_MAX_HEIGHT, spaceBelow),
+    }
+  }
+  return {
+    left,
+    width,
+    bottom: window.innerHeight - rect.top + GAP,
+    maxHeight: Math.min(LIST_MAX_HEIGHT, spaceAbove),
+  }
 }
 
 export function VehicleSelector({
@@ -14,8 +52,31 @@ export function VehicleSelector({
   selectedVehicleId,
   onSelectVehicle,
   disabled = false,
+  containerRef,
 }: VehicleSelectorProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const [placement, setPlacement] = useState<ListPlacement | null>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node
+      if (triggerRef.current?.contains(target)) return
+      if (listRef.current?.contains(target)) return
+      setIsOpen(false)
+    }
+    const close = () => setIsOpen(false)
+    document.addEventListener("pointerdown", handlePointerDown)
+    window.addEventListener("resize", close)
+    window.addEventListener("scroll", close, true)
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown)
+      window.removeEventListener("resize", close)
+      window.removeEventListener("scroll", close, true)
+    }
+  }, [isOpen])
 
   const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId)
 
@@ -42,7 +103,13 @@ export function VehicleSelector({
       <button
         type="button"
         id="vehicle-select"
-        onClick={() => setIsOpen(!isOpen)}
+        ref={triggerRef}
+        onClick={() => {
+          if (!isOpen && triggerRef.current) {
+            setPlacement(computePlacement(triggerRef.current))
+          }
+          setIsOpen(!isOpen)
+        }}
         disabled={disabled}
         className="w-full text-xs h-8 px-2 rounded border border-border bg-background hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between"
       >
@@ -54,68 +121,73 @@ export function VehicleSelector({
         <span className="text-xs">▼</span>
       </button>
 
-      {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-1 border border-border rounded bg-background shadow-lg z-50 max-h-[300px] overflow-y-auto">
-          <button
-            type="button"
-            onClick={() => {
-              handleSelect("")
+      {isOpen &&
+        placement &&
+        createPortal(
+          <div
+            ref={listRef}
+            style={{
+              left: placement.left,
+              width: placement.width,
+              top: placement.top,
+              bottom: placement.bottom,
+              maxHeight: placement.maxHeight,
             }}
-            className="w-full text-left px-3 py-2 text-xs hover:bg-muted transition-colors border-b border-border/30"
+            className="fixed z-[9999] overflow-y-auto rounded border border-border bg-background shadow-lg"
           >
-            Select a vehicle...
-          </button>
+            <button
+              type="button"
+              onClick={() => {
+                handleSelect("")
+              }}
+              className="w-full text-left px-3 py-2 text-xs hover:bg-muted transition-colors border-b border-border/30"
+            >
+              Select a vehicle...
+            </button>
 
-          {vehicles.map((vehicle) => {
-            const isSelected = vehicle.id === selectedVehicleId
+            {vehicles.map((vehicle) => {
+              const isSelected = vehicle.id === selectedVehicleId
 
-            return (
-              <div
-                key={vehicle.id}
-                className={`border-b border-border/30 last:border-b-0 hover:bg-muted/70 transition-colors ${
-                  isSelected ? "bg-muted" : ""
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => handleSelect(vehicle.id)}
-                  className="w-full text-left px-3 py-2 focus:outline-none"
+              return (
+                <div
+                  key={vehicle.id}
+                  className={`border-b border-border/30 last:border-b-0 hover:bg-muted/70 transition-colors ${
+                    isSelected ? "bg-muted" : ""
+                  }`}
                 >
-                  <div className="font-medium text-xs">
-                    {vehicle.name} ({vehicle.unit_number})
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    {formatRoutingSummary(vehicle) && (
-                      <div>{formatRoutingSummary(vehicle)}</div>
-                    )}
-                    <div>
-                      Tank: {formatNumber(vehicle.tank_capacity_gallons, 1)} gal
+                  <button
+                    type="button"
+                    onClick={() => handleSelect(vehicle.id)}
+                    className="w-full text-left px-3 py-2 focus:outline-none"
+                  >
+                    <div className="font-medium text-xs">
+                      {vehicle.name} ({vehicle.unit_number})
                     </div>
-                    <div>
-                      Usable:{" "}
-                      {formatNumber(vehicle.usable_tank_capacity_gallons, 2)}{" "}
-                      gal
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {formatRoutingSummary(vehicle) && (
+                        <div>{formatRoutingSummary(vehicle)}</div>
+                      )}
+                      <div>
+                        Tank: {formatNumber(vehicle.tank_capacity_gallons, 1)}{" "}
+                        gal
+                      </div>
+                      <div>
+                        Usable:{" "}
+                        {formatNumber(vehicle.usable_tank_capacity_gallons, 2)}{" "}
+                        gal
+                      </div>
+                      <div>
+                        Consumption: {formatNumber(vehicle.consumption_mpg, 2)}{" "}
+                        MPG
+                      </div>
                     </div>
-                    <div>
-                      Consumption: {formatNumber(vehicle.consumption_mpg, 2)}{" "}
-                      MPG
-                    </div>
-                  </div>
-                </button>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {isOpen && (
-        <button
-          type="button"
-          className="fixed inset-0 z-40"
-          onClick={() => setIsOpen(false)}
-          aria-label="Close vehicle selector"
-        />
-      )}
+                  </button>
+                </div>
+              )
+            })}
+          </div>,
+          containerRef?.current ?? document.body,
+        )}
     </div>
   )
 }
