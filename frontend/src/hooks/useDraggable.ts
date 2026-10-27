@@ -95,5 +95,7 @@ export function useDraggable<T extends HTMLElement>(
       cursor: isDragging ? "grabbing" : undefined,
       userSelect: isDragging ? ("none" as const) : undefined,
     },
+    offset,
+    setOffset,
   }
 }

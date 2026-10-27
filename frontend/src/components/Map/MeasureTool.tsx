@@ -1,8 +1,10 @@
 import type { Map as MapLibreMap, MapMouseEvent } from "maplibre-gl"
 import { useEffect, useMemo, useRef, useState } from "react"
+import { ResizeHandles } from "@/components/Map/ResizeHandles"
 import { Button } from "@/components/ui/button"
 import { useDraggable } from "@/hooks/useDraggable"
 import { usePanelStack } from "@/hooks/usePanelStack"
+import { useResizable } from "@/hooks/useResizable"
 import {
   formatDistance,
   measureLengthKm,
@@ -23,7 +25,8 @@ export function MeasureTool({ mapInstance }: MeasureToolProps) {
   const [points, setPoints] = useState<Coordinate[]>([])
   const drawing = useRef(false)
   const panelRef = useRef<HTMLDivElement>(null)
-  const { dragHandlers, dragStyle } = useDraggable(panelRef)
+  const { dragHandlers, dragStyle, setOffset } = useDraggable(panelRef)
+  const { sizeStyle, startResize } = useResizable(panelRef, { setOffset })
   const { zIndex, onPointerDownCapture } = usePanelStack("measure-tool")
 
   useEffect(() => {
@@ -115,9 +118,10 @@ export function MeasureTool({ mapInstance }: MeasureToolProps) {
         ref={panelRef}
         {...dragHandlers}
         onPointerDownCapture={onPointerDownCapture}
-        style={{ ...dragStyle, zIndex }}
+        style={{ ...sizeStyle, ...dragStyle, zIndex }}
         className="absolute bottom-4 right-16 flex flex-col gap-1 rounded-md border bg-background p-2 shadow text-xs"
       >
+        <ResizeHandles onResizeStart={startResize} />
         <Button
           size="sm"
           variant={active ? "default" : "outline"}

@@ -11,7 +11,11 @@ import {
   useExplainLanguage,
 } from "@/hooks/useExplainLanguage"
 
-export function ExplainLanguageSelect() {
+export function ExplainLanguageSelect({
+  portalContainer,
+}: {
+  portalContainer?: HTMLElement | null
+}) {
   const language = useExplainLanguage()
 
   return (
@@ -27,7 +31,7 @@ export function ExplainLanguageSelect() {
       >
         <SelectValue />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent portalContainer={portalContainer}>
         <SelectItem value="en">EN</SelectItem>
         <SelectItem value="ru">RU</SelectItem>
       </SelectContent>

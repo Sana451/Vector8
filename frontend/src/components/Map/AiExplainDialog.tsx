@@ -17,11 +17,13 @@ import {
 import type { FuelOptimizationCalculateResponse } from "@/client"
 import { ExplainLanguageSelect } from "@/components/Map/ExplainLanguageSelect"
 import { MarkdownText } from "@/components/Map/MarkdownText"
+import { ResizeHandles } from "@/components/Map/ResizeHandles"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useDraggable } from "@/hooks/useDraggable"
 import { useExplainLanguage } from "@/hooks/useExplainLanguage"
 import { usePanelStack } from "@/hooks/usePanelStack"
+import { useResizable } from "@/hooks/useResizable"
 
 interface AiExplainDialogProps {
   open: boolean
@@ -58,7 +60,16 @@ export function AiExplainDialog({
   const panelRef = useRef<HTMLDivElement>(null)
   const { zIndex, onPointerDownCapture } = usePanelStack("ai-explain")
   const boundsRef = useRef<HTMLElement | null>(document.documentElement)
-  const { dragHandlers, dragStyle } = useDraggable(panelRef, boundsRef)
+  const { dragHandlers, dragStyle, setOffset } = useDraggable(
+    panelRef,
+    boundsRef,
+  )
+  const { sizeStyle, startResize, isResizing } = useResizable(panelRef, {
+    setOffset,
+    boundsRef,
+    minWidth: 280,
+    minHeight: 180,
+  })
   const language = useExplainLanguage()
   const languageRef = useRef(language)
   languageRef.current = language
@@ -141,13 +152,14 @@ export function AiExplainDialog({
         event.stopPropagation()
       }}
       onPointerDownCapture={onPointerDownCapture}
-      style={{ ...dragStyle, zIndex }}
+      style={{ ...dragStyle, ...(minimized ? {} : sizeStyle), zIndex }}
       className={`fixed right-4 bottom-4 flex flex-col rounded-lg border bg-background shadow-lg ${
         minimized
           ? "w-64 cursor-grab"
-          : "max-h-[80vh] w-[min(32rem,calc(100vw-2rem))] cursor-grab gap-3 p-4"
+          : `${isResizing ? "select-none" : ""} relative max-h-[80vh] w-[min(32rem,calc(100vw-2rem))] cursor-grab gap-3 p-4`
       }`}
     >
+      {!minimized && <ResizeHandles onResizeStart={startResize} />}
       <div
         className={`flex items-center gap-2 ${minimized ? "px-3 py-2" : ""}`}
       >
@@ -191,7 +203,7 @@ export function AiExplainDialog({
         <div
           ref={scrollRef}
           data-no-drag
-          className="max-h-[50vh] min-h-[8rem] flex-1 cursor-auto space-y-3 overflow-y-auto pr-1 text-sm"
+          className="min-h-[8rem] flex-1 cursor-auto space-y-3 overflow-y-auto pr-1 text-sm"
         >
           {messages.map((message, index) => (
             <div
@@ -245,7 +257,7 @@ export function AiExplainDialog({
             placeholder="Ask a follow-up, e.g. why not the cheaper station?"
             aria-label="Follow-up question"
           />
-          <ExplainLanguageSelect />
+          <ExplainLanguageSelect portalContainer={portalContainer} />
           <Button
             type="submit"
             size="icon"

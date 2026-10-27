@@ -23,9 +23,11 @@ import type {
 } from "@/client"
 import { AiExplainDialog } from "@/components/Map/AiExplainDialog"
 import { ExplainLanguageSelect } from "@/components/Map/ExplainLanguageSelect"
+import { ResizeHandles } from "@/components/Map/ResizeHandles"
 import { StopSelectionDetails } from "@/components/Map/StopSelectionDetails"
 import { useDraggable } from "@/hooks/useDraggable"
 import { usePanelStack } from "@/hooks/usePanelStack"
+import { useResizable } from "@/hooks/useResizable"
 import type { OptimizationStep } from "@/lib/fuelOptimizationWalkthrough"
 
 interface OptimizationWalkthroughProps {
@@ -112,7 +114,12 @@ export function OptimizationWalkthrough({
     null,
   )
   const panelRef = useRef<HTMLDivElement>(null)
-  const { dragHandlers, dragStyle } = useDraggable(panelRef)
+  const { dragHandlers, dragStyle, setOffset } = useDraggable(panelRef)
+  const { sizeStyle, startResize } = useResizable(panelRef, {
+    setOffset,
+    minWidth: 280,
+    minHeight: 160,
+  })
   const { zIndex, onPointerDownCapture } = usePanelStack(
     "optimization-walkthrough",
   )
@@ -160,9 +167,14 @@ export function OptimizationWalkthrough({
       ref={panelRef}
       {...dragHandlers}
       onPointerDownCapture={onPointerDownCapture}
-      style={{ ...dragStyle, zIndex }}
-      className="absolute bottom-4 left-4 w-[360px] max-w-[calc(100vw-2rem)] rounded-lg border border-border/70 bg-white dark:bg-slate-950 shadow-md"
+      style={{
+        ...dragStyle,
+        ...(isCollapsed ? {} : sizeStyle),
+        zIndex,
+      }}
+      className={`absolute bottom-4 left-4 flex flex-col rounded-lg border border-border/70 bg-white dark:bg-slate-950 shadow-md max-w-[calc(100vw-2rem)] ${isCollapsed ? "w-[480px]" : "w-[480px] max-h-[calc(100vh-2rem)]"}`}
     >
+      {!isCollapsed && <ResizeHandles onResizeStart={startResize} />}
       {/* Step jump pills */}
       <div className="flex items-center gap-1.5 px-3 pt-3">
         <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
@@ -204,7 +216,7 @@ export function OptimizationWalkthrough({
 
       {/* Step details */}
       {!isCollapsed && (
-        <div className="px-4 py-3">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold truncate">
               {activeStep.label}
