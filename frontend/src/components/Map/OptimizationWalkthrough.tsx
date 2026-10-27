@@ -16,10 +16,10 @@ import {
 } from "lucide-react"
 import { useRef, useState } from "react"
 import type {
-  FuelOptimizationCalculateResponse,
-  FuelOptimizationEconomicsPublic,
-  FuelOptimizationFailurePublic,
-  FuelOptimizationSummaryPublic,
+  FuelOptimizationCalculateResponse_Output as FuelOptimizationCalculateResponse,
+  FuelOptimizationEconomicsPublic_Output as FuelOptimizationEconomicsPublic,
+  FuelOptimizationFailurePublic_Output as FuelOptimizationFailurePublic,
+  FuelOptimizationSummaryPublic_Output as FuelOptimizationSummaryPublic,
 } from "@/client"
 import { AiExplainDialog } from "@/components/Map/AiExplainDialog"
 import { ExplainLanguageSelect } from "@/components/Map/ExplainLanguageSelect"
@@ -173,7 +173,7 @@ export function OptimizationWalkthrough({
         zIndex,
         opacity: "var(--floating-opacity, 1)",
       }}
-      className={`absolute bottom-4 left-4 flex flex-col rounded-lg border border-border/70 bg-white dark:bg-slate-950 shadow-md max-w-[calc(100vw-2rem)] ${isCollapsed ? "w-[480px]" : "w-[480px] max-h-[calc(100vh-2rem)]"}`}
+      className={`absolute bottom-4 left-4 flex flex-col rounded-lg border border-border/70 bg-white dark:bg-slate-950 shadow-md max-w-[calc(100%-2rem)] ${isCollapsed ? "w-[480px]" : "w-[480px] max-h-[calc(100%-2rem)]"}`}
     >
       {!isCollapsed && <ResizeHandles onResizeStart={startResize} />}
       {/* Step jump pills */}

@@ -8,10 +8,10 @@
 import { lineString } from "@turf/helpers"
 import { length } from "@turf/length"
 import type {
-  FuelOptimizationCalculateResponse,
-  FuelOptimizationLookaheadPublic,
-  FuelOptimizationSelectionPublic,
-  FuelOptimizationSkippedStationPointPublic,
+  FuelOptimizationCalculateResponse_Output as FuelOptimizationCalculateResponse,
+  FuelOptimizationLookaheadPublic_Output as FuelOptimizationLookaheadPublic,
+  FuelOptimizationSelectionPublic_Output as FuelOptimizationSelectionPublic,
+  FuelOptimizationSkippedStationPointPublic_Output as FuelOptimizationSkippedStationPointPublic,
   FuelStationData,
 } from "@/client"
 import type { Coordinate } from "@/lib/routing"

@@ -14,7 +14,7 @@ import {
   explainFuelOptimization,
   type FuelOptimizationChatMessage,
 } from "@/api/fuelOptimization"
-import type { FuelOptimizationCalculateResponse } from "@/client"
+import type { FuelOptimizationCalculateResponse_Output as FuelOptimizationCalculateResponse } from "@/client"
 import { ExplainLanguageSelect } from "@/components/Map/ExplainLanguageSelect"
 import { ResizeHandles } from "@/components/Map/ResizeHandles"
 import { Markdown } from "@/components/Markdown"
@@ -158,7 +158,7 @@ export function AiExplainDialog({
         zIndex,
         opacity: "var(--floating-opacity, 1)",
       }}
-      className={`fixed right-4 flex flex-col rounded-lg border bg-background shadow-lg ${
+      className={`${portalContainer ? "absolute" : "fixed"} right-4 flex flex-col rounded-lg border bg-background shadow-lg ${
         minimized
           ? "bottom-4 w-64 cursor-grab"
           : `top-4 bottom-4 ${isResizing ? "select-none" : ""} w-[min(32rem,calc(100vw-2rem))] cursor-grab gap-3 p-4`

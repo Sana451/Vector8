@@ -1,6 +1,6 @@
 import {
   type FuelOptimizationCalculateRequest,
-  type FuelOptimizationCalculateResponse,
+  type FuelOptimizationCalculateResponse_Output as FuelOptimizationCalculateResponse,
   FuelOptimizationService,
 } from "@/client"
 import { client } from "@/client/client.gen"

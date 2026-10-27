@@ -6,7 +6,7 @@ import { calculateFuelOptimization } from "@/api/fuelOptimization"
 import { getAllFuelStations, getRouteOverview, searchAddress } from "@/api/map"
 import { listVehicles } from "@/api/vehicles"
 import type {
-  FuelOptimizationCalculateResponse,
+  FuelOptimizationCalculateResponse_Output as FuelOptimizationCalculateResponse,
   FuelStationData,
   GeocodingSearchResponse,
   TrafficLayerData,

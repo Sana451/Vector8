@@ -9,7 +9,7 @@
 import type { Feature, FeatureCollection } from "geojson"
 import type { Map as MapLibreMap } from "maplibre-gl"
 import { useCallback, useMemo } from "react"
-import type { FuelOptimizationAlternativePublic } from "@/client"
+import type { FuelOptimizationAlternativePublic_Output as FuelOptimizationAlternativePublic } from "@/client"
 import { type LayerWithVisibility, useGeoJsonLayer } from "./useGeoJsonLayer"
 
 const SOURCE_ID = "optimization-compared-stations"

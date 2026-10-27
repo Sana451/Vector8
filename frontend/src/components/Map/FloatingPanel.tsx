@@ -54,7 +54,7 @@ export function FloatingPanel({
         top: initialPosition.top,
         maxWidth: "calc(100vw - 2rem)",
       }}
-      className={`pointer-events-auto absolute flex flex-col cursor-grab rounded-lg border border-border/70 bg-background p-2 shadow-md ${isCollapsed ? "" : "w-[min(760px,calc(100vw-2rem))] max-h-[calc(100vh-2rem)]"}`}
+      className={`pointer-events-auto absolute flex flex-col cursor-grab rounded-lg border border-border/70 bg-background p-2 shadow-md ${isCollapsed ? "" : "w-[min(760px,calc(100vw-2rem))] max-h-[calc(100%-1rem)]"}`}
     >
       {!isCollapsed && <ResizeHandles onResizeStart={startResize} />}
       <div className="flex items-center gap-2">
