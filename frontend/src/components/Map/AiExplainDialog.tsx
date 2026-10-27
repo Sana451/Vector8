@@ -16,8 +16,8 @@ import {
 } from "@/api/fuelOptimization"
 import type { FuelOptimizationCalculateResponse } from "@/client"
 import { ExplainLanguageSelect } from "@/components/Map/ExplainLanguageSelect"
-import { MarkdownText } from "@/components/Map/MarkdownText"
 import { ResizeHandles } from "@/components/Map/ResizeHandles"
+import { Markdown } from "@/components/Markdown"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useDraggable } from "@/hooks/useDraggable"
@@ -152,11 +152,16 @@ export function AiExplainDialog({
         event.stopPropagation()
       }}
       onPointerDownCapture={onPointerDownCapture}
-      style={{ ...dragStyle, ...(minimized ? {} : sizeStyle), zIndex }}
-      className={`fixed right-4 bottom-4 flex flex-col rounded-lg border bg-background shadow-lg ${
+      style={{
+        ...dragStyle,
+        ...(minimized ? {} : sizeStyle),
+        zIndex,
+        opacity: "var(--floating-opacity, 1)",
+      }}
+      className={`fixed right-4 flex flex-col rounded-lg border bg-background shadow-lg ${
         minimized
-          ? "w-64 cursor-grab"
-          : `${isResizing ? "select-none" : ""} relative max-h-[80vh] w-[min(32rem,calc(100vw-2rem))] cursor-grab gap-3 p-4`
+          ? "bottom-4 w-64 cursor-grab"
+          : `top-4 bottom-4 ${isResizing ? "select-none" : ""} w-[min(32rem,calc(100vw-2rem))] cursor-grab gap-3 p-4`
       }`}
     >
       {!minimized && <ResizeHandles onResizeStart={startResize} />}
@@ -217,7 +222,7 @@ export function AiExplainDialog({
               {message.role === "user" ? (
                 <p className="whitespace-pre-wrap">{message.content}</p>
               ) : (
-                <MarkdownText text={message.content} />
+                <Markdown>{message.content}</Markdown>
               )}
               {message.source === "fallback" && (
                 <p className="mt-2 text-xs text-muted-foreground">

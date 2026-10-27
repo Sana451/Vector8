@@ -123,6 +123,7 @@ export function LayerTogglePanel({
         ...sizeStyle,
         ...dragStyle,
         zIndex,
+        opacity: "var(--floating-opacity, 1)",
       }}
       className="absolute top-4 right-4 flex flex-col bg-white dark:bg-slate-950 rounded-lg shadow-md border border-border/70 dark:border-border overflow-hidden"
     >

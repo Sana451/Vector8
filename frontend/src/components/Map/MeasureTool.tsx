@@ -118,7 +118,12 @@ export function MeasureTool({ mapInstance }: MeasureToolProps) {
         ref={panelRef}
         {...dragHandlers}
         onPointerDownCapture={onPointerDownCapture}
-        style={{ ...sizeStyle, ...dragStyle, zIndex }}
+        style={{
+          ...sizeStyle,
+          ...dragStyle,
+          zIndex,
+          opacity: "var(--floating-opacity, 1)",
+        }}
         className="absolute bottom-4 right-16 flex flex-col gap-1 rounded-md border bg-background p-2 shadow text-xs"
       >
         <ResizeHandles onResizeStart={startResize} />

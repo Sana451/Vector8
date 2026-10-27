@@ -171,6 +171,7 @@ export function OptimizationWalkthrough({
         ...dragStyle,
         ...(isCollapsed ? {} : sizeStyle),
         zIndex,
+        opacity: "var(--floating-opacity, 1)",
       }}
       className={`absolute bottom-4 left-4 flex flex-col rounded-lg border border-border/70 bg-white dark:bg-slate-950 shadow-md max-w-[calc(100vw-2rem)] ${isCollapsed ? "w-[480px]" : "w-[480px] max-h-[calc(100vh-2rem)]"}`}
     >

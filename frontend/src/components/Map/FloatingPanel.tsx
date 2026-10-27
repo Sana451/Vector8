@@ -49,6 +49,7 @@ export function FloatingPanel({
           : { width: defaultWidth }),
         ...(isCollapsed ? {} : sizeStyle),
         zIndex,
+        opacity: "var(--floating-opacity, 1)",
         left: initialPosition.left,
         top: initialPosition.top,
         maxWidth: "calc(100vw - 2rem)",
