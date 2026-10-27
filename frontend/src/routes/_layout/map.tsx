@@ -1075,6 +1075,7 @@ function MapPage() {
         {optimizationSteps.length > 0 && (
           <OptimizationWalkthrough
             steps={optimizationSteps}
+            optimization={optimizationResult}
             activeStepIndex={activeStepIndex}
             onStepChange={handleStepChange}
             failure={optimizationResult?.failure ?? null}

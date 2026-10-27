@@ -316,3 +316,28 @@ class FuelOptimizationCalculateResponse(BaseModel):
     explanation: FuelOptimizationExplanationPublic
     economics: FuelOptimizationEconomicsPublic | None = None
     debug: dict[str, Any] | None = None
+
+
+class FuelOptimizationChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=4000)
+
+
+class FuelOptimizationExplainRequest(BaseModel):
+    optimization: FuelOptimizationCalculateResponse
+    stop_sequence: int | None = Field(
+        default=None,
+        description="Itinerary point to focus on; omit to explain the whole plan.",
+    )
+    question: str | None = Field(default=None, min_length=1, max_length=1000)
+    history: list[FuelOptimizationChatMessage] = Field(
+        default_factory=list, max_length=20
+    )
+    language: str = Field(default="en", min_length=2, max_length=10)
+
+
+class FuelOptimizationExplainResponse(BaseModel):
+    answer: str
+    source: Literal["ai", "fallback"] = Field(
+        description="'fallback' means the AI was unavailable and a template was used."
+    )

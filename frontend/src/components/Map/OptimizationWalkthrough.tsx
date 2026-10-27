@@ -7,19 +7,29 @@
  * Stepping does not change the map zoom level.
  */
 
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react"
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Sparkles,
+} from "lucide-react"
 import { useRef, useState } from "react"
 import type {
+  FuelOptimizationCalculateResponse,
   FuelOptimizationEconomicsPublic,
   FuelOptimizationFailurePublic,
   FuelOptimizationSummaryPublic,
 } from "@/client"
+import { AiExplainDialog } from "@/components/Map/AiExplainDialog"
 import { StopSelectionDetails } from "@/components/Map/StopSelectionDetails"
 import { useDraggable } from "@/hooks/useDraggable"
 import type { OptimizationStep } from "@/lib/fuelOptimizationWalkthrough"
 
 interface OptimizationWalkthroughProps {
   steps: OptimizationStep[]
+  /** Full optimizer result; enables the "Explain with AI" buttons. */
+  optimization?: FuelOptimizationCalculateResponse | null
   activeStepIndex: number
   onStepChange: (index: number) => void
   failure: FuelOptimizationFailurePublic | null
@@ -79,6 +89,7 @@ function stepBadgeLabel(step: OptimizationStep): string {
 
 export function OptimizationWalkthrough({
   steps,
+  optimization,
   activeStepIndex,
   onStepChange,
   failure,
@@ -92,6 +103,9 @@ export function OptimizationWalkthrough({
   reserveGallons,
 }: OptimizationWalkthroughProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const [explainTarget, setExplainTarget] = useState<"plan" | "step" | null>(
+    null,
+  )
   const panelRef = useRef<HTMLDivElement>(null)
   const { dragHandlers, dragStyle } = useDraggable(panelRef)
 
@@ -330,6 +344,16 @@ export function OptimizationWalkthrough({
                 onOpenChange={onComparisonOpenChange}
                 onFocusStation={onFocusStation}
               />
+              {optimization && activeStep.sequence !== undefined && (
+                <button
+                  type="button"
+                  onClick={() => setExplainTarget("step")}
+                  className="mt-2 flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Explain this stop with AI
+                </button>
+              )}
               {distanceToNextMeters !== undefined && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">
@@ -458,6 +482,16 @@ export function OptimizationWalkthrough({
           <ChevronLeft className="h-3.5 w-3.5" />
           Back
         </button>
+        {optimization && (
+          <button
+            type="button"
+            onClick={() => setExplainTarget("plan")}
+            className="flex items-center gap-1 text-xs font-medium px-2 py-1.5 rounded-md text-primary hover:bg-muted"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Explain plan with AI
+          </button>
+        )}
         <button
           type="button"
           onClick={() => onStepChange(activeStepIndex + 1)}
@@ -468,6 +502,17 @@ export function OptimizationWalkthrough({
           <ChevronRight className="h-3.5 w-3.5" />
         </button>
       </div>
+      {optimization && explainTarget !== null && (
+        <AiExplainDialog
+          open
+          onOpenChange={(open) => !open && setExplainTarget(null)}
+          optimization={optimization}
+          stopSequence={
+            explainTarget === "step" ? activeStep.sequence : undefined
+          }
+          stopLabel={explainTarget === "step" ? activeStep.label : undefined}
+        />
+      )}
     </div>
   )
 }
