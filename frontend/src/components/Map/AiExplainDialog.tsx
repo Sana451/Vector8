@@ -16,10 +16,12 @@ import {
 } from "@/api/fuelOptimization"
 import type { FuelOptimizationCalculateResponse } from "@/client"
 import { ExplainLanguageSelect } from "@/components/Map/ExplainLanguageSelect"
+import { MarkdownText } from "@/components/Map/MarkdownText"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useDraggable } from "@/hooks/useDraggable"
 import { useExplainLanguage } from "@/hooks/useExplainLanguage"
+import { usePanelStack } from "@/hooks/usePanelStack"
 
 interface AiExplainDialogProps {
   open: boolean
@@ -28,6 +30,8 @@ interface AiExplainDialogProps {
   /** Itinerary sequence of the stop to explain; omit for the whole plan. */
   stopSequence?: number
   stopLabel?: string
+  /** Map container to render into, so the panel stays on the map (and in fullscreen). */
+  portalContainer?: HTMLElement | null
 }
 
 interface ChatEntry extends FuelOptimizationChatMessage {
@@ -42,6 +46,7 @@ export function AiExplainDialog({
   optimization,
   stopSequence,
   stopLabel,
+  portalContainer,
 }: AiExplainDialogProps) {
   const [messages, setMessages] = useState<ChatEntry[]>([])
   const [question, setQuestion] = useState("")
@@ -51,6 +56,7 @@ export function AiExplainDialog({
   const requestId = useRef(0)
   const [minimized, setMinimized] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
+  const { zIndex, onPointerDownCapture } = usePanelStack("ai-explain")
   const boundsRef = useRef<HTMLElement | null>(document.documentElement)
   const { dragHandlers, dragStyle } = useDraggable(panelRef, boundsRef)
   const language = useExplainLanguage()
@@ -134,8 +140,9 @@ export function AiExplainDialog({
         dragHandlers.onPointerDown(event)
         event.stopPropagation()
       }}
-      style={dragStyle}
-      className={`fixed right-4 bottom-4 z-50 flex flex-col rounded-lg border bg-background shadow-lg ${
+      onPointerDownCapture={onPointerDownCapture}
+      style={{ ...dragStyle, zIndex }}
+      className={`fixed right-4 bottom-4 flex flex-col rounded-lg border bg-background shadow-lg ${
         minimized
           ? "w-64 cursor-grab"
           : "max-h-[80vh] w-[min(32rem,calc(100vw-2rem))] cursor-grab gap-3 p-4"
@@ -195,7 +202,11 @@ export function AiExplainDialog({
                   : "mr-8 rounded-lg bg-muted px-3 py-2"
               }
             >
-              <p className="whitespace-pre-wrap">{message.content}</p>
+              {message.role === "user" ? (
+                <p className="whitespace-pre-wrap">{message.content}</p>
+              ) : (
+                <MarkdownText text={message.content} />
+              )}
               {message.source === "fallback" && (
                 <p className="mt-2 text-xs text-muted-foreground">
                   AI is unavailable right now; showing the optimizer's built-in
@@ -246,6 +257,6 @@ export function AiExplainDialog({
         </form>
       </div>
     </div>,
-    document.body,
+    portalContainer ?? document.body,
   )
 }

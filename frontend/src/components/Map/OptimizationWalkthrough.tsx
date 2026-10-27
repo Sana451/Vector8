@@ -43,6 +43,8 @@ interface OptimizationWalkthroughProps {
   summary?: FuelOptimizationSummaryPublic
   routeTotalDistanceMeters?: number
   reserveGallons?: number
+  /** Map container the explain panel renders into (keeps it on the map, fullscreen-safe). */
+  explainPortalContainer?: HTMLElement | null
 }
 
 function formatGallons(value: number | undefined): string {
@@ -103,6 +105,7 @@ export function OptimizationWalkthrough({
   summary,
   routeTotalDistanceMeters,
   reserveGallons,
+  explainPortalContainer,
 }: OptimizationWalkthroughProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [explainTarget, setExplainTarget] = useState<"plan" | "step" | null>(
@@ -523,6 +526,7 @@ export function OptimizationWalkthrough({
             explainTarget === "step" ? activeStep.sequence : undefined
           }
           stopLabel={explainTarget === "step" ? activeStep.label : undefined}
+          portalContainer={explainPortalContainer}
         />
       )}
     </div>

@@ -1089,6 +1089,7 @@ function MapPage() {
             summary={optimizationResult?.summary}
             routeTotalDistanceMeters={routeTotalDistanceMeters}
             reserveGallons={optimizationReserveGallons}
+            explainPortalContainer={mapContainerRef.current}
             usableTankGallons={
               vehicles.find((v) => v.id === optimizationResult?.vehicle_id)
                 ?.usable_tank_capacity_gallons
