@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronUp } from "lucide-react"
 import { type ReactNode, type RefObject, useRef, useState } from "react"
 import { useDraggable } from "@/hooks/useDraggable"
+import { usePanelStack } from "@/hooks/usePanelStack"
 
 interface FloatingPanelProps {
   title: string
@@ -19,12 +20,14 @@ export function FloatingPanel({
   const [isCollapsed, setIsCollapsed] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
   const { dragHandlers, dragStyle } = useDraggable(panelRef, boundsRef)
+  const { zIndex, onPointerDownCapture } = usePanelStack(`floating:${title}`)
 
   return (
     <div
       ref={panelRef}
       {...dragHandlers}
-      style={dragStyle}
+      onPointerDownCapture={onPointerDownCapture}
+      style={{ ...dragStyle, zIndex }}
       className="pointer-events-auto w-[min(760px,calc(100vw-2rem))] max-w-full cursor-grab rounded-lg border border-border/70 bg-background p-2 shadow-md"
     >
       <div className="flex items-center gap-2">

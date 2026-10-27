@@ -25,6 +25,7 @@ import { AiExplainDialog } from "@/components/Map/AiExplainDialog"
 import { ExplainLanguageSelect } from "@/components/Map/ExplainLanguageSelect"
 import { StopSelectionDetails } from "@/components/Map/StopSelectionDetails"
 import { useDraggable } from "@/hooks/useDraggable"
+import { usePanelStack } from "@/hooks/usePanelStack"
 import type { OptimizationStep } from "@/lib/fuelOptimizationWalkthrough"
 
 interface OptimizationWalkthroughProps {
@@ -109,6 +110,9 @@ export function OptimizationWalkthrough({
   )
   const panelRef = useRef<HTMLDivElement>(null)
   const { dragHandlers, dragStyle } = useDraggable(panelRef)
+  const { zIndex, onPointerDownCapture } = usePanelStack(
+    "optimization-walkthrough",
+  )
 
   if (steps.length === 0) {
     return null
@@ -152,8 +156,9 @@ export function OptimizationWalkthrough({
     <div
       ref={panelRef}
       {...dragHandlers}
-      style={dragStyle}
-      className="absolute bottom-4 left-4 z-10 w-[360px] max-w-[calc(100vw-2rem)] rounded-lg border border-border/70 bg-white dark:bg-slate-950 shadow-md"
+      onPointerDownCapture={onPointerDownCapture}
+      style={{ ...dragStyle, zIndex }}
+      className="absolute bottom-4 left-4 w-[360px] max-w-[calc(100vw-2rem)] rounded-lg border border-border/70 bg-white dark:bg-slate-950 shadow-md"
     >
       {/* Step jump pills */}
       <div className="flex items-center gap-1.5 px-3 pt-3">

@@ -2,6 +2,7 @@ import type { Map as MapLibreMap, MapMouseEvent } from "maplibre-gl"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useDraggable } from "@/hooks/useDraggable"
+import { usePanelStack } from "@/hooks/usePanelStack"
 import {
   formatDistance,
   measureLengthKm,
@@ -23,6 +24,7 @@ export function MeasureTool({ mapInstance }: MeasureToolProps) {
   const drawing = useRef(false)
   const panelRef = useRef<HTMLDivElement>(null)
   const { dragHandlers, dragStyle } = useDraggable(panelRef)
+  const { zIndex, onPointerDownCapture } = usePanelStack("measure-tool")
 
   useEffect(() => {
     if (!mapInstance || !active) {
@@ -112,8 +114,9 @@ export function MeasureTool({ mapInstance }: MeasureToolProps) {
       <div
         ref={panelRef}
         {...dragHandlers}
-        style={dragStyle}
-        className="absolute bottom-4 right-16 z-10 flex flex-col gap-1 rounded-md border bg-background p-2 shadow text-xs"
+        onPointerDownCapture={onPointerDownCapture}
+        style={{ ...dragStyle, zIndex }}
+        className="absolute bottom-4 right-16 flex flex-col gap-1 rounded-md border bg-background p-2 shadow text-xs"
       >
         <Button
           size="sm"

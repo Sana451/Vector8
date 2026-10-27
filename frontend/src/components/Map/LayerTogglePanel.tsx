@@ -7,6 +7,7 @@
 import { ChevronDown, ChevronUp, Eye, EyeOff } from "lucide-react"
 import { useCallback, useRef, useState } from "react"
 import { useDraggable } from "@/hooks/useDraggable"
+import { usePanelStack } from "@/hooks/usePanelStack"
 
 export type LayerType =
   | "route"
@@ -105,13 +106,15 @@ export function LayerTogglePanel({
 
   const panelRef = useRef<HTMLDivElement>(null)
   const { dragHandlers, dragStyle } = useDraggable(panelRef)
+  const { zIndex, onPointerDownCapture } = usePanelStack("layer-toggle")
 
   return (
     <div
       ref={panelRef}
       {...dragHandlers}
-      style={{ maxWidth: "320px", ...dragStyle }}
-      className="absolute top-4 right-4 bg-white dark:bg-slate-950 rounded-lg shadow-md border border-border/70 dark:border-border overflow-hidden z-10"
+      onPointerDownCapture={onPointerDownCapture}
+      style={{ maxWidth: "320px", ...dragStyle, zIndex }}
+      className="absolute top-4 right-4 bg-white dark:bg-slate-950 rounded-lg shadow-md border border-border/70 dark:border-border overflow-hidden"
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-gray-50/50 to-transparent dark:from-slate-900/50 dark:to-transparent border-b border-border/40 dark:border-border/60">

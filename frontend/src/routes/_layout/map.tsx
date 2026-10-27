@@ -620,7 +620,7 @@ function MapPage() {
         className="flex-1 min-h-0 relative w-full overflow-hidden"
       >
         <TomTomMap ref={mapRef} />
-        <div className="pointer-events-none absolute left-2 top-2 z-10 flex max-w-[calc(100%-1rem)] flex-col gap-2">
+        <div className="pointer-events-none absolute left-2 top-2 flex max-w-[calc(100%-1rem)] flex-col gap-2">
           <FloatingPanel
             title="Route"
             boundsRef={mapContainerRef}
