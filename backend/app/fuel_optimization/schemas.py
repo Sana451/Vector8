@@ -333,7 +333,7 @@ class FuelOptimizationExplainRequest(BaseModel):
     history: list[FuelOptimizationChatMessage] = Field(
         default_factory=list, max_length=20
     )
-    language: str = Field(default="en", min_length=2, max_length=10)
+    language: Literal["en", "ru"] = "en"
 
 
 class FuelOptimizationExplainResponse(BaseModel):

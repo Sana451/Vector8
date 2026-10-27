@@ -143,7 +143,10 @@ def test_messages_end_with_question_after_history() -> None:
 
     assert messages[0]["role"] == "system"
     assert "Loves" in messages[0]["content"]
-    assert messages[-1] == {"role": "user", "content": "Why not Loves?"}
+    assert "Always answer in Russian" in messages[0]["content"]
+    assert messages[-1]["role"] == "user"
+    assert messages[-1]["content"].startswith("Why not Loves?")
+    assert "Answer in Russian" in messages[-1]["content"]
 
 
 async def test_explainer_uses_provider() -> None:

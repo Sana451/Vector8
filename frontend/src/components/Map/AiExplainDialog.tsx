@@ -7,22 +7,19 @@
  * backend; the AI only rephrases them.
  */
 
-import { Loader2, Send, Sparkles } from "lucide-react"
+import { Loader2, Maximize2, Minus, Send, Sparkles, X } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import {
   explainFuelOptimization,
   type FuelOptimizationChatMessage,
 } from "@/api/fuelOptimization"
 import type { FuelOptimizationCalculateResponse } from "@/client"
+import { ExplainLanguageSelect } from "@/components/Map/ExplainLanguageSelect"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { useDraggable } from "@/hooks/useDraggable"
+import { useExplainLanguage } from "@/hooks/useExplainLanguage"
 
 interface AiExplainDialogProps {
   open: boolean
@@ -52,6 +49,13 @@ export function AiExplainDialog({
   const [error, setError] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const requestId = useRef(0)
+  const [minimized, setMinimized] = useState(false)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const boundsRef = useRef<HTMLElement | null>(document.documentElement)
+  const { dragHandlers, dragStyle } = useDraggable(panelRef, boundsRef)
+  const language = useExplainLanguage()
+  const languageRef = useRef(language)
+  languageRef.current = language
 
   const ask = useCallback(
     async (text: string | undefined, history: ChatEntry[]) => {
@@ -64,7 +68,7 @@ export function AiExplainDialog({
           stop_sequence: stopSequence ?? null,
           question: text ?? null,
           history: history.map(({ role, content }) => ({ role, content })),
-          language: navigator.language.slice(0, 2) || "en",
+          language: languageRef.current,
         })
         if (currentRequest !== requestId.current) return
         setMessages((prev) => [
@@ -89,8 +93,11 @@ export function AiExplainDialog({
     if (!open) return
     setMessages([])
     setQuestion("")
-    void ask(undefined, [])
+    // Deferred so React StrictMode's throwaway mount doesn't send a duplicate
+    // request (which would burn the provider's token quota).
+    const timer = setTimeout(() => void ask(undefined, []), 0)
     return () => {
+      clearTimeout(timer)
       requestId.current++
     }
   }, [open, ask])
@@ -115,26 +122,69 @@ export function AiExplainDialog({
     void ask(last?.content, history)
   }
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="flex max-h-[85vh] flex-col gap-3 sm:max-w-lg"
-        onPointerDown={(event) => event.stopPropagation()}
+  if (!open) return null
+
+  const title = stopLabel ? `Explain: ${stopLabel}` : "Explain the fuel plan"
+
+  return createPortal(
+    <div
+      ref={panelRef}
+      {...dragHandlers}
+      onPointerDown={(event) => {
+        dragHandlers.onPointerDown(event)
+        event.stopPropagation()
+      }}
+      style={dragStyle}
+      className={`fixed right-4 bottom-4 z-50 flex flex-col rounded-lg border bg-background shadow-lg ${
+        minimized
+          ? "w-64 cursor-grab"
+          : "max-h-[80vh] w-[min(32rem,calc(100vw-2rem))] cursor-grab gap-3 p-4"
+      }`}
+    >
+      <div
+        className={`flex items-center gap-2 ${minimized ? "px-3 py-2" : ""}`}
       >
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4" />
-            {stopLabel ? `Explain: ${stopLabel}` : "Explain the fuel plan"}
-          </DialogTitle>
-          <DialogDescription>
-            Plain-language explanation of the optimizer's decisions. Ask a
-            follow-up question below.
-          </DialogDescription>
-        </DialogHeader>
+        <Sparkles className="h-4 w-4 shrink-0" />
+        <h2 className="flex-1 truncate text-sm font-semibold">{title}</h2>
+        {isLoading && minimized && (
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        )}
+        <button
+          type="button"
+          onClick={() => setMinimized((value) => !value)}
+          aria-label={minimized ? "Expand" : "Minimize"}
+          title={minimized ? "Expand" : "Minimize"}
+          className="rounded-md p-1 hover:bg-muted"
+        >
+          {minimized ? (
+            <Maximize2 className="h-4 w-4" />
+          ) : (
+            <Minus className="h-4 w-4" />
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => onOpenChange(false)}
+          aria-label="Close"
+          title="Close"
+          className="rounded-md p-1 hover:bg-muted"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div
+        className={minimized ? "hidden" : "flex min-h-0 flex-1 flex-col gap-3"}
+      >
+        <p className="text-xs text-muted-foreground">
+          Plain-language explanation of the optimizer's decisions. Ask a
+          follow-up question below.
+        </p>
 
         <div
           ref={scrollRef}
-          className="min-h-[8rem] flex-1 space-y-3 overflow-y-auto pr-1 text-sm"
+          data-no-drag
+          className="max-h-[50vh] min-h-[8rem] flex-1 cursor-auto space-y-3 overflow-y-auto pr-1 text-sm"
         >
           {messages.map((message, index) => (
             <div
@@ -171,7 +221,7 @@ export function AiExplainDialog({
         </div>
 
         <form
-          className="flex gap-2"
+          className="flex items-center gap-2"
           onSubmit={(event) => {
             event.preventDefault()
             submit()
@@ -184,6 +234,7 @@ export function AiExplainDialog({
             placeholder="Ask a follow-up, e.g. why not the cheaper station?"
             aria-label="Follow-up question"
           />
+          <ExplainLanguageSelect />
           <Button
             type="submit"
             size="icon"
@@ -193,7 +244,8 @@ export function AiExplainDialog({
             <Send className="h-4 w-4" />
           </Button>
         </form>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>,
+    document.body,
   )
 }

@@ -12,6 +12,9 @@ from app.fuel_optimization.schemas import (
 from app.llm import LLMProvider, LLMProviderError
 
 MAX_ALTERNATIVES_PER_STOP = 8
+# Keeps the request under the provider's per-request token limit (HTTP 413).
+MAX_CONTEXT_CHARS = 6000
+LANGUAGE_NAMES = {"en": "English", "ru": "Russian"}
 logger = logging.getLogger(__name__)
 
 # Keep in sync with the map layer colors in
@@ -54,15 +57,23 @@ context; convert to miles/minutes for the user.
 they were skipped. Mention the color when the user asks about a station's \
 color. Excluded before comparison: {rejected_colors}. Compared and not \
 chosen: {compared_colors}.
-- Answer in the language of the user's latest message; if there is no \
-question, answer in the language with code "{language}".
+- Always answer in {language_name}, regardless of the language of the \
+context or of earlier messages.
 
 OPTIMIZER CONTEXT (JSON):
 {context}
 """
 
-DEFAULT_ROUTE_QUESTION = "Explain this fuel plan in simple terms."
-DEFAULT_STOP_QUESTION = "Explain why the optimizer made this stop."
+DEFAULT_QUESTIONS = {
+    "en": {
+        "route": "Explain this fuel plan in simple terms.",
+        "stop": "Explain why the optimizer made this stop.",
+    },
+    "ru": {
+        "route": "Объясни этот план заправок простыми словами.",
+        "stop": "Объясни, почему оптимизатор выбрал эту остановку.",
+    },
+}
 
 
 def _num(value: Any) -> Any:
@@ -86,7 +97,11 @@ def _alternative_context(alt: FuelOptimizationAlternativePublic) -> dict[str, An
     }
 
 
-def _point_context(point: FuelOptimizationItineraryPointPublic) -> dict[str, Any]:
+def _point_context(
+    point: FuelOptimizationItineraryPointPublic,
+    max_alternatives: int = MAX_ALTERNATIVES_PER_STOP,
+    brief: bool = False,
+) -> dict[str, Any]:
     data: dict[str, Any] = {
         "sequence": point.sequence,
         "kind": point.kind,
@@ -104,6 +119,14 @@ def _point_context(point: FuelOptimizationItineraryPointPublic) -> dict[str, Any
         "available_fuel_gal": _num(point.available_fuel_gallons),
         "deficit_gal": _num(point.deficit_gallons),
     }
+    if brief:
+        data.pop("fuel_before_gal", None)
+        data.pop("fuel_after_gal", None)
+        data.pop("route_offset_m", None)
+        data.pop("detour_time_s", None)
+        if point.selection is not None:
+            data["why_chosen"] = {"rule": point.selection.rule}
+        return {k: v for k, v in data.items() if v is not None}
     if point.selection is not None:
         selection = point.selection
         data["why_chosen"] = {
@@ -118,10 +141,10 @@ def _point_context(point: FuelOptimizationItineraryPointPublic) -> dict[str, Any
             "next_stop_mandatory": selection.next_stop_mandatory,
             "alternatives": [
                 _alternative_context(alt)
-                for alt in selection.alternatives[:MAX_ALTERNATIVES_PER_STOP]
+                for alt in selection.alternatives[:max_alternatives]
             ],
             "alternatives_omitted": selection.alternatives_omitted_count
-            + max(0, len(selection.alternatives) - MAX_ALTERNATIVES_PER_STOP),
+            + max(0, len(selection.alternatives) - max_alternatives),
         }
     if point.lookahead is not None:
         data["lookahead"] = {
@@ -137,7 +160,12 @@ def _point_context(point: FuelOptimizationItineraryPointPublic) -> dict[str, Any
 
 
 def build_explanation_context(
-    result: FuelOptimizationCalculateResponse, stop_sequence: int | None = None
+    result: FuelOptimizationCalculateResponse,
+    stop_sequence: int | None = None,
+    *,
+    max_alternatives: int = MAX_ALTERNATIVES_PER_STOP,
+    brief_itinerary: bool = False,
+    max_points: int | None = None,
 ) -> dict[str, Any]:
     summary = result.summary
     context: dict[str, Any] = {
@@ -191,14 +219,44 @@ def build_explanation_context(
             (p for p in result.itinerary if p.sequence == stop_sequence), None
         )
     if focused is not None:
-        context["focused_point"] = _point_context(focused)
-        context["itinerary_overview"] = [
+        context["focused_point"] = _point_context(focused, max_alternatives)
+        overview = [
             {"sequence": p.sequence, "kind": p.kind, "label": p.label}
             for p in result.itinerary
         ]
+        if max_points is not None and len(overview) > max_points:
+            context["itinerary_points_omitted"] = len(overview) - max_points
+            overview = overview[:max_points]
+        context["itinerary_overview"] = overview
     else:
-        context["itinerary"] = [_point_context(p) for p in result.itinerary]
+        points = result.itinerary
+        if max_points is not None and len(points) > max_points:
+            context["itinerary_points_omitted"] = len(points) - max_points
+            points = points[:max_points]
+        context["itinerary"] = [
+            _point_context(p, max_alternatives, brief_itinerary) for p in points
+        ]
     return context
+
+
+def _fit_context(
+    result: FuelOptimizationCalculateResponse, stop_sequence: int | None
+) -> str:
+    """Serialize the context, shrinking it until it fits the LLM request limits."""
+    levels: list[dict[str, Any]] = [
+        {},
+        {"max_alternatives": 3},
+        {"max_alternatives": 2, "brief_itinerary": True},
+        {"max_alternatives": 1, "brief_itinerary": True, "max_points": 40},
+        {"max_alternatives": 0, "brief_itinerary": True, "max_points": 20},
+    ]
+    text = ""
+    for options in levels:
+        context = build_explanation_context(result, stop_sequence, **options)
+        text = json.dumps(context, ensure_ascii=False, separators=(",", ":"))
+        if len(text) <= MAX_CONTEXT_CHARS:
+            break
+    return text
 
 
 def build_messages(
@@ -207,11 +265,12 @@ def build_messages(
     stop_sequence: int | None,
     question: str | None,
     history: list[dict[str, str]],
-    language: str,
+    language: Literal["en", "ru"],
 ) -> list[dict[str, str]]:
-    context = build_explanation_context(result, stop_sequence)
+    context_json = _fit_context(result, stop_sequence)
+    has_focus = '"focused_point"' in context_json
     focus_hint = ""
-    if "focused_point" in context:
+    if has_focus:
         focus_hint = (
             f" The user is looking at itinerary point #{stop_sequence}"
             " (see focused_point)."
@@ -223,16 +282,18 @@ def build_messages(
         compared_colors=", ".join(
             f"{outcome}={color}" for outcome, color in COMPARED_STATION_COLORS.items()
         ),
-        language=language,
-        context=json.dumps(context, ensure_ascii=False, separators=(",", ":")),
+        language_name=LANGUAGE_NAMES.get(language, "English"),
+        context=context_json,
     )
-    default_question = (
-        DEFAULT_STOP_QUESTION if "focused_point" in context else DEFAULT_ROUTE_QUESTION
-    )
+    language_name = LANGUAGE_NAMES.get(language, "English")
+    default_question = DEFAULT_QUESTIONS[language]["stop" if has_focus else "route"]
+    # Restating the language next to the question keeps models from following
+    # the language of the (English) context or of earlier messages instead.
+    user_content = f"{question or default_question}\n\n(Answer in {language_name}.)"
     return [
         {"role": "system", "content": system + focus_hint},
         *history,
-        {"role": "user", "content": question or default_question},
+        {"role": "user", "content": user_content},
     ]
 
 
@@ -273,7 +334,7 @@ class FuelOptimizationExplainer:
         stop_sequence: int | None,
         question: str | None,
         history: list[dict[str, str]],
-        language: str,
+        language: Literal["en", "ru"],
     ) -> tuple[str, Literal["ai", "fallback"]]:
         """Return (answer, source) where source is "ai" or "fallback"."""
         if self._provider is not None:

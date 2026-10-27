@@ -22,6 +22,7 @@ import type {
   FuelOptimizationSummaryPublic,
 } from "@/client"
 import { AiExplainDialog } from "@/components/Map/AiExplainDialog"
+import { ExplainLanguageSelect } from "@/components/Map/ExplainLanguageSelect"
 import { StopSelectionDetails } from "@/components/Map/StopSelectionDetails"
 import { useDraggable } from "@/hooks/useDraggable"
 import type { OptimizationStep } from "@/lib/fuelOptimizationWalkthrough"
@@ -345,14 +346,17 @@ export function OptimizationWalkthrough({
                 onFocusStation={onFocusStation}
               />
               {optimization && activeStep.sequence !== undefined && (
-                <button
-                  type="button"
-                  onClick={() => setExplainTarget("step")}
-                  className="mt-2 flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                >
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Explain this stop with AI
-                </button>
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setExplainTarget("step")}
+                    className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Explain this stop with AI
+                  </button>
+                  <ExplainLanguageSelect />
+                </div>
               )}
               {distanceToNextMeters !== undefined && (
                 <div className="flex justify-between">
@@ -483,14 +487,17 @@ export function OptimizationWalkthrough({
           Back
         </button>
         {optimization && (
-          <button
-            type="button"
-            onClick={() => setExplainTarget("plan")}
-            className="flex items-center gap-1 text-xs font-medium px-2 py-1.5 rounded-md text-primary hover:bg-muted"
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            Explain plan with AI
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setExplainTarget("plan")}
+              className="flex items-center gap-1 text-xs font-medium px-2 py-1.5 rounded-md text-primary hover:bg-muted"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Explain plan with AI
+            </button>
+            <ExplainLanguageSelect />
+          </div>
         )}
         <button
           type="button"

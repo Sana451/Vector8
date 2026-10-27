@@ -678,7 +678,7 @@ export type FuelOptimizationExplainRequest = {
     /**
      * Language
      */
-    language?: string;
+    language?: 'en' | 'ru';
 };
 
 /**

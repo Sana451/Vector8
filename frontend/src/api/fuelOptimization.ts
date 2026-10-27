@@ -26,7 +26,7 @@ export interface FuelOptimizationExplainRequest {
   stop_sequence?: number | null
   question?: string | null
   history?: FuelOptimizationChatMessage[]
-  language?: string
+  language?: "en" | "ru"
 }
 
 export interface FuelOptimizationExplainResponse {
