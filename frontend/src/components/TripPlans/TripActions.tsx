@@ -31,6 +31,7 @@ function fileName(trip: TripPlanDetailPublic): string {
   return stem || "trip"
 }
 
+/** The API already frames the stops with the start and destination points. */
 function navigatorPoints(trip: TripPlanDetailPublic): NavigatorPoint[] {
   return (trip.stops ?? []).map((stop) => ({
     label: stop.label,

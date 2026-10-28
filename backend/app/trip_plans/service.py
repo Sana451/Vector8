@@ -295,24 +295,56 @@ class TripPlanService:
         The refined geometry is preferred; a trip whose refinement failed still
         exports against the base route so the driver is never left empty-handed.
         """
-        stops = [
-            TripPlanStopSnapshot.model_validate(stop)
-            for stop in trip_plan.stops_snapshot
-        ]
+        route_id = trip_plan.refined_route_id or trip_plan.base_route_id
+        geometry = self._geometry(self.route_repository.get_by_id(route_id))
+        coordinates = (
+            [(point[0], point[1]) for point in geometry.coordinates]
+            if geometry is not None
+            else []
+        )
+        stops = self._with_endpoints(trip_plan, geometry)
 
         if export_format is TripPlanExportFormat.CSV:
             return build_csv(stops)
 
-        coordinates = self._export_coordinates(trip_plan)
         builder = build_gpx if export_format is TripPlanExportFormat.GPX else build_kml
         return builder(name=trip_plan.name, stops=stops, coordinates=coordinates)
 
-    def _export_coordinates(self, trip_plan: TripPlan) -> list[tuple[float, float]]:
-        route_id = trip_plan.refined_route_id or trip_plan.base_route_id
-        geometry = self._geometry(self.route_repository.get_by_id(route_id))
-        if geometry is None:
-            return []
-        return [(point[0], point[1]) for point in geometry.coordinates]
+    @staticmethod
+    def _with_endpoints(
+        trip_plan: TripPlan, geometry: GeoJSONLineString | None
+    ) -> list[TripPlanStopSnapshot]:
+        """Frame the fuel stops with the route's start and destination.
+
+        The start and end are derived from the route geometry at read time, so
+        trips saved before this existed gain them too without a data migration.
+        """
+        stops = [
+            stop
+            for stop in (
+                TripPlanStopSnapshot.model_validate(raw)
+                for raw in trip_plan.stops_snapshot
+            )
+            if stop.kind not in ("start", "destination")
+        ]
+        if geometry is None or not geometry.coordinates:
+            return stops
+
+        first, last = geometry.coordinates[0], geometry.coordinates[-1]
+        last_sequence = max((stop.sequence for stop in stops), default=0)
+        start = TripPlanStopSnapshot(
+            sequence=0,
+            kind="start",
+            label=trip_plan.origin_label or "Start",
+            coordinate=(first[0], first[1]),
+        )
+        destination = TripPlanStopSnapshot(
+            sequence=last_sequence + 1,
+            kind="destination",
+            label=trip_plan.destination_label or "Destination",
+            coordinate=(last[0], last[1]),
+        )
+        return [start, *stops, destination]
 
     def set_share(self, trip_plan: TripPlan, *, enabled: bool, user: User) -> TripPlan:
         """Issue or revoke the public link for the trip.
@@ -343,6 +375,7 @@ class TripPlanService:
 
     def to_shared(self, trip_plan: TripPlan) -> TripPlanSharedPublic:
         route_id = trip_plan.refined_route_id or trip_plan.base_route_id
+        geometry = self._geometry(self.route_repository.get_by_id(route_id))
         return TripPlanSharedPublic(
             name=trip_plan.name,
             status=TripPlanStatus(trip_plan.status),
@@ -354,11 +387,8 @@ class TripPlanService:
             ),
             number_of_stops=len(trip_plan.stops_snapshot),
             created_at=trip_plan.created_at,
-            stops=[
-                TripPlanStopSnapshot.model_validate(stop)
-                for stop in trip_plan.stops_snapshot
-            ],
-            geometry=self._geometry(self.route_repository.get_by_id(route_id)),
+            stops=self._with_endpoints(trip_plan, geometry),
+            geometry=geometry,
         )
 
     def to_public(self, trip_plan: TripPlan) -> TripPlanPublic:
@@ -395,14 +425,13 @@ class TripPlanService:
                 ),
             )
 
+        base_geometry = self._geometry(base_route)
+        refined_geometry = self._geometry(refined_route)
         return TripPlanDetailPublic(
             **self.to_public(trip_plan).model_dump(),
-            stops=[
-                TripPlanStopSnapshot.model_validate(stop)
-                for stop in trip_plan.stops_snapshot
-            ],
-            base_geometry=self._geometry(base_route),
-            refined_geometry=self._geometry(refined_route),
+            stops=self._with_endpoints(trip_plan, refined_geometry or base_geometry),
+            base_geometry=base_geometry,
+            refined_geometry=refined_geometry,
             delta=delta,
         )
 

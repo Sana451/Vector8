@@ -94,7 +94,12 @@ class TestCreate:
         assert body["refine_error"] is None
         assert body["refined_geometry"] is not None
         assert body["delta"]["distance_meters"] == 0
-        assert [stop["label"] for stop in body["stops"]] == ["Love's #200"]
+        assert [stop["kind"] for stop in body["stops"]] == [
+            "start",
+            "refuel",
+            "destination",
+        ]
+        assert body["stops"][1]["label"] == "Love's #200"
 
         waypoints = routing.requests[0].route_planning_locations.waypoints
         assert waypoints is not None
