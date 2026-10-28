@@ -1,11 +1,24 @@
 import uuid
 from datetime import datetime
+from enum import StrEnum
 
 from pydantic import EmailStr
-from sqlalchemy import DateTime
-from sqlmodel import Field, Relationship, SQLModel
+from sqlalchemy import DateTime, String
+from sqlmodel import Column, Field, Relationship, SQLModel
 
 from app.core.datetime import get_datetime_utc
+
+
+class UserRole(StrEnum):
+    """What a user is allowed to do.
+
+    ``is_superuser`` keeps guarding the admin area; the role drives the
+    dispatcher and driver parts of the product.
+    """
+
+    ADMIN = "admin"
+    DISPATCHER = "dispatcher"
+    DRIVER = "driver"
 
 
 # Shared properties
@@ -13,6 +26,7 @@ class UserBase(SQLModel):
     email: EmailStr = Field(unique=True, index=True, max_length=255)
     is_active: bool = True
     is_superuser: bool = False
+    role: UserRole = UserRole.DISPATCHER
     full_name: str | None = Field(default=None, max_length=255)
 
 
@@ -32,6 +46,7 @@ class UserUpdate(SQLModel):
     email: EmailStr | None = Field(default=None, max_length=255)
     is_active: bool | None = None
     is_superuser: bool | None = None
+    role: UserRole | None = None
     full_name: str | None = Field(default=None, max_length=255)
     password: str | None = Field(default=None, min_length=8, max_length=128)
 
@@ -50,6 +65,11 @@ class UpdatePassword(SQLModel):
 class User(UserBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     hashed_password: str
+    # Stored as a plain string so adding a role never needs a type migration.
+    role: UserRole = Field(
+        default=UserRole.DISPATCHER,
+        sa_column=Column(String(length=32), nullable=False, index=True),
+    )
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore

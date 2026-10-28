@@ -13,6 +13,7 @@ import { useResizable } from "@/hooks/useResizable"
 
 export type LayerType =
   | "route"
+  | "refined-route"
   | "traffic"
   | "fuel"
   | "truck-restrictions"
@@ -41,6 +42,12 @@ const LAYER_CONFIGS: LayerConfig[] = [
     label: "Route",
     icon: "━━",
     description: "Your calculated route",
+  },
+  {
+    id: "refined-route",
+    label: "Refined Route",
+    icon: "╍╍",
+    description: "Route driving into every selected fuel stop",
   },
   {
     id: "detour",

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.api.deps import get_current_active_superuser
+from app.api.deps import get_dispatcher_or_superuser
 from app.fuel_optimization.dependencies import (
     FuelOptimizationExplainerDep,
     OptimizeFuelUseCaseDep,
@@ -23,7 +23,7 @@ from app.fuel_optimization.schemas import (
 router = APIRouter(
     prefix="/fuel-optimization",
     tags=["fuel-optimization"],
-    dependencies=[Depends(get_current_active_superuser)],
+    dependencies=[Depends(get_dispatcher_or_superuser)],
 )
 
 

@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 
+import { USER_ROLE_LABELS } from "@/components/Admin/RoleSelect"
 import useAuth from "@/hooks/useAuth"
 
 export const Route = createFileRoute("/_layout/")({
@@ -38,7 +39,10 @@ function Dashboard() {
           <div className="stat-card">
             <div className="k">Role</div>
             <div className="v">
-              {currentUser?.is_superuser ? "Admin" : "Member"}
+              {currentUser?.role
+                ? USER_ROLE_LABELS[currentUser.role]
+                : "Unknown"}
+              {currentUser?.is_superuser ? " · Superuser" : ""}
             </div>
           </div>
           <div className="stat-card">

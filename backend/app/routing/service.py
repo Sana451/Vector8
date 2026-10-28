@@ -41,6 +41,12 @@ class RoutingService:
         self.provider = provider
         self.repository = RouteCalculationRepository(session)
 
+    @property
+    def provider_name(self) -> str:
+        """Name under which results of this provider are cached."""
+        name = getattr(self.provider, "provider_name", None)
+        return name if isinstance(name, str) else settings.ROUTING_PROVIDER
+
     async def calculate_route(
         self,
         request: CalculateRouteRequest,
@@ -90,7 +96,7 @@ class RoutingService:
         # Try cache if not forcing refresh
         if not force_refresh:
             cached = self.repository.get_valid_by_provider_and_hash(
-                provider=settings.ROUTING_PROVIDER,
+                provider=self.provider_name,
                 request_hash=request_hash,
             )
 
@@ -98,27 +104,27 @@ class RoutingService:
                 logger.info(
                     "Route calculation cache hit",
                     request_hash=request_hash,
-                    provider=settings.ROUTING_PROVIDER,
+                    provider=self.provider_name,
                 )
                 return await self._build_response_from_calculation(cached)
 
             logger.info(
                 "Route calculation cache miss",
                 request_hash=request_hash,
-                provider=settings.ROUTING_PROVIDER,
+                provider=self.provider_name,
             )
 
         if force_refresh:
             logger.info(
                 "Route calculation force refresh",
                 request_hash=request_hash,
-                provider=settings.ROUTING_PROVIDER,
+                provider=self.provider_name,
             )
 
         # Call provider for fresh result
         logger.info(
             "Calling routing provider",
-            provider=settings.ROUTING_PROVIDER,
+            provider=self.provider_name,
             request_hash=request_hash,
         )
 
@@ -163,18 +169,22 @@ class RoutingService:
         origin_wkt = f"SRID=4326;POINT({origin_lon} {origin_lat})"
         destination_wkt = f"SRID=4326;POINT({destination_lon} {destination_lat})"
 
-        # Extract geometry from response if available
-        # First route's first leg's path contains the LineString geometry
+        # Extract geometry from response if available.
+        # With waypoints a route has one leg per segment, so all legs are
+        # concatenated into a single LineString.
         geometry_wkt = None
-        if response.routes and len(response.routes) > 0:
-            first_route = response.routes[0]
-            if first_route.legs and len(first_route.legs) > 0:
-                first_leg = first_route.legs[0]
-                if first_leg.path:
-                    # Convert GeoJSONLineString to WKT
-                    coords = first_leg.path.coordinates
-                    coords_str = ", ".join(f"{lon} {lat}" for lon, lat in coords)
-                    geometry_wkt = f"SRID=4326;LINESTRING({coords_str})"
+        if response.routes:
+            coords: list[tuple[float, float]] = []
+            for leg in response.routes[0].legs or []:
+                if leg.path is None:
+                    continue
+                leg_coords = list(leg.path.coordinates)
+                if coords and leg_coords and coords[-1] == leg_coords[0]:
+                    leg_coords = leg_coords[1:]
+                coords.extend(leg_coords)
+            if len(coords) >= 2:
+                coords_str = ", ".join(f"{lon} {lat}" for lon, lat in coords)
+                geometry_wkt = f"SRID=4326;LINESTRING({coords_str})"
 
         # Get normalized distance and duration from first route
         distance_meters = 0
@@ -189,7 +199,7 @@ class RoutingService:
 
         # Upsert calculation to database
         calculation = self.repository.upsert_by_provider_and_hash(
-            provider=settings.ROUTING_PROVIDER,
+            provider=self.provider_name,
             request_hash=request_hash,
             origin_wkt=origin_wkt,
             destination_wkt=destination_wkt,
@@ -205,7 +215,7 @@ class RoutingService:
             "Route calculation persisted",
             calculation_id=calculation.id,
             request_hash=request_hash,
-            provider=settings.ROUTING_PROVIDER,
+            provider=self.provider_name,
         )
         return calculation
 

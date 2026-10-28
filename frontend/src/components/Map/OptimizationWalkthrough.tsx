@@ -20,9 +20,11 @@ import type {
   FuelOptimizationEconomicsPublic_Output as FuelOptimizationEconomicsPublic,
   FuelOptimizationFailurePublic_Output as FuelOptimizationFailurePublic,
   FuelOptimizationSummaryPublic_Output as FuelOptimizationSummaryPublic,
+  TripPlanDetailPublic,
 } from "@/client"
 import { AiExplainDialog } from "@/components/Map/AiExplainDialog"
 import { ExplainLanguageSelect } from "@/components/Map/ExplainLanguageSelect"
+import { RefineRouteControl } from "@/components/Map/RefineRouteControl"
 import { ResizeHandles } from "@/components/Map/ResizeHandles"
 import { StopSelectionDetails } from "@/components/Map/StopSelectionDetails"
 import { useDraggable } from "@/hooks/useDraggable"
@@ -47,6 +49,9 @@ interface OptimizationWalkthroughProps {
   reserveGallons?: number
   /** Map container the explain panel renders into (keeps it on the map, fullscreen-safe). */
   explainPortalContainer?: HTMLElement | null
+  /** Trip plan holding the refined route, if one has been built. */
+  tripPlan?: TripPlanDetailPublic | null
+  onTripPlanChange?: (tripPlan: TripPlanDetailPublic) => void
 }
 
 function formatGallons(value: number | undefined): string {
@@ -108,6 +113,8 @@ export function OptimizationWalkthrough({
   routeTotalDistanceMeters,
   reserveGallons,
   explainPortalContainer,
+  tripPlan = null,
+  onTripPlanChange,
 }: OptimizationWalkthroughProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [explainTarget, setExplainTarget] = useState<"plan" | "step" | null>(
@@ -494,6 +501,14 @@ export function OptimizationWalkthrough({
             </div>
           )}
         </div>
+      )}
+
+      {onTripPlanChange && (
+        <RefineRouteControl
+          optimizationRunId={optimization?.optimization_run_id}
+          tripPlan={tripPlan}
+          onTripPlanChange={onTripPlanChange}
+        />
       )}
 
       {/* Navigation */}

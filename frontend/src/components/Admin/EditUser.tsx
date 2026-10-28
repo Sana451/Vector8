@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form"
 import { z } from "zod"
 
 import { type UserPublic, UsersService } from "@/client"
+import { RoleSelect } from "@/components/Admin/RoleSelect"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -41,6 +42,7 @@ const formSchema = z
       .optional()
       .or(z.literal("")),
     confirm_password: z.string().optional(),
+    role: z.enum(["admin", "dispatcher", "driver"]),
     is_superuser: z.boolean().optional(),
     is_active: z.boolean().optional(),
   })
@@ -68,6 +70,7 @@ const EditUser = ({ user, onSuccess }: EditUserProps) => {
     defaultValues: {
       email: user.email,
       full_name: user.full_name ?? undefined,
+      role: user.role ?? "dispatcher",
       is_superuser: user.is_superuser,
       is_active: user.is_active,
     },
@@ -179,6 +182,23 @@ const EditUser = ({ user, onSuccess }: EditUserProps) => {
                         placeholder="Password"
                         type="password"
                         {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Role</FormLabel>
+                    <FormControl>
+                      <RoleSelect
+                        value={field.value}
+                        onChange={field.onChange}
                       />
                     </FormControl>
                     <FormMessage />

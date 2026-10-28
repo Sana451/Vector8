@@ -335,6 +335,8 @@ def test_register_user(client: TestClient, db: Session) -> None:
     assert user_db
     assert user_db.email == username
     assert user_db.full_name == full_name
+    assert user_db.role == "driver"
+    assert created_user["role"] == "driver"
     verified, _ = verify_password(password, user_db.hashed_password)
     assert verified
 
@@ -519,3 +521,33 @@ def test_delete_user_without_privileges(
     )
     assert r.status_code == 403
     assert r.json()["detail"] == "The user doesn't have enough privileges"
+
+
+def test_superuser_can_change_user_role(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    user = create_random_user(db)
+
+    r = client.patch(
+        f"{settings.API_V1_STR}/users/{user.id}",
+        headers=superuser_token_headers,
+        json={"role": "driver"},
+    )
+
+    assert r.status_code == 200
+    assert r.json()["role"] == "driver"
+    db.refresh(user)
+    assert user.role == "driver"
+
+
+def test_normal_user_cannot_change_own_role(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    r = client.patch(
+        f"{settings.API_V1_STR}/users/me",
+        headers=normal_user_token_headers,
+        json={"role": "admin"},
+    )
+
+    assert r.status_code == 200
+    assert r.json()["role"] != "admin"

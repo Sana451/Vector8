@@ -7,7 +7,7 @@ Handles URL construction, authentication, request/response transformation,
 error mapping and timeout management.
 """
 
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 import httpx
 from pydantic import ValidationError
@@ -45,6 +45,8 @@ class TomTomRoutingProvider:
 
     Implements routing via TomTom Orbis Maps Routing API v3.
     """
+
+    provider_name: ClassVar[str] = PROVIDER_NAME
 
     def __init__(self, client: httpx.AsyncClient | None = None):
         """Initialize TomTom routing provider.

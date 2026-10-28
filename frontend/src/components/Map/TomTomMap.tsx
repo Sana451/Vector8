@@ -17,14 +17,18 @@ export interface TomTomMapHandle {
   panTo: (center: [number, number]) => void
 }
 
+interface TomTomMapProps {
+  className?: string
+}
+
 /**
  * TomTomMap component
  *
  * Renders TomTom map using MapLibre SDK.
  * Exposes map instance and utility methods through ref.
  */
-const TomTomMap = forwardRef<TomTomMapHandle>(
-  ({ className }: { className?: string }, ref) => {
+const TomTomMap = forwardRef<TomTomMapHandle, TomTomMapProps>(
+  ({ className }: TomTomMapProps, ref) => {
     const mapRef = useRef<HTMLDivElement | null>(null)
     const mapInstanceRef = useRef<MapLibreMap | null>(null)
 

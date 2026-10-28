@@ -4,6 +4,12 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, delete
 
 from app.fleet.models import Vehicle
+from app.models import UserRole
+from tests.trip_plans.factories import (
+    create_user_with_role,
+    create_vehicle,
+    headers_for,
+)
 
 
 class TestVehicleRouter:
@@ -123,3 +129,35 @@ class TestVehicleRouter:
         )
         assert delete_response.status_code == 200
         assert delete_response.json()["message"] == "Vehicle deleted successfully"
+
+
+class TestVehicleAccessByRole:
+    def test_dispatcher_can_read_but_not_change_the_fleet(
+        self, client: TestClient, db: Session
+    ) -> None:
+        dispatcher, password = create_user_with_role(db, UserRole.DISPATCHER)
+        headers = headers_for(client, dispatcher, password)
+        vehicle = create_vehicle(db)
+
+        listing = client.get("/api/v1/vehicles/", headers=headers)
+        single = client.get(f"/api/v1/vehicles/{vehicle.id}", headers=headers)
+        patched = client.patch(
+            f"/api/v1/vehicles/{vehicle.id}", headers=headers, json={"name": "x"}
+        )
+        deleted = client.delete(f"/api/v1/vehicles/{vehicle.id}", headers=headers)
+
+        assert listing.status_code == 200
+        assert single.status_code == 200
+        assert patched.status_code == 403
+        assert deleted.status_code == 403
+
+    def test_driver_cannot_read_the_fleet(
+        self, client: TestClient, db: Session
+    ) -> None:
+        driver, password = create_user_with_role(db, UserRole.DRIVER)
+
+        response = client.get(
+            "/api/v1/vehicles/", headers=headers_for(client, driver, password)
+        )
+
+        assert response.status_code == 403
