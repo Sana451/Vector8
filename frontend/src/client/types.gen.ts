@@ -276,6 +276,89 @@ export type DeviationPoint = {
 };
 
 /**
+ * DriverProfilePublic
+ */
+export type DriverProfilePublic = {
+    /**
+     * Phone
+     */
+    phone?: string | null;
+    /**
+     * License Number
+     */
+    license_number?: string | null;
+    /**
+     * Default Vehicle Id
+     */
+    default_vehicle_id?: string | null;
+    /**
+     * Notes
+     */
+    notes?: string | null;
+};
+
+/**
+ * DriverProfileUpdate
+ */
+export type DriverProfileUpdate = {
+    /**
+     * Phone
+     */
+    phone?: string | null;
+    /**
+     * License Number
+     */
+    license_number?: string | null;
+    /**
+     * Default Vehicle Id
+     */
+    default_vehicle_id?: string | null;
+    /**
+     * Notes
+     */
+    notes?: string | null;
+};
+
+/**
+ * DriverPublic
+ *
+ * A driver as the dispatcher sees them: account plus profile.
+ */
+export type DriverPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Email
+     */
+    email: string;
+    /**
+     * Full Name
+     */
+    full_name?: string | null;
+    /**
+     * Is Active
+     */
+    is_active: boolean;
+    profile?: DriverProfilePublic | null;
+};
+
+/**
+ * DriversPublic
+ */
+export type DriversPublic = {
+    /**
+     * Data
+     */
+    data: Array<DriverPublic>;
+    /**
+     * Count
+     */
+    count: number;
+};
+
+/**
  * ElectronicTollTransponder
  *
  * Electronic toll collection transponder type.
@@ -2342,9 +2425,27 @@ export type RoutePlanningLocations = {
      */
     destination: GeoJSONPoint;
     /**
+     * Origin Label
+     *
+     * Human-readable address of the origin, when known
+     */
+    origin_label?: string | null;
+    /**
+     * Destination Label
+     *
+     * Human-readable address of the destination, when known
+     */
+    destination_label?: string | null;
+    /**
      * Intermediate waypoints
      */
     waypoints?: GeoJSONMultiPoint | null;
+    /**
+     * Waypoint Stop Duration Seconds
+     *
+     * Time the vehicle stands still at every intermediate waypoint. When set, waypoints are treated as real stops rather than pass-through points. Providers that cannot express this are expected to ignore it.
+     */
+    waypoint_stop_duration_seconds?: number | null;
 };
 
 /**
@@ -2555,6 +2656,477 @@ export type TrafficSeverity = 'unknown' | 'minor' | 'moderate' | 'major' | 'seve
 export type TravelMode = 'car' | 'taxi';
 
 /**
+ * TripPlanAssignRequest
+ */
+export type TripPlanAssignRequest = {
+    /**
+     * Driver Id
+     */
+    driver_id?: string | null;
+};
+
+/**
+ * TripPlanCreateRequest
+ */
+export type TripPlanCreateRequest = {
+    /**
+     * Optimization Run Id
+     */
+    optimization_run_id: string;
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Provider
+     */
+    provider?: string | null;
+    /**
+     * Stop Duration Minutes
+     */
+    stop_duration_minutes?: number | null;
+};
+
+/**
+ * TripPlanDeltaPublic
+ *
+ * Difference between the base route and the refined one.
+ */
+export type TripPlanDeltaPublic = {
+    /**
+     * Distance Meters
+     */
+    distance_meters: number;
+    /**
+     * Duration Seconds
+     */
+    duration_seconds: number;
+};
+
+/**
+ * TripPlanDetailPublic
+ *
+ * Detail representation: adds geometry, stops and deltas.
+ */
+export type TripPlanDetailPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    status: TripPlanStatus;
+    /**
+     * Owner Id
+     */
+    owner_id: string;
+    /**
+     * Assigned Driver Id
+     */
+    assigned_driver_id?: string | null;
+    /**
+     * Assigned At
+     */
+    assigned_at?: string | null;
+    /**
+     * Vehicle Id
+     */
+    vehicle_id: string;
+    /**
+     * Base Route Id
+     */
+    base_route_id: string;
+    /**
+     * Optimization Run Id
+     */
+    optimization_run_id: string;
+    /**
+     * Refined Route Id
+     */
+    refined_route_id?: string | null;
+    /**
+     * Refined Provider
+     */
+    refined_provider?: string | null;
+    /**
+     * Base Distance Meters
+     */
+    base_distance_meters: number;
+    /**
+     * Base Duration Seconds
+     */
+    base_duration_seconds: number;
+    /**
+     * Refined Distance Meters
+     */
+    refined_distance_meters?: number | null;
+    /**
+     * Refined Duration Seconds
+     */
+    refined_duration_seconds?: number | null;
+    /**
+     * Origin Label
+     */
+    origin_label?: string | null;
+    /**
+     * Destination Label
+     */
+    destination_label?: string | null;
+    /**
+     * Refine Error
+     */
+    refine_error?: string | null;
+    /**
+     * Number Of Stops
+     */
+    number_of_stops: number;
+    /**
+     * Is Shared
+     */
+    is_shared?: boolean;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    /**
+     * Stops
+     */
+    stops?: Array<TripPlanStopSnapshot>;
+    base_geometry?: GeoJSONLineString | null;
+    refined_geometry?: GeoJSONLineString | null;
+    delta?: TripPlanDeltaPublic | null;
+};
+
+/**
+ * TripPlanExportFormat
+ *
+ * Download formats offered for a trip plan.
+ */
+export type TripPlanExportFormat = 'gpx' | 'kml' | 'csv';
+
+/**
+ * TripPlanPublic
+ *
+ * List representation: no geometry, no stops.
+ */
+export type TripPlanPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    status: TripPlanStatus;
+    /**
+     * Owner Id
+     */
+    owner_id: string;
+    /**
+     * Assigned Driver Id
+     */
+    assigned_driver_id?: string | null;
+    /**
+     * Assigned At
+     */
+    assigned_at?: string | null;
+    /**
+     * Vehicle Id
+     */
+    vehicle_id: string;
+    /**
+     * Base Route Id
+     */
+    base_route_id: string;
+    /**
+     * Optimization Run Id
+     */
+    optimization_run_id: string;
+    /**
+     * Refined Route Id
+     */
+    refined_route_id?: string | null;
+    /**
+     * Refined Provider
+     */
+    refined_provider?: string | null;
+    /**
+     * Base Distance Meters
+     */
+    base_distance_meters: number;
+    /**
+     * Base Duration Seconds
+     */
+    base_duration_seconds: number;
+    /**
+     * Refined Distance Meters
+     */
+    refined_distance_meters?: number | null;
+    /**
+     * Refined Duration Seconds
+     */
+    refined_duration_seconds?: number | null;
+    /**
+     * Origin Label
+     */
+    origin_label?: string | null;
+    /**
+     * Destination Label
+     */
+    destination_label?: string | null;
+    /**
+     * Refine Error
+     */
+    refine_error?: string | null;
+    /**
+     * Number Of Stops
+     */
+    number_of_stops: number;
+    /**
+     * Is Shared
+     */
+    is_shared?: boolean;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+};
+
+/**
+ * TripPlanRefineRequest
+ */
+export type TripPlanRefineRequest = {
+    /**
+     * Provider
+     */
+    provider?: string | null;
+    /**
+     * Stop Duration Minutes
+     */
+    stop_duration_minutes?: number | null;
+    /**
+     * Force Refresh
+     */
+    force_refresh?: boolean;
+};
+
+/**
+ * TripPlanSharePublic
+ */
+export type TripPlanSharePublic = {
+    /**
+     * Share Token
+     */
+    share_token?: string | null;
+};
+
+/**
+ * TripPlanShareRequest
+ *
+ * Issue a public link, or revoke the current one with ``enabled=False``.
+ */
+export type TripPlanShareRequest = {
+    /**
+     * Enabled
+     */
+    enabled?: boolean;
+};
+
+/**
+ * TripPlanSharedPublic
+ *
+ * Read-only view behind a share token.
+ *
+ * Deliberately omits every identifier that could be used to reach the rest of
+ * the API: whoever holds the link has no account and must only see the route
+ * itself, not who planned it.
+ */
+export type TripPlanSharedPublic = {
+    /**
+     * Name
+     */
+    name: string;
+    status: TripPlanStatus;
+    /**
+     * Distance Meters
+     */
+    distance_meters: number;
+    /**
+     * Duration Seconds
+     */
+    duration_seconds: number;
+    /**
+     * Number Of Stops
+     */
+    number_of_stops: number;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Stops
+     */
+    stops?: Array<TripPlanStopSnapshot>;
+    geometry?: GeoJSONLineString | null;
+};
+
+/**
+ * TripPlanStationDetails
+ *
+ * Live station facts shown alongside a stop, mirroring the /map popup.
+ */
+export type TripPlanStationDetails = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Brand
+     */
+    brand?: string | null;
+    /**
+     * Address
+     */
+    address?: string | null;
+    /**
+     * Fuel Type
+     */
+    fuel_type?: string | null;
+    /**
+     * Diesel Price
+     */
+    diesel_price?: number | null;
+    /**
+     * Currency
+     */
+    currency?: string | null;
+    /**
+     * Has Adblue
+     */
+    has_adblue?: boolean;
+    /**
+     * Is Open
+     */
+    is_open?: boolean | null;
+    /**
+     * Medium Truck Accessible
+     */
+    medium_truck_accessible?: boolean | null;
+    /**
+     * Large Truck Accessible
+     */
+    large_truck_accessible?: boolean | null;
+    /**
+     * Phone
+     */
+    phone?: string | null;
+    /**
+     * Website
+     */
+    website?: string | null;
+};
+
+/**
+ * TripPlanStatus
+ *
+ * Lifecycle of a trip plan.
+ */
+export type TripPlanStatus = 'draft' | 'refined' | 'refine_failed' | 'assigned' | 'in_progress' | 'completed' | 'cancelled';
+
+/**
+ * TripPlanStatusUpdateRequest
+ */
+export type TripPlanStatusUpdateRequest = {
+    status: TripPlanStatus;
+};
+
+/**
+ * TripPlanStopSnapshot
+ *
+ * A fuel stop frozen at the moment the trip plan was created.
+ *
+ * Kept denormalized so the driver view stays stable even if the optimization
+ * run is recalculated later. ``station`` is filled in at read time only.
+ */
+export type TripPlanStopSnapshot = {
+    /**
+     * Sequence
+     */
+    sequence: number;
+    /**
+     * Kind
+     */
+    kind: 'start' | 'station' | 'refuel' | 'destination';
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Station Id
+     */
+    station_id?: string | null;
+    /**
+     * Coordinate
+     *
+     * [longitude, latitude] in WGS84
+     */
+    coordinate: [
+        number,
+        number
+    ];
+    /**
+     * Route Offset Meters
+     */
+    route_offset_meters?: string | null;
+    /**
+     * Fuel Added Gallons
+     */
+    fuel_added_gallons?: string | null;
+    /**
+     * Fuel Price Per Gallon
+     */
+    fuel_price_per_gallon?: string | null;
+    /**
+     * Fuel Cost
+     */
+    fuel_cost?: string | null;
+    /**
+     * Detour Distance Meters
+     */
+    detour_distance_meters?: string | null;
+    /**
+     * Detour Time Seconds
+     */
+    detour_time_seconds?: number | null;
+    station?: TripPlanStationDetails | null;
+};
+
+/**
+ * TripPlansPublic
+ */
+export type TripPlansPublic = {
+    /**
+     * Data
+     */
+    data: Array<TripPlanPublic>;
+    /**
+     * Count
+     */
+    count: number;
+};
+
+/**
  * TruckRestrictionData
  *
  * Truck restriction along the route.
@@ -2626,6 +3198,7 @@ export type UserCreate = {
      * Is Superuser
      */
     is_superuser?: boolean;
+    role?: UserRole;
     /**
      * Full Name
      */
@@ -2652,6 +3225,7 @@ export type UserPublic = {
      * Is Superuser
      */
     is_superuser?: boolean;
+    role?: UserRole;
     /**
      * Full Name
      */
@@ -2685,6 +3259,16 @@ export type UserRegister = {
 };
 
 /**
+ * UserRole
+ *
+ * What a user is allowed to do.
+ *
+ * ``is_superuser`` keeps guarding the admin area; the role drives the
+ * dispatcher and driver parts of the product.
+ */
+export type UserRole = 'admin' | 'dispatcher' | 'driver';
+
+/**
  * UserUpdate
  */
 export type UserUpdate = {
@@ -2700,6 +3284,7 @@ export type UserUpdate = {
      * Is Superuser
      */
     is_superuser?: boolean | null;
+    role?: UserRole | null;
     /**
      * Full Name
      */
@@ -4414,6 +4999,473 @@ export type mapRouteOverviewResponses = {
 };
 
 export type mapRouteOverviewResponse = mapRouteOverviewResponses[keyof mapRouteOverviewResponses];
+
+export type tripPlansListTripPlansData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Skip
+         */
+        skip?: number;
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/v1/trip-plans/';
+};
+
+export type tripPlansListTripPlansErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type tripPlansListTripPlansError = tripPlansListTripPlansErrors[keyof tripPlansListTripPlansErrors];
+
+export type tripPlansListTripPlansResponses = {
+    /**
+     * Successful Response
+     */
+    200: TripPlansPublic;
+};
+
+export type tripPlansListTripPlansResponse = tripPlansListTripPlansResponses[keyof tripPlansListTripPlansResponses];
+
+export type tripPlansCreateTripPlanData = {
+    body: TripPlanCreateRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/trip-plans/';
+};
+
+export type tripPlansCreateTripPlanErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type tripPlansCreateTripPlanError = tripPlansCreateTripPlanErrors[keyof tripPlansCreateTripPlanErrors];
+
+export type tripPlansCreateTripPlanResponses = {
+    /**
+     * Successful Response
+     */
+    201: TripPlanDetailPublic;
+};
+
+export type tripPlansCreateTripPlanResponse = tripPlansCreateTripPlanResponses[keyof tripPlansCreateTripPlanResponses];
+
+export type tripPlansListMyTripPlansData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Skip
+         */
+        skip?: number;
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/v1/trip-plans/my';
+};
+
+export type tripPlansListMyTripPlansErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type tripPlansListMyTripPlansError = tripPlansListMyTripPlansErrors[keyof tripPlansListMyTripPlansErrors];
+
+export type tripPlansListMyTripPlansResponses = {
+    /**
+     * Successful Response
+     */
+    200: TripPlansPublic;
+};
+
+export type tripPlansListMyTripPlansResponse = tripPlansListMyTripPlansResponses[keyof tripPlansListMyTripPlansResponses];
+
+export type tripPlansReadSharedTripPlanData = {
+    body?: never;
+    path: {
+        /**
+         * Share Token
+         */
+        share_token: string;
+    };
+    query?: never;
+    url: '/api/v1/trip-plans/shared/{share_token}';
+};
+
+export type tripPlansReadSharedTripPlanErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type tripPlansReadSharedTripPlanError = tripPlansReadSharedTripPlanErrors[keyof tripPlansReadSharedTripPlanErrors];
+
+export type tripPlansReadSharedTripPlanResponses = {
+    /**
+     * Successful Response
+     */
+    200: TripPlanSharedPublic;
+};
+
+export type tripPlansReadSharedTripPlanResponse = tripPlansReadSharedTripPlanResponses[keyof tripPlansReadSharedTripPlanResponses];
+
+export type tripPlansDeleteTripPlanData = {
+    body?: never;
+    path: {
+        /**
+         * Trip Plan Id
+         */
+        trip_plan_id: string;
+    };
+    query?: never;
+    url: '/api/v1/trip-plans/{trip_plan_id}';
+};
+
+export type tripPlansDeleteTripPlanErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type tripPlansDeleteTripPlanError = tripPlansDeleteTripPlanErrors[keyof tripPlansDeleteTripPlanErrors];
+
+export type tripPlansDeleteTripPlanResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type tripPlansDeleteTripPlanResponse = tripPlansDeleteTripPlanResponses[keyof tripPlansDeleteTripPlanResponses];
+
+export type tripPlansReadTripPlanData = {
+    body?: never;
+    path: {
+        /**
+         * Trip Plan Id
+         */
+        trip_plan_id: string;
+    };
+    query?: never;
+    url: '/api/v1/trip-plans/{trip_plan_id}';
+};
+
+export type tripPlansReadTripPlanErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type tripPlansReadTripPlanError = tripPlansReadTripPlanErrors[keyof tripPlansReadTripPlanErrors];
+
+export type tripPlansReadTripPlanResponses = {
+    /**
+     * Successful Response
+     */
+    200: TripPlanDetailPublic;
+};
+
+export type tripPlansReadTripPlanResponse = tripPlansReadTripPlanResponses[keyof tripPlansReadTripPlanResponses];
+
+export type tripPlansRefineTripPlanData = {
+    body: TripPlanRefineRequest;
+    path: {
+        /**
+         * Trip Plan Id
+         */
+        trip_plan_id: string;
+    };
+    query?: never;
+    url: '/api/v1/trip-plans/{trip_plan_id}/refine';
+};
+
+export type tripPlansRefineTripPlanErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type tripPlansRefineTripPlanError = tripPlansRefineTripPlanErrors[keyof tripPlansRefineTripPlanErrors];
+
+export type tripPlansRefineTripPlanResponses = {
+    /**
+     * Successful Response
+     */
+    200: TripPlanDetailPublic;
+};
+
+export type tripPlansRefineTripPlanResponse = tripPlansRefineTripPlanResponses[keyof tripPlansRefineTripPlanResponses];
+
+export type tripPlansAssignTripPlanData = {
+    body: TripPlanAssignRequest;
+    path: {
+        /**
+         * Trip Plan Id
+         */
+        trip_plan_id: string;
+    };
+    query?: never;
+    url: '/api/v1/trip-plans/{trip_plan_id}/assign';
+};
+
+export type tripPlansAssignTripPlanErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type tripPlansAssignTripPlanError = tripPlansAssignTripPlanErrors[keyof tripPlansAssignTripPlanErrors];
+
+export type tripPlansAssignTripPlanResponses = {
+    /**
+     * Successful Response
+     */
+    200: TripPlanDetailPublic;
+};
+
+export type tripPlansAssignTripPlanResponse = tripPlansAssignTripPlanResponses[keyof tripPlansAssignTripPlanResponses];
+
+export type tripPlansUpdateTripPlanStatusData = {
+    body: TripPlanStatusUpdateRequest;
+    path: {
+        /**
+         * Trip Plan Id
+         */
+        trip_plan_id: string;
+    };
+    query?: never;
+    url: '/api/v1/trip-plans/{trip_plan_id}/status';
+};
+
+export type tripPlansUpdateTripPlanStatusErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type tripPlansUpdateTripPlanStatusError = tripPlansUpdateTripPlanStatusErrors[keyof tripPlansUpdateTripPlanStatusErrors];
+
+export type tripPlansUpdateTripPlanStatusResponses = {
+    /**
+     * Successful Response
+     */
+    200: TripPlanDetailPublic;
+};
+
+export type tripPlansUpdateTripPlanStatusResponse = tripPlansUpdateTripPlanStatusResponses[keyof tripPlansUpdateTripPlanStatusResponses];
+
+export type tripPlansShareTripPlanData = {
+    body: TripPlanShareRequest;
+    path: {
+        /**
+         * Trip Plan Id
+         */
+        trip_plan_id: string;
+    };
+    query?: never;
+    url: '/api/v1/trip-plans/{trip_plan_id}/share';
+};
+
+export type tripPlansShareTripPlanErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type tripPlansShareTripPlanError = tripPlansShareTripPlanErrors[keyof tripPlansShareTripPlanErrors];
+
+export type tripPlansShareTripPlanResponses = {
+    /**
+     * Successful Response
+     */
+    200: TripPlanSharePublic;
+};
+
+export type tripPlansShareTripPlanResponse = tripPlansShareTripPlanResponses[keyof tripPlansShareTripPlanResponses];
+
+export type tripPlansExportTripPlanData = {
+    body?: never;
+    path: {
+        /**
+         * Trip Plan Id
+         */
+        trip_plan_id: string;
+        export_format: TripPlanExportFormat;
+    };
+    query?: never;
+    url: '/api/v1/trip-plans/{trip_plan_id}/export.{export_format}';
+};
+
+export type tripPlansExportTripPlanErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type tripPlansExportTripPlanError = tripPlansExportTripPlanErrors[keyof tripPlansExportTripPlanErrors];
+
+export type tripPlansExportTripPlanResponses = {
+    /**
+     * Trip plan rendered for a navigator or a spreadsheet.
+     */
+    200: unknown;
+};
+
+export type driversListDriversData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Skip
+         */
+        skip?: number;
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/v1/drivers/';
+};
+
+export type driversListDriversErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type driversListDriversError = driversListDriversErrors[keyof driversListDriversErrors];
+
+export type driversListDriversResponses = {
+    /**
+     * Successful Response
+     */
+    200: DriversPublic;
+};
+
+export type driversListDriversResponse = driversListDriversResponses[keyof driversListDriversResponses];
+
+export type driversReadOwnProfileData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/drivers/me/profile';
+};
+
+export type driversReadOwnProfileResponses = {
+    /**
+     * Successful Response
+     */
+    200: DriverProfilePublic;
+};
+
+export type driversReadOwnProfileResponse = driversReadOwnProfileResponses[keyof driversReadOwnProfileResponses];
+
+export type driversUpdateOwnProfileData = {
+    body: DriverProfileUpdate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/drivers/me/profile';
+};
+
+export type driversUpdateOwnProfileErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type driversUpdateOwnProfileError = driversUpdateOwnProfileErrors[keyof driversUpdateOwnProfileErrors];
+
+export type driversUpdateOwnProfileResponses = {
+    /**
+     * Successful Response
+     */
+    200: DriverProfilePublic;
+};
+
+export type driversUpdateOwnProfileResponse = driversUpdateOwnProfileResponses[keyof driversUpdateOwnProfileResponses];
+
+export type driversReadDriverData = {
+    body?: never;
+    path: {
+        /**
+         * User Id
+         */
+        user_id: string;
+    };
+    query?: never;
+    url: '/api/v1/drivers/{user_id}';
+};
+
+export type driversReadDriverErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type driversReadDriverError = driversReadDriverErrors[keyof driversReadDriverErrors];
+
+export type driversReadDriverResponses = {
+    /**
+     * Successful Response
+     */
+    200: DriverPublic;
+};
+
+export type driversReadDriverResponse = driversReadDriverResponses[keyof driversReadDriverResponses];
+
+export type driversUpdateDriverProfileData = {
+    body: DriverProfileUpdate;
+    path: {
+        /**
+         * User Id
+         */
+        user_id: string;
+    };
+    query?: never;
+    url: '/api/v1/drivers/{user_id}/profile';
+};
+
+export type driversUpdateDriverProfileErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type driversUpdateDriverProfileError = driversUpdateDriverProfileErrors[keyof driversUpdateDriverProfileErrors];
+
+export type driversUpdateDriverProfileResponses = {
+    /**
+     * Successful Response
+     */
+    200: DriverPublic;
+};
+
+export type driversUpdateDriverProfileResponse = driversUpdateDriverProfileResponses[keyof driversUpdateDriverProfileResponses];
 
 export type privateCreateUserData = {
     body: PrivateUserCreate;

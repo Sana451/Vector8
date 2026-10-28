@@ -2,7 +2,7 @@
 
 import { type Client, type Options as Options2, type TDataShape, urlSearchParamsBodySerializer } from './client';
 import { client } from './client.gen';
-import type { fuelImportPumppriceFuelData, fuelImportPumppriceFuelErrors, fuelImportPumppriceFuelResponses, fuelImportPumppriceMobileData, fuelImportPumppriceMobileResponses, fuelOptimizationCalculateFuelOptimizationData, fuelOptimizationCalculateFuelOptimizationErrors, fuelOptimizationCalculateFuelOptimizationResponses, fuelOptimizationExplainFuelOptimizationData, fuelOptimizationExplainFuelOptimizationErrors, fuelOptimizationExplainFuelOptimizationResponses, geocodingSearchData, geocodingSearchErrors, geocodingSearchResponses, itemsCreateItemData, itemsCreateItemErrors, itemsCreateItemResponses, itemsDeleteItemData, itemsDeleteItemErrors, itemsDeleteItemResponses, itemsReadItemData, itemsReadItemErrors, itemsReadItemResponses, itemsReadItemsData, itemsReadItemsErrors, itemsReadItemsResponses, itemsUpdateItemData, itemsUpdateItemErrors, itemsUpdateItemResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, mapGetAllFuelStationsData, mapGetAllFuelStationsErrors, mapGetAllFuelStationsResponses, mapRouteOverviewData, mapRouteOverviewErrors, mapRouteOverviewResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, routingCalculateRouteData, routingCalculateRouteErrors, routingCalculateRouteResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses, vehiclesCreateVehicleData, vehiclesCreateVehicleErrors, vehiclesCreateVehicleResponses, vehiclesDeleteVehicleData, vehiclesDeleteVehicleErrors, vehiclesDeleteVehicleResponses, vehiclesGetVehicleData, vehiclesGetVehicleErrors, vehiclesGetVehicleResponses, vehiclesListVehiclesData, vehiclesListVehiclesErrors, vehiclesListVehiclesResponses, vehiclesUpdateVehicleData, vehiclesUpdateVehicleErrors, vehiclesUpdateVehicleResponses } from './types.gen';
+import type { driversListDriversData, driversListDriversErrors, driversListDriversResponses, driversReadDriverData, driversReadDriverErrors, driversReadDriverResponses, driversReadOwnProfileData, driversReadOwnProfileResponses, driversUpdateDriverProfileData, driversUpdateDriverProfileErrors, driversUpdateDriverProfileResponses, driversUpdateOwnProfileData, driversUpdateOwnProfileErrors, driversUpdateOwnProfileResponses, fuelImportPumppriceFuelData, fuelImportPumppriceFuelErrors, fuelImportPumppriceFuelResponses, fuelImportPumppriceMobileData, fuelImportPumppriceMobileResponses, fuelOptimizationCalculateFuelOptimizationData, fuelOptimizationCalculateFuelOptimizationErrors, fuelOptimizationCalculateFuelOptimizationResponses, fuelOptimizationExplainFuelOptimizationData, fuelOptimizationExplainFuelOptimizationErrors, fuelOptimizationExplainFuelOptimizationResponses, geocodingSearchData, geocodingSearchErrors, geocodingSearchResponses, itemsCreateItemData, itemsCreateItemErrors, itemsCreateItemResponses, itemsDeleteItemData, itemsDeleteItemErrors, itemsDeleteItemResponses, itemsReadItemData, itemsReadItemErrors, itemsReadItemResponses, itemsReadItemsData, itemsReadItemsErrors, itemsReadItemsResponses, itemsUpdateItemData, itemsUpdateItemErrors, itemsUpdateItemResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, mapGetAllFuelStationsData, mapGetAllFuelStationsErrors, mapGetAllFuelStationsResponses, mapRouteOverviewData, mapRouteOverviewErrors, mapRouteOverviewResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, routingCalculateRouteData, routingCalculateRouteErrors, routingCalculateRouteResponses, tripPlansAssignTripPlanData, tripPlansAssignTripPlanErrors, tripPlansAssignTripPlanResponses, tripPlansCreateTripPlanData, tripPlansCreateTripPlanErrors, tripPlansCreateTripPlanResponses, tripPlansDeleteTripPlanData, tripPlansDeleteTripPlanErrors, tripPlansDeleteTripPlanResponses, tripPlansExportTripPlanData, tripPlansExportTripPlanErrors, tripPlansExportTripPlanResponses, tripPlansListMyTripPlansData, tripPlansListMyTripPlansErrors, tripPlansListMyTripPlansResponses, tripPlansListTripPlansData, tripPlansListTripPlansErrors, tripPlansListTripPlansResponses, tripPlansReadSharedTripPlanData, tripPlansReadSharedTripPlanErrors, tripPlansReadSharedTripPlanResponses, tripPlansReadTripPlanData, tripPlansReadTripPlanErrors, tripPlansReadTripPlanResponses, tripPlansRefineTripPlanData, tripPlansRefineTripPlanErrors, tripPlansRefineTripPlanResponses, tripPlansShareTripPlanData, tripPlansShareTripPlanErrors, tripPlansShareTripPlanResponses, tripPlansUpdateTripPlanStatusData, tripPlansUpdateTripPlanStatusErrors, tripPlansUpdateTripPlanStatusResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses, vehiclesCreateVehicleData, vehiclesCreateVehicleErrors, vehiclesCreateVehicleResponses, vehiclesDeleteVehicleData, vehiclesDeleteVehicleErrors, vehiclesDeleteVehicleResponses, vehiclesGetVehicleData, vehiclesGetVehicleErrors, vehiclesGetVehicleResponses, vehiclesListVehiclesData, vehiclesListVehiclesErrors, vehiclesListVehiclesResponses, vehiclesUpdateVehicleData, vehiclesUpdateVehicleErrors, vehiclesUpdateVehicleResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -650,6 +650,253 @@ export class MapService {
         return (options.client ?? client).post<mapRouteOverviewResponses, mapRouteOverviewErrors, ThrowOnError>({
             responseType: 'json',
             url: '/api/v1/map/route-overview',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+}
+
+export class TripPlansService {
+    /**
+     * List Trip Plans
+     *
+     * Trips the dispatcher created; admins see every trip.
+     */
+    public static plansListTripPlans<ThrowOnError extends boolean = true>(options?: Options<tripPlansListTripPlansData, ThrowOnError>) {
+        return (options?.client ?? client).get<tripPlansListTripPlansResponses, tripPlansListTripPlansErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/trip-plans/',
+            ...options
+        });
+    }
+    
+    /**
+     * Create Trip Plan
+     *
+     * Save an optimizer result as a trip and refine its route.
+     */
+    public static plansCreateTripPlan<ThrowOnError extends boolean = true>(options: Options<tripPlansCreateTripPlanData, ThrowOnError>) {
+        return (options.client ?? client).post<tripPlansCreateTripPlanResponses, tripPlansCreateTripPlanErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/trip-plans/',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * List My Trip Plans
+     *
+     * Trips assigned to the signed-in driver.
+     */
+    public static plansListMyTripPlans<ThrowOnError extends boolean = true>(options?: Options<tripPlansListMyTripPlansData, ThrowOnError>) {
+        return (options?.client ?? client).get<tripPlansListMyTripPlansResponses, tripPlansListMyTripPlansErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/trip-plans/my',
+            ...options
+        });
+    }
+    
+    /**
+     * Read Shared Trip Plan
+     *
+     * Read-only trip view for a contractor without an account.
+     *
+     * Unauthenticated on purpose: possession of the token is the credential, so
+     * a revoked token must become a plain 404 and leak nothing.
+     */
+    public static plansReadSharedTripPlan<ThrowOnError extends boolean = true>(options: Options<tripPlansReadSharedTripPlanData, ThrowOnError>) {
+        return (options.client ?? client).get<tripPlansReadSharedTripPlanResponses, tripPlansReadSharedTripPlanErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/api/v1/trip-plans/shared/{share_token}',
+            ...options
+        });
+    }
+    
+    /**
+     * Delete Trip Plan
+     */
+    public static plansDeleteTripPlan<ThrowOnError extends boolean = true>(options: Options<tripPlansDeleteTripPlanData, ThrowOnError>) {
+        return (options.client ?? client).delete<tripPlansDeleteTripPlanResponses, tripPlansDeleteTripPlanErrors, ThrowOnError>({
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/trip-plans/{trip_plan_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Read Trip Plan
+     */
+    public static plansReadTripPlan<ThrowOnError extends boolean = true>(options: Options<tripPlansReadTripPlanData, ThrowOnError>) {
+        return (options.client ?? client).get<tripPlansReadTripPlanResponses, tripPlansReadTripPlanErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/trip-plans/{trip_plan_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Refine Trip Plan
+     *
+     * Recalculate the refined route, e.g. after the optimizer changed.
+     */
+    public static plansRefineTripPlan<ThrowOnError extends boolean = true>(options: Options<tripPlansRefineTripPlanData, ThrowOnError>) {
+        return (options.client ?? client).post<tripPlansRefineTripPlanResponses, tripPlansRefineTripPlanErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/trip-plans/{trip_plan_id}/refine',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Assign Trip Plan
+     *
+     * Assign the trip to a driver, or unassign it with a null driver id.
+     */
+    public static plansAssignTripPlan<ThrowOnError extends boolean = true>(options: Options<tripPlansAssignTripPlanData, ThrowOnError>) {
+        return (options.client ?? client).post<tripPlansAssignTripPlanResponses, tripPlansAssignTripPlanErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/trip-plans/{trip_plan_id}/assign',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Update Trip Plan Status
+     *
+     * Move the trip along its lifecycle (the driver reports progress).
+     */
+    public static plansUpdateTripPlanStatus<ThrowOnError extends boolean = true>(options: Options<tripPlansUpdateTripPlanStatusData, ThrowOnError>) {
+        return (options.client ?? client).patch<tripPlansUpdateTripPlanStatusResponses, tripPlansUpdateTripPlanStatusErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/trip-plans/{trip_plan_id}/status',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Share Trip Plan
+     *
+     * Issue a public link for the trip, or revoke it with `enabled=false`.
+     */
+    public static plansShareTripPlan<ThrowOnError extends boolean = true>(options: Options<tripPlansShareTripPlanData, ThrowOnError>) {
+        return (options.client ?? client).post<tripPlansShareTripPlanResponses, tripPlansShareTripPlanErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/trip-plans/{trip_plan_id}/share',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Export Trip Plan
+     *
+     * Download the trip as GPX, KML or CSV.
+     */
+    public static plansExportTripPlan<ThrowOnError extends boolean = true>(options: Options<tripPlansExportTripPlanData, ThrowOnError>) {
+        return (options.client ?? client).get<tripPlansExportTripPlanResponses, tripPlansExportTripPlanErrors, ThrowOnError>({
+            responseType: 'blob',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/trip-plans/{trip_plan_id}/export.{export_format}',
+            ...options
+        });
+    }
+}
+
+export class DriversService {
+    /**
+     * List Drivers
+     *
+     * List drivers for the dispatcher's trip assignment picker.
+     */
+    public static listDrivers<ThrowOnError extends boolean = true>(options?: Options<driversListDriversData, ThrowOnError>) {
+        return (options?.client ?? client).get<driversListDriversResponses, driversListDriversErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/drivers/',
+            ...options
+        });
+    }
+    
+    /**
+     * Read Own Profile
+     *
+     * Return the signed-in driver's own profile, empty if never filled in.
+     */
+    public static readOwnProfile<ThrowOnError extends boolean = true>(options?: Options<driversReadOwnProfileData, ThrowOnError>) {
+        return (options?.client ?? client).get<driversReadOwnProfileResponses, unknown, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/drivers/me/profile',
+            ...options
+        });
+    }
+    
+    /**
+     * Update Own Profile
+     */
+    public static updateOwnProfile<ThrowOnError extends boolean = true>(options: Options<driversUpdateOwnProfileData, ThrowOnError>) {
+        return (options.client ?? client).put<driversUpdateOwnProfileResponses, driversUpdateOwnProfileErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/drivers/me/profile',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Read Driver
+     */
+    public static readDriver<ThrowOnError extends boolean = true>(options: Options<driversReadDriverData, ThrowOnError>) {
+        return (options.client ?? client).get<driversReadDriverResponses, driversReadDriverErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/drivers/{user_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Update Driver Profile
+     */
+    public static updateDriverProfile<ThrowOnError extends boolean = true>(options: Options<driversUpdateDriverProfileData, ThrowOnError>) {
+        return (options.client ?? client).put<driversUpdateDriverProfileResponses, driversUpdateDriverProfileErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/drivers/{user_id}/profile',
             ...options,
             headers: {
                 'Content-Type': 'application/json',

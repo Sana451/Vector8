@@ -1,4 +1,11 @@
-import { HelpCircle, Home, MapIcon, Truck, Users } from "lucide-react"
+import {
+  HelpCircle,
+  Home,
+  MapIcon,
+  Route as RouteIcon,
+  Truck,
+  Users,
+} from "lucide-react"
 
 import { SidebarAppearance } from "@/components/Common/Appearance"
 import { Logo } from "@/components/Common/Logo"
@@ -18,16 +25,28 @@ const baseItems: Item[] = [
   { icon: HelpCircle, title: "How It Works", path: "/how-it-works" },
 ]
 
+const driverItem: Item = {
+  icon: RouteIcon,
+  title: "My Trips",
+  path: "/my-trips",
+}
+const dispatcherItem: Item = { icon: RouteIcon, title: "Trips", path: "/trips" }
+
 export function AppSidebar() {
   const { user: currentUser } = useAuth()
 
-  const items = currentUser?.is_superuser
-    ? [
-        ...baseItems,
-        { icon: Truck, title: "Fleet", path: "/fleet" },
-        { icon: Users, title: "Admin", path: "/admin" },
-      ]
-    : baseItems
+  // A driver never dispatches, so the two trip views are mutually exclusive.
+  const isDriver = currentUser?.role === "driver"
+  const items: Item[] = [
+    ...baseItems,
+    isDriver ? driverItem : dispatcherItem,
+    ...(currentUser?.is_superuser
+      ? [
+          { icon: Truck, title: "Fleet", path: "/fleet" },
+          { icon: Users, title: "Admin", path: "/admin" },
+        ]
+      : []),
+  ]
 
   return (
     <Sidebar collapsible="icon" variant="inset" className="border-r-0">

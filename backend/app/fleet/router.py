@@ -5,7 +5,11 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.api.deps import SessionDep, get_current_active_superuser
+from app.api.deps import (
+    SessionDep,
+    get_current_active_superuser,
+    get_dispatcher_or_superuser,
+)
 from app.fleet.models import VehicleFuelType, VehicleStatus, VehicleType
 from app.fleet.repository import VehicleRepository
 from app.fleet.schemas import (
@@ -16,11 +20,9 @@ from app.fleet.schemas import (
 )
 from app.models import Message
 
-router = APIRouter(
-    prefix="/vehicles",
-    tags=["vehicles"],
-    dependencies=[Depends(get_current_active_superuser)],
-)
+router = APIRouter(prefix="/vehicles", tags=["vehicles"])
+write_access = [Depends(get_current_active_superuser)]
+read_access = [Depends(get_dispatcher_or_superuser)]
 
 
 def _to_vehicle_public(vehicle) -> VehiclePublic:
@@ -53,7 +55,7 @@ def _to_vehicle_public(vehicle) -> VehiclePublic:
     )
 
 
-@router.post("/", response_model=VehiclePublic)
+@router.post("/", response_model=VehiclePublic, dependencies=write_access)
 def create_vehicle(*, session: SessionDep, vehicle_in: VehicleCreate) -> Any:
     repository = VehicleRepository(session)
     if repository.get_by_unit_number(vehicle_in.unit_number) is not None:
@@ -67,7 +69,7 @@ def create_vehicle(*, session: SessionDep, vehicle_in: VehicleCreate) -> Any:
     return _to_vehicle_public(vehicle)
 
 
-@router.get("/", response_model=VehiclesPublic)
+@router.get("/", response_model=VehiclesPublic, dependencies=read_access)
 def list_vehicles(
     session: SessionDep, skip: int = 0, limit: int = 100
 ) -> VehiclesPublic:
@@ -79,7 +81,7 @@ def list_vehicles(
     )
 
 
-@router.get("/{vehicle_id}", response_model=VehiclePublic)
+@router.get("/{vehicle_id}", response_model=VehiclePublic, dependencies=read_access)
 def get_vehicle(session: SessionDep, vehicle_id: uuid.UUID) -> VehiclePublic:
     repository = VehicleRepository(session)
     vehicle = repository.get(vehicle_id)
@@ -88,7 +90,7 @@ def get_vehicle(session: SessionDep, vehicle_id: uuid.UUID) -> VehiclePublic:
     return _to_vehicle_public(vehicle)
 
 
-@router.patch("/{vehicle_id}", response_model=VehiclePublic)
+@router.patch("/{vehicle_id}", response_model=VehiclePublic, dependencies=write_access)
 def update_vehicle(
     *,
     session: SessionDep,
@@ -114,7 +116,7 @@ def update_vehicle(
     return _to_vehicle_public(updated)
 
 
-@router.delete("/{vehicle_id}", response_model=Message)
+@router.delete("/{vehicle_id}", response_model=Message, dependencies=write_access)
 def delete_vehicle(session: SessionDep, vehicle_id: uuid.UUID) -> Message:
     repository = VehicleRepository(session)
     vehicle = repository.get(vehicle_id)

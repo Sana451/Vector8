@@ -94,6 +94,10 @@ class FakeGeocodingService:
         assert point.address is not None
         return self.mapping[point.address]
 
+    async def resolve_point(self, point: MapPointInput, *, force_refresh: bool = False):
+        location = await self.normalize_point(point, force_refresh=force_refresh)
+        return location, point.address
+
 
 class FakeTrafficService:
     """Traffic service stub."""

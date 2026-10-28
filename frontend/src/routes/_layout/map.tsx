@@ -1,7 +1,14 @@
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { Maximize, Minimize } from "lucide-react"
-import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react"
+import {
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { calculateFuelOptimization } from "@/api/fuelOptimization"
 import { getAllFuelStations, getRouteOverview, searchAddress } from "@/api/map"
 import { listVehicles } from "@/api/vehicles"
@@ -10,6 +17,7 @@ import type {
   FuelStationData,
   GeocodingSearchResponse,
   TrafficLayerData,
+  TripPlanDetailPublic,
   TruckRestrictionData,
   VehicleConstraintsInfo,
   VehiclePublic,
@@ -28,6 +36,7 @@ import {
   OptimizationRejectedStationsLayer,
   OptimizationStopsLayer,
   ReachableRouteLayer,
+  RefinedRouteLayer,
   RestAreaLayer,
   RouteLayer,
   TrafficLayer,
@@ -195,6 +204,7 @@ function MapPage() {
     useState(0)
   const [activeStepIndex, setActiveStepIndex] = useState(0)
   const [comparisonOpen, setComparisonOpen] = useState(false)
+  const [tripPlan, setTripPlan] = useState<TripPlanDetailPublic | null>(null)
 
   // Fetch vehicles list
   // Distinct key: the fleet page caches a {data, count} object under
@@ -230,6 +240,7 @@ function MapPage() {
     setAppliedConstraints(null)
     setCalculatedWith(null)
     setOptimizationResult(null)
+    setTripPlan(null)
     setActiveStepIndex(0)
   }
 
@@ -426,6 +437,7 @@ function MapPage() {
       // Always keep the full result so rejected stations can be highlighted
       // on the map, even when the optimization itself is infeasible.
       setOptimizationResult(data)
+      setTripPlan(null)
       setOptimizationReserveGallons(parseFloat(reserveGallons) || 0)
       setActiveStepIndex(0)
       setActiveFuelStationIds(
@@ -557,6 +569,20 @@ function MapPage() {
   )
 
   const activeOptimizationStep = optimizationSteps[activeStepIndex] ?? null
+
+  // The refined route comes back as GeoJSON; the layers work with raw pairs.
+  const refinedRouteCoordinates = useMemo<Coordinate[] | null>(() => {
+    const coordinates = tripPlan?.refined_geometry?.coordinates
+    return coordinates && coordinates.length > 1 ? coordinates : null
+  }, [tripPlan])
+
+  const handleTripPlanChange = useCallback((plan: TripPlanDetailPublic) => {
+    setTripPlan(plan)
+    // A freshly refined route is the whole point of the action, so reveal it.
+    if (plan.refined_geometry) {
+      setVisibleLayers((prev) => new Set(prev).add("refined-route"))
+    }
+  }, [])
 
   const handleSelectVehicle = (vehicleId: string) => {
     setSelectedVehicleId(vehicleId)
@@ -1005,6 +1031,7 @@ function MapPage() {
             "truck-restrictions": truckRestrictions.length,
             "rest-areas": restAreas?.features?.length ?? 0,
             "optimization-stops": optimizationSteps.length,
+            "refined-route": tripPlan?.number_of_stops ?? 0,
             "optimization-rejected":
               optimizationResult?.explanation.skipped_station_stats?.reduce(
                 (sum, stat) => sum + stat.count,
@@ -1016,6 +1043,12 @@ function MapPage() {
           <RouteLayer
             mapInstance={mapInstance}
             coordinates={routeCoordinates}
+          />
+        )}
+        {visibleLayers.has("refined-route") && (
+          <RefinedRouteLayer
+            mapInstance={mapInstance}
+            coordinates={refinedRouteCoordinates}
           />
         )}
         {optimizationSteps.length > 0 && routeCoordinates && (
@@ -1099,6 +1132,8 @@ function MapPage() {
             routeTotalDistanceMeters={routeTotalDistanceMeters}
             reserveGallons={optimizationReserveGallons}
             explainPortalContainer={mapContainerRef.current}
+            tripPlan={tripPlan}
+            onTripPlanChange={handleTripPlanChange}
             usableTankGallons={
               vehicles.find((v) => v.id === optimizationResult?.vehicle_id)
                 ?.usable_tank_capacity_gallons

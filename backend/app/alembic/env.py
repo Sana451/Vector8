@@ -29,6 +29,8 @@ from app.map.models import (  # noqa
     TrafficSnapshot,
     TruckRestriction,
 )
+from app.trip_plans.models import TripPlan  # noqa
+from app.drivers.models import DriverProfile  # noqa
 
 target_metadata = SQLModel.metadata
 

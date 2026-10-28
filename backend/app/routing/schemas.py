@@ -196,9 +196,27 @@ class RoutePlanningLocations(BaseModel):
 
     origin: GeoJSONPoint = Field(description="Starting point")
     destination: GeoJSONPoint = Field(description="Destination point")
+    origin_label: str | None = Field(
+        default=None,
+        description="Human-readable address of the origin, when known",
+    )
+    destination_label: str | None = Field(
+        default=None,
+        description="Human-readable address of the destination, when known",
+    )
     waypoints: GeoJSONMultiPoint | None = Field(
         default=None,
         description="Intermediate waypoints",
+    )
+    waypoint_stop_duration_seconds: int | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Time the vehicle stands still at every intermediate waypoint. "
+            "When set, waypoints are treated as real stops rather than "
+            "pass-through points. Providers that cannot express this are "
+            "expected to ignore it."
+        ),
     )
 
 

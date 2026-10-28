@@ -20,4 +20,4 @@ from app.providers.tomtom.constants import (  # noqa: F401
 )
 
 # Supported routing providers
-SUPPORTED_PROVIDERS = ["tomtom"]
+SUPPORTED_PROVIDERS = ["tomtom", "here"]
