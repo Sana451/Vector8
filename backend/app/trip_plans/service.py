@@ -12,11 +12,12 @@ from __future__ import annotations
 import secrets
 import uuid
 
-from sqlmodel import Session
+from sqlmodel import Session, col, select
 
 from app.core.datetime import get_datetime_utc
 from app.core.logging import get_logger
 from app.fleet.repository import VehicleRepository
+from app.map.models import FuelStation
 from app.models import User, UserRole
 from app.providers.exceptions import ProviderNotRegisteredError
 from app.providers.geo import GeoJSONLineString, GeoJSONMultiPoint, GeoJSONPoint
@@ -54,6 +55,7 @@ from app.trip_plans.schemas import (
     TripPlanDetailPublic,
     TripPlanPublic,
     TripPlanSharedPublic,
+    TripPlanStationDetails,
     TripPlanStopSnapshot,
 )
 
@@ -346,6 +348,48 @@ class TripPlanService:
         )
         return [start, *stops, destination]
 
+    def _attach_stations(
+        self, stops: list[TripPlanStopSnapshot]
+    ) -> list[TripPlanStopSnapshot]:
+        """Enrich refuel stops with the current station record, if it still exists.
+
+        Looked up by ``station_id`` at read time, so trips saved before this
+        existed show the same details as the /map popup without a migration.
+        Stops whose station has been removed keep ``station=None``.
+        """
+        station_ids = {stop.station_id for stop in stops if stop.station_id}
+        if not station_ids:
+            return stops
+
+        rows = self.session.exec(
+            select(FuelStation).where(col(FuelStation.id).in_(station_ids))
+        ).all()
+        by_id = {row.id: row for row in rows}
+
+        enriched: list[TripPlanStopSnapshot] = []
+        for stop in stops:
+            row = by_id.get(stop.station_id) if stop.station_id else None
+            if row is None:
+                enriched.append(stop)
+                continue
+            payload = row.payload or {}
+            details = TripPlanStationDetails(
+                name=row.name,
+                brand=row.brand,
+                address=row.address,
+                fuel_type=payload.get("fuel_type"),
+                diesel_price=row.diesel_price,
+                currency=payload.get("currency"),
+                has_adblue=bool(payload.get("has_adblue", False)),
+                is_open=payload.get("is_open"),
+                medium_truck_accessible=row.medium_truck_accessible,
+                large_truck_accessible=row.large_truck_accessible,
+                phone=payload.get("phone"),
+                website=payload.get("website"),
+            )
+            enriched.append(stop.model_copy(update={"station": details}))
+        return enriched
+
     def set_share(self, trip_plan: TripPlan, *, enabled: bool, user: User) -> TripPlan:
         """Issue or revoke the public link for the trip.
 
@@ -387,7 +431,7 @@ class TripPlanService:
             ),
             number_of_stops=len(trip_plan.stops_snapshot),
             created_at=trip_plan.created_at,
-            stops=self._with_endpoints(trip_plan, geometry),
+            stops=self._attach_stations(self._with_endpoints(trip_plan, geometry)),
             geometry=geometry,
         )
 
@@ -429,7 +473,9 @@ class TripPlanService:
         refined_geometry = self._geometry(refined_route)
         return TripPlanDetailPublic(
             **self.to_public(trip_plan).model_dump(),
-            stops=self._with_endpoints(trip_plan, refined_geometry or base_geometry),
+            stops=self._attach_stations(
+                self._with_endpoints(trip_plan, refined_geometry or base_geometry)
+            ),
             base_geometry=base_geometry,
             refined_geometry=refined_geometry,
             delta=delta,

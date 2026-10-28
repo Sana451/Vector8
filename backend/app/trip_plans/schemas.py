@@ -16,11 +16,28 @@ MAX_TRIP_PLAN_NAME_LENGTH = 255
 MAX_STOP_DURATION_MINUTES = 24 * 60
 
 
+class TripPlanStationDetails(BaseModel):
+    """Live station facts shown alongside a stop, mirroring the /map popup."""
+
+    name: str
+    brand: str | None = None
+    address: str | None = None
+    fuel_type: str | None = None
+    diesel_price: float | None = None
+    currency: str | None = None
+    has_adblue: bool = False
+    is_open: bool | None = None
+    medium_truck_accessible: bool | None = None
+    large_truck_accessible: bool | None = None
+    phone: str | None = None
+    website: str | None = None
+
+
 class TripPlanStopSnapshot(BaseModel):
     """A fuel stop frozen at the moment the trip plan was created.
 
     Kept denormalized so the driver view stays stable even if the optimization
-    run is recalculated later.
+    run is recalculated later. ``station`` is filled in at read time only.
     """
 
     sequence: int
@@ -34,6 +51,7 @@ class TripPlanStopSnapshot(BaseModel):
     fuel_cost: Decimal | None = None
     detour_distance_meters: Decimal | None = None
     detour_time_seconds: int | None = None
+    station: TripPlanStationDetails | None = None
 
 
 class TripPlanCreateRequest(BaseModel):

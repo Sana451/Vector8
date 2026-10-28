@@ -7,6 +7,7 @@
 
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
+import { useState } from "react"
 
 import { readSharedTripPlan } from "@/api/tripPlans"
 import { TripRouteMap } from "@/components/TripPlans/TripRouteMap"
@@ -29,6 +30,10 @@ export const Route = createFileRoute("/trip/$token")({
 
 function SharedTrip() {
   const { token } = Route.useParams()
+  const [focusStop, setFocusStop] = useState<{
+    coordinate: [number, number]
+    key: number
+  } | null>(null)
   const {
     data: trip,
     isLoading,
@@ -79,24 +84,33 @@ function SharedTrip() {
           refined_geometry: trip.geometry ?? null,
           base_geometry: null,
         }}
-        className="relative h-[420px] w-full overflow-hidden rounded-lg border"
+        className="relative h-[600px] w-full overflow-hidden rounded-lg border bg-background"
+        focusStop={focusStop}
       />
 
       <ol className="vector8-surface divide-y">
         {(trip.stops ?? []).map((stop) => (
-          <li
-            key={`${stop.sequence}-${stop.label}`}
-            className="flex items-center gap-3 p-3 text-sm"
-          >
-            <span className="w-6 tabular-nums text-muted-foreground">
-              {stop.sequence}
-            </span>
-            <span className="flex-1 font-medium">{stop.label}</span>
-            <span className="tabular-nums text-muted-foreground">
-              {stop.fuel_added_gallons
-                ? `${Number(stop.fuel_added_gallons).toFixed(1)} gal`
-                : ""}
-            </span>
+          <li key={`${stop.sequence}-${stop.label}`}>
+            <button
+              type="button"
+              className="flex w-full cursor-pointer items-center gap-3 p-3 text-left text-sm"
+              onClick={() =>
+                setFocusStop({
+                  coordinate: stop.coordinate as [number, number],
+                  key: Date.now(),
+                })
+              }
+            >
+              <span className="w-6 tabular-nums text-muted-foreground">
+                {stop.sequence}
+              </span>
+              <span className="flex-1 font-medium">{stop.label}</span>
+              <span className="tabular-nums text-muted-foreground">
+                {stop.fuel_added_gallons
+                  ? `${Number(stop.fuel_added_gallons).toFixed(1)} gal`
+                  : ""}
+              </span>
+            </button>
           </li>
         ))}
       </ol>

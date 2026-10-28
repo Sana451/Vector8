@@ -9,6 +9,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { ArrowLeft, Loader2 } from "lucide-react"
+import { useState } from "react"
 
 import { readTripPlan, updateTripPlanStatus } from "@/api/tripPlans"
 import { type TripPlanStatus, UsersService } from "@/client"
@@ -62,6 +63,10 @@ function DriverTripDetail() {
   const { tripId } = Route.useParams()
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
+  const [focusStop, setFocusStop] = useState<{
+    coordinate: [number, number]
+    key: number
+  } | null>(null)
 
   const { data: trip, isLoading } = useQuery({
     queryKey: ["tripPlan", tripId],
@@ -146,7 +151,8 @@ function DriverTripDetail() {
 
       <TripRouteMap
         trip={trip}
-        className="relative h-[420px] w-full overflow-hidden rounded-lg border"
+        focusStop={focusStop}
+        className="relative h-[600px] w-full overflow-hidden rounded-lg border bg-background"
       />
 
       <TripActions trip={trip} />
@@ -164,7 +170,16 @@ function DriverTripDetail() {
           </TableHeader>
           <TableBody>
             {(trip.stops ?? []).map((stop) => (
-              <TableRow key={`${stop.sequence}-${stop.label}`}>
+              <TableRow
+                key={`${stop.sequence}-${stop.label}`}
+                className="cursor-pointer"
+                onClick={() =>
+                  setFocusStop({
+                    coordinate: stop.coordinate as [number, number],
+                    key: Date.now(),
+                  })
+                }
+              >
                 <TableCell className="tabular-nums">{stop.sequence}</TableCell>
                 <TableCell>
                   <span className="font-medium">{stop.label}</span>

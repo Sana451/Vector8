@@ -215,6 +215,10 @@ function SummaryCard({
 
 function TripDetail() {
   const { tripId } = Route.useParams()
+  const [focusStop, setFocusStop] = useState<{
+    coordinate: [number, number]
+    key: number
+  } | null>(null)
   const { data: trip, isLoading } = useQuery({
     queryKey: ["tripPlan", tripId],
     queryFn: () => readTripPlan(tripId),
@@ -297,7 +301,8 @@ function TripDetail() {
 
       <TripRouteMap
         trip={trip}
-        className="relative h-[420px] w-full overflow-hidden rounded-lg border"
+        focusStop={focusStop}
+        className="relative h-[600px] w-full overflow-hidden rounded-lg border bg-background"
       />
 
       <TripActions trip={trip} />
@@ -316,7 +321,16 @@ function TripDetail() {
           </TableHeader>
           <TableBody>
             {(trip.stops ?? []).map((stop) => (
-              <TableRow key={`${stop.sequence}-${stop.label}`}>
+              <TableRow
+                key={`${stop.sequence}-${stop.label}`}
+                className="cursor-pointer"
+                onClick={() =>
+                  setFocusStop({
+                    coordinate: stop.coordinate as [number, number],
+                    key: Date.now(),
+                  })
+                }
+              >
                 <TableCell className="tabular-nums">{stop.sequence}</TableCell>
                 <TableCell>
                   <span className="font-medium">{stop.label}</span>

@@ -7,15 +7,28 @@
  */
 
 import type { Feature, FeatureCollection } from "geojson"
-import type { Map as MapLibreMap } from "maplibre-gl"
-import { useCallback, useMemo } from "react"
+import {
+  type MapGeoJSONFeature,
+  type MapLayerMouseEvent,
+  type Map as MapLibreMap,
+  Popup,
+} from "maplibre-gl"
+import { useCallback, useEffect, useMemo } from "react"
 
 import type { TripPlanStopSnapshot } from "@/client"
+import { syncMapImages } from "@/lib/mapImages"
+import { colorPalette, markerIcons } from "@/lib/mapMarkerIcons"
 import { type LayerWithVisibility, useGeoJsonLayer } from "./useGeoJsonLayer"
 
 const SOURCE_ID = "trip-stops"
 const CIRCLE_LAYER_ID = "trip-stops-circle"
 const LABEL_LAYER_ID = "trip-stops-label"
+const FUEL_LAYER_ID = "trip-stops-fuel"
+const FUEL_BADGE_LAYER_ID = "trip-stops-fuel-badge"
+const FUEL_LABEL_LAYER_ID = "trip-stops-fuel-label"
+// Distance below the drop icon's anchor where the numbered badge is drawn.
+const FUEL_BADGE_OFFSET_PX = 14
+const FUEL_IMAGE_ID = "trip-stop-fuel-drop"
 
 interface TripStopsLayerProps {
   mapInstance: MapLibreMap | null
@@ -26,6 +39,127 @@ function markerLabel(stop: TripPlanStopSnapshot): string {
   if (stop.kind === "start") return "S"
   if (stop.kind === "destination") return "D"
   return String(stop.sequence)
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;")
+}
+
+function formatMoney(value: unknown): string {
+  if (typeof value !== "string" || value === "") return "—"
+  const amount = Number(value)
+  return Number.isNaN(amount) ? value : `$${amount.toFixed(2)}`
+}
+
+function formatGallons(value: unknown): string {
+  if (typeof value !== "string" || value === "") return "—"
+  const gallons = Number(value)
+  return Number.isNaN(gallons) ? value : `${gallons.toFixed(1)} gal`
+}
+
+function formatMiles(meters: unknown): string {
+  if (typeof meters !== "string" || meters === "") return "—"
+  const value = Number(meters)
+  return Number.isNaN(value) ? "—" : `${(value / 1609.344).toFixed(1)} mi`
+}
+
+function formatStationPrice(value: unknown, currency: unknown): string {
+  if (typeof value !== "number") return "—"
+  const code = typeof currency === "string" && currency ? currency : "USD"
+  return `${value.toFixed(3)} ${code}`
+}
+
+function buildStationRows(station: Record<string, unknown>): string {
+  const brand = String(station.brand ?? "")
+  const name = String(station.name ?? "")
+  const fuelType = String(station.fuel_type ?? "")
+  const isOpen = station.is_open
+  const status =
+    typeof isOpen === "boolean"
+      ? isOpen
+        ? "Open now"
+        : "Closed"
+      : "Hours unavailable"
+  const address = String(station.address ?? "")
+  const phone = String(station.phone ?? "")
+  const website = String(station.website ?? "")
+
+  return [
+    brand && brand !== name
+      ? `<div><strong>Brand:</strong> ${escapeHtml(brand)}</div>`
+      : "",
+    fuelType ? `<div><strong>Fuel:</strong> ${escapeHtml(fuelType)}</div>` : "",
+    `<div><strong>Price:</strong> ${escapeHtml(formatStationPrice(station.diesel_price, station.currency))}</div>`,
+    `<div><strong>AdBlue:</strong> ${station.has_adblue === true ? "✓ Available" : "—"}</div>`,
+    `<div><strong>Truck Access:</strong>
+      <div style="margin-left: 16px;">
+        <div>Medium trucks: ${station.medium_truck_accessible === true ? "✓ Yes" : "✗ No"}</div>
+        <div>Large trucks: ${station.large_truck_accessible === true ? "✓ Yes" : "✗ No"}</div>
+      </div>
+    </div>`,
+    `<div><strong>Status:</strong> ${escapeHtml(status)}</div>`,
+    address
+      ? `<div><strong>Address:</strong> ${escapeHtml(address)}</div>`
+      : "",
+    phone ? `<div><strong>Phone:</strong> ${escapeHtml(phone)}</div>` : "",
+    website
+      ? `<div><strong>Website:</strong> ${escapeHtml(website)}</div>`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("")
+}
+
+function buildPopupHtml(properties: Record<string, unknown>): string {
+  const label = escapeHtml(String(properties.label ?? "Fuel stop"))
+  const station =
+    typeof properties.station === "string" && properties.station !== ""
+      ? (JSON.parse(properties.station) as Record<string, unknown>)
+      : null
+  const stationRows = station ? buildStationRows(station) : ""
+  const trip = [
+    ["Fuel added", formatGallons(properties.fuelAdded)],
+    ["Price / gal", formatMoney(properties.fuelPrice)],
+    ["Cost", formatMoney(properties.fuelCost)],
+    ["Detour", formatMiles(properties.detourMeters)],
+  ]
+    .map(
+      ([title, value]) =>
+        `<div><strong>${title}:</strong> ${escapeHtml(value)}</div>`,
+    )
+    .join("")
+  const rows = `${stationRows}<div style="margin-top: 8px; border-top: 1px dashed #a7f3d0; padding-top: 8px;">${trip}</div>`
+
+  return `
+    <div style="
+      width: 240px;
+      box-sizing: border-box;
+      word-break: break-word;
+      background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%);
+      border-radius: 8px;
+      padding: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      color: #1e293b;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+    ">
+      <div style="
+        font-weight: 700;
+        margin-bottom: 10px;
+        font-size: 16px;
+        color: #064e3b;
+        border-bottom: 2px solid #a7f3d0;
+        padding-bottom: 8px;
+      ">${label}</div>
+      ${rows}
+    </div>
+  `
 }
 
 function buildFeatures(
@@ -42,6 +176,11 @@ function buildFeatures(
       kind: stop.kind,
       label: stop.label,
       markerLabel: markerLabel(stop),
+      fuelAdded: stop.fuel_added_gallons ?? "",
+      fuelPrice: stop.fuel_price_per_gallon ?? "",
+      fuelCost: stop.fuel_cost ?? "",
+      detourMeters: stop.detour_distance_meters ?? "",
+      station: stop.station ? JSON.stringify(stop.station) : "",
     },
     geometry: { type: "Point", coordinates: stop.coordinate },
   }))
@@ -51,6 +190,9 @@ function buildFeatures(
 
 /**
  * Trip stop markers.
+ *
+ * Refuel stops use the same fuel-drop icon as the optimizer and open a popup
+ * on click. Start and destination are drawn as coloured circles.
  *
  * @param mapInstance - MapLibre Map instance from the TomTom SDK
  * @param stops - Frozen stop snapshots in travel order
@@ -64,16 +206,15 @@ export function TripStopsLayer({ mapInstance, stops }: TripStopsLayerProps) {
         id: CIRCLE_LAYER_ID,
         type: "circle",
         source: sourceId,
+        filter: ["in", ["get", "kind"], ["literal", ["start", "destination"]]],
         paint: {
-          "circle-radius": 11,
+          "circle-radius": 12,
           "circle-color": [
             "match",
             ["get", "kind"],
             "start",
             "#16a34a",
-            "destination",
             "#dc2626",
-            "#7c3aed",
           ],
           "circle-stroke-width": 2,
           "circle-stroke-color": "#ffffff",
@@ -83,10 +224,63 @@ export function TripStopsLayer({ mapInstance, stops }: TripStopsLayerProps) {
         id: LABEL_LAYER_ID,
         type: "symbol",
         source: sourceId,
+        filter: ["in", ["get", "kind"], ["literal", ["start", "destination"]]],
         layout: {
           "text-field": ["get", "markerLabel"],
           "text-size": 12,
           "text-allow-overlap": true,
+        },
+        paint: { "text-color": "#ffffff" },
+      },
+      {
+        id: FUEL_LAYER_ID,
+        type: "symbol",
+        source: sourceId,
+        filter: [
+          "!",
+          ["in", ["get", "kind"], ["literal", ["start", "destination"]]],
+        ],
+        layout: {
+          "icon-image": FUEL_IMAGE_ID,
+          "icon-size": 1,
+          "icon-anchor": "bottom",
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+        },
+      },
+      {
+        id: FUEL_BADGE_LAYER_ID,
+        type: "circle",
+        source: sourceId,
+        filter: [
+          "!",
+          ["in", ["get", "kind"], ["literal", ["start", "destination"]]],
+        ],
+        paint: {
+          "circle-radius": 10,
+          "circle-color": "#16a34a",
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#ffffff",
+          "circle-opacity": 0.95,
+          "circle-translate": [0, FUEL_BADGE_OFFSET_PX],
+        },
+      },
+      {
+        id: FUEL_LABEL_LAYER_ID,
+        type: "symbol",
+        source: sourceId,
+        filter: [
+          "!",
+          ["in", ["get", "kind"], ["literal", ["start", "destination"]]],
+        ],
+        layout: {
+          "text-field": ["get", "markerLabel"],
+          "text-size": 12,
+          "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+          "text-anchor": "center",
+          "text-offset": [0, FUEL_BADGE_OFFSET_PX / 12],
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
         },
         paint: { "text-color": "#ffffff" },
       },
@@ -95,6 +289,79 @@ export function TripStopsLayer({ mapInstance, stops }: TripStopsLayerProps) {
   )
 
   useGeoJsonLayer({ mapInstance, sourceId: SOURCE_ID, buildLayers, data })
+
+  useEffect(() => {
+    if (!mapInstance) {
+      return
+    }
+
+    const disposeImages = syncMapImages(mapInstance, [
+      {
+        id: FUEL_IMAGE_ID,
+        svg: markerIcons.fuelDrop(colorPalette.fuel.available),
+      },
+    ])
+
+    let popup: Popup | null = null
+
+    const showPopup = (event: MapLayerMouseEvent) => {
+      const feature = event.features?.[0] as MapGeoJSONFeature | undefined
+      if (feature?.geometry.type !== "Point") {
+        return
+      }
+      const [longitude, latitude] = feature.geometry.coordinates as [
+        number,
+        number,
+      ]
+      popup?.remove()
+      popup = new Popup({
+        closeButton: true,
+        closeOnClick: true,
+        className: "fuel-station-popup",
+      })
+        .setLngLat([longitude, latitude])
+        .setHTML(
+          buildPopupHtml((feature.properties ?? {}) as Record<string, unknown>),
+        )
+        .addTo(mapInstance)
+    }
+
+    const onEnter = () => {
+      mapInstance.getCanvas().style.cursor = "pointer"
+    }
+    const onLeave = () => {
+      mapInstance.getCanvas().style.cursor = ""
+    }
+
+    const attach = () => {
+      if (!mapInstance.getLayer(FUEL_LAYER_ID)) {
+        return false
+      }
+      mapInstance.on("click", FUEL_LAYER_ID, showPopup)
+      mapInstance.on("mouseenter", FUEL_LAYER_ID, onEnter)
+      mapInstance.on("mouseleave", FUEL_LAYER_ID, onLeave)
+      return true
+    }
+
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const scheduleAttach = () => {
+      if (!attach()) {
+        timer = setTimeout(scheduleAttach, 100)
+      }
+    }
+    scheduleAttach()
+
+    return () => {
+      if (timer !== undefined) clearTimeout(timer)
+      disposeImages()
+      popup?.remove()
+      if (mapInstance.getLayer(FUEL_LAYER_ID)) {
+        mapInstance.off("click", FUEL_LAYER_ID, showPopup)
+        mapInstance.off("mouseenter", FUEL_LAYER_ID, onEnter)
+        mapInstance.off("mouseleave", FUEL_LAYER_ID, onLeave)
+      }
+    }
+  }, [mapInstance])
 
   return null
 }

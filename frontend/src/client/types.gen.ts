@@ -2982,6 +2982,62 @@ export type TripPlanSharedPublic = {
 };
 
 /**
+ * TripPlanStationDetails
+ *
+ * Live station facts shown alongside a stop, mirroring the /map popup.
+ */
+export type TripPlanStationDetails = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Brand
+     */
+    brand?: string | null;
+    /**
+     * Address
+     */
+    address?: string | null;
+    /**
+     * Fuel Type
+     */
+    fuel_type?: string | null;
+    /**
+     * Diesel Price
+     */
+    diesel_price?: number | null;
+    /**
+     * Currency
+     */
+    currency?: string | null;
+    /**
+     * Has Adblue
+     */
+    has_adblue?: boolean;
+    /**
+     * Is Open
+     */
+    is_open?: boolean | null;
+    /**
+     * Medium Truck Accessible
+     */
+    medium_truck_accessible?: boolean | null;
+    /**
+     * Large Truck Accessible
+     */
+    large_truck_accessible?: boolean | null;
+    /**
+     * Phone
+     */
+    phone?: string | null;
+    /**
+     * Website
+     */
+    website?: string | null;
+};
+
+/**
  * TripPlanStatus
  *
  * Lifecycle of a trip plan.
@@ -3001,7 +3057,7 @@ export type TripPlanStatusUpdateRequest = {
  * A fuel stop frozen at the moment the trip plan was created.
  *
  * Kept denormalized so the driver view stays stable even if the optimization
- * run is recalculated later.
+ * run is recalculated later. ``station`` is filled in at read time only.
  */
 export type TripPlanStopSnapshot = {
     /**
@@ -3053,6 +3109,7 @@ export type TripPlanStopSnapshot = {
      * Detour Time Seconds
      */
     detour_time_seconds?: number | null;
+    station?: TripPlanStationDetails | null;
 };
 
 /**
