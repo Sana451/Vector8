@@ -73,6 +73,12 @@ class TripPlan(SQLModel, table=True):
     refined_provider: str | None = Field(
         default=None, sa_column=Column(String(length=32), nullable=True)
     )
+    origin_label: str | None = Field(
+        default=None, sa_column=Column(String(length=512), nullable=True)
+    )
+    destination_label: str | None = Field(
+        default=None, sa_column=Column(String(length=512), nullable=True)
+    )
     status: TripPlanStatus = Field(
         default=TripPlanStatus.DRAFT,
         sa_column=Column(String(length=32), nullable=False, index=True),

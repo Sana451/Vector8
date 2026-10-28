@@ -119,8 +119,9 @@ class TripPlanService:
             ],
             base_distance_meters=base_route.distance_meters,
             base_duration_seconds=base_route.duration_seconds,
+            origin_label=self._route_label(base_route, "origin_label"),
+            destination_label=self._route_label(base_route, "destination_label"),
         )
-        trip_plan = self.repository.create(trip_plan)
 
         return await self.refine(
             trip_plan,
@@ -405,6 +406,13 @@ class TripPlanService:
             delta=delta,
         )
 
+    @staticmethod
+    def _route_label(route: RouteCalculation, field: str) -> str | None:
+        """Read an address label stored in the base route's request payload."""
+        locations = (route.request_data or {}).get("route_planning_locations") or {}
+        value = locations.get(field)
+        return value if isinstance(value, str) else None
+
     def _build_request(
         self,
         *,
@@ -427,6 +435,8 @@ class TripPlanService:
             route_planning_locations=RoutePlanningLocations(
                 origin=GeoJSONPoint(coordinates=locations.origin.coordinates),
                 destination=GeoJSONPoint(coordinates=locations.destination.coordinates),
+                origin_label=locations.origin_label,
+                destination_label=locations.destination_label,
                 waypoints=GeoJSONMultiPoint(
                     coordinates=[
                         (float(stop.longitude), float(stop.latitude)) for stop in stops

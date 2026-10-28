@@ -73,12 +73,25 @@ class GeocodingService:
         *,
         force_refresh: bool = False,
     ) -> GeoJSONPoint:
+        location, _ = await self.resolve_point(point, force_refresh=force_refresh)
+        return location
+
+    async def resolve_point(
+        self,
+        point: MapPointInput,
+        *,
+        force_refresh: bool = False,
+    ) -> tuple[GeoJSONPoint, str | None]:
+        """Return the point together with a human-readable address label.
+
+        The label is ``None`` when the point was given as raw coordinates.
+        """
         if point.location is not None:
             logger.info(
                 "Point already provided as coordinates",
                 coordinates=point.location.coordinates,
             )
-            return point.location
+            return point.location, None
 
         result = await self.search(point.address or "", force_refresh=force_refresh)
         logger.info(
@@ -86,4 +99,4 @@ class GeocodingService:
             provider=self.provider_name,
             formatted_address=result.formatted_address,
         )
-        return result.location
+        return result.location, result.formatted_address or point.address

@@ -96,6 +96,8 @@ class TripPlanPublic(BaseModel):
     base_duration_seconds: int
     refined_distance_meters: int | None = None
     refined_duration_seconds: int | None = None
+    origin_label: str | None = None
+    destination_label: str | None = None
     refine_error: str | None = None
     number_of_stops: int
     is_shared: bool = False

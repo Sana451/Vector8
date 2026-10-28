@@ -81,6 +81,8 @@ function TripsTable() {
         <TableHeader>
           <TableRow>
             <TableHead>Trip</TableHead>
+            <TableHead>From</TableHead>
+            <TableHead>To</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="text-right">Distance</TableHead>
             <TableHead className="text-right">Duration</TableHead>
@@ -99,6 +101,18 @@ function TripsTable() {
                 >
                   {trip.name}
                 </Link>
+              </TableCell>
+              <TableCell
+                className="max-w-[220px] truncate"
+                title={trip.origin_label ?? undefined}
+              >
+                {trip.origin_label ?? "—"}
+              </TableCell>
+              <TableCell
+                className="max-w-[220px] truncate"
+                title={trip.destination_label ?? undefined}
+              >
+                {trip.destination_label ?? "—"}
               </TableCell>
               <TableCell>
                 <Badge

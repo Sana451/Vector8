@@ -2425,6 +2425,18 @@ export type RoutePlanningLocations = {
      */
     destination: GeoJSONPoint;
     /**
+     * Origin Label
+     *
+     * Human-readable address of the origin, when known
+     */
+    origin_label?: string | null;
+    /**
+     * Destination Label
+     *
+     * Human-readable address of the destination, when known
+     */
+    destination_label?: string | null;
+    /**
      * Intermediate waypoints
      */
     waypoints?: GeoJSONMultiPoint | null;
@@ -2755,6 +2767,14 @@ export type TripPlanDetailPublic = {
      */
     refined_duration_seconds?: number | null;
     /**
+     * Origin Label
+     */
+    origin_label?: string | null;
+    /**
+     * Destination Label
+     */
+    destination_label?: string | null;
+    /**
      * Refine Error
      */
     refine_error?: string | null;
@@ -2853,6 +2873,14 @@ export type TripPlanPublic = {
      * Refined Duration Seconds
      */
     refined_duration_seconds?: number | null;
+    /**
+     * Origin Label
+     */
+    origin_label?: string | null;
+    /**
+     * Destination Label
+     */
+    destination_label?: string | null;
     /**
      * Refine Error
      */

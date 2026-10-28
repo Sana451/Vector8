@@ -236,12 +236,12 @@ class MapLayerService:
         assert request.pickup is not None
         assert request.delivery is not None
 
-        pickup, delivery = await asyncio.gather(
-            self.geocoding_service.normalize_point(
+        (pickup, pickup_label), (delivery, delivery_label) = await asyncio.gather(
+            self.geocoding_service.resolve_point(
                 request.pickup,
                 force_refresh=force_refresh,
             ),
-            self.geocoding_service.normalize_point(
+            self.geocoding_service.resolve_point(
                 request.delivery,
                 force_refresh=force_refresh,
             ),
@@ -251,6 +251,8 @@ class MapLayerService:
             route_planning_locations=RoutePlanningLocations(
                 origin=pickup,
                 destination=delivery,
+                origin_label=pickup_label,
+                destination_label=delivery_label,
             )
         )
 

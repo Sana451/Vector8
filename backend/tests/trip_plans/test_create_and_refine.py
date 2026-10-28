@@ -117,6 +117,49 @@ class TestCreate:
         locations = routing.requests[0].route_planning_locations
         assert locations.waypoint_stop_duration_seconds == 600
 
+    def test_address_labels_are_copied_from_base_route(
+        self, client: TestClient, db: Session, routing: FakeRoutingService
+    ) -> None:
+        dispatcher, password = create_user_with_role(db, UserRole.DISPATCHER)
+        base_route = create_route(db, suffix="labels")
+        locations = dict(base_route.request_data["route_planning_locations"])
+        locations["origin_label"] = "1521 Hickory Trail, Allen, TX 75002"
+        locations["destination_label"] = "3660 Gateway Street, Springfield, OR 97477"
+        base_route.request_data = {
+            **base_route.request_data,
+            "route_planning_locations": locations,
+        }
+        db.add(base_route)
+        db.commit()
+        vehicle = create_vehicle(db)
+        run = create_optimization_run(db, route_id=base_route.id, vehicle_id=vehicle.id)
+        create_optimization_stop(db, run_id=run.id, station_id=create_station(db).id)
+        response = client.post(
+            f"{PREFIX}/",
+            headers=headers_for(client, dispatcher, password),
+            json={"optimization_run_id": str(run.id)},
+        )
+
+        assert response.status_code == 201
+        body = response.json()
+        assert body["origin_label"] == "1521 Hickory Trail, Allen, TX 75002"
+        assert body["destination_label"] == "3660 Gateway Street, Springfield, OR 97477"
+
+    def test_missing_address_labels_stay_empty(
+        self, client: TestClient, db: Session, routing: FakeRoutingService
+    ) -> None:
+        dispatcher, password = create_user_with_role(db, UserRole.DISPATCHER)
+
+        response = client.post(
+            f"{PREFIX}/",
+            headers=headers_for(client, dispatcher, password),
+            json={"optimization_run_id": str(make_run(db))},
+        )
+
+        body = response.json()
+        assert body["origin_label"] is None
+        assert body["destination_label"] is None
+
     def test_custom_name_is_kept(
         self, client: TestClient, db: Session, routing: FakeRoutingService
     ) -> None:

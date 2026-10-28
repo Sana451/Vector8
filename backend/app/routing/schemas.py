@@ -196,6 +196,14 @@ class RoutePlanningLocations(BaseModel):
 
     origin: GeoJSONPoint = Field(description="Starting point")
     destination: GeoJSONPoint = Field(description="Destination point")
+    origin_label: str | None = Field(
+        default=None,
+        description="Human-readable address of the origin, when known",
+    )
+    destination_label: str | None = Field(
+        default=None,
+        description="Human-readable address of the destination, when known",
+    )
     waypoints: GeoJSONMultiPoint | None = Field(
         default=None,
         description="Intermediate waypoints",
