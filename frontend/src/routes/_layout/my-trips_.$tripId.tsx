@@ -28,6 +28,8 @@ import {
 } from "@/components/ui/table"
 import useCustomToast from "@/hooks/useCustomToast"
 import {
+  formatDateTime,
+  formatDelta,
   formatDuration,
   formatMiles,
   TRIP_STATUS_CLASSES,
@@ -64,6 +66,24 @@ function nextStatus(status: TripPlanStatus): TripPlanStatus | null {
     return "completed"
   }
   return null
+}
+
+function SummaryCard({
+  label,
+  value,
+  hint,
+}: {
+  label: string
+  value: string
+  hint?: string
+}) {
+  return (
+    <div className="vector8-surface p-4">
+      <p className="vector8-kicker">{label}</p>
+      <p className="text-xl font-semibold tabular-nums">{value}</p>
+      {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+    </div>
+  )
 }
 
 function DriverTripDetail() {
@@ -115,15 +135,12 @@ function DriverTripDetail() {
         </Link>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {trip.name}
-            </h1>
             {trip.vehicle_name || trip.vehicle_unit_number ? (
-              <span className="text-sm text-muted-foreground">
+              <h1 className="text-2xl font-normal tracking-tight">
                 {[trip.vehicle_unit_number, trip.vehicle_name]
                   .filter(Boolean)
                   .join(" · ")}
-              </span>
+              </h1>
             ) : null}
             <Badge
               variant="secondary"
@@ -144,23 +161,48 @@ function DriverTripDetail() {
             </Button>
           ) : null}
         </div>
-        <p className="text-sm text-muted-foreground tabular-nums">
-          {formatMiles(
-            trip.refined_distance_meters ?? trip.base_distance_meters,
-          )}
-          {" · "}
-          {formatDuration(
-            trip.refined_duration_seconds ?? trip.base_duration_seconds,
-          )}
-          {" · "}
-          {trip.number_of_stops} stops
-        </p>
         {trip.refine_error ? (
           <p className="text-sm text-destructive">
             This route could not be verified by the provider:{" "}
             {trip.refine_error}
           </p>
         ) : null}
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <SummaryCard label="From" value={trip.origin_label ?? "—"} />
+        <SummaryCard label="To" value={trip.destination_label ?? "—"} />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <SummaryCard
+          label="Distance"
+          value={formatMiles(
+            trip.refined_distance_meters ?? trip.base_distance_meters,
+          )}
+          hint={
+            trip.delta
+              ? `${formatDelta(trip.delta.distance_meters, formatMiles)} vs planned`
+              : undefined
+          }
+        />
+        <SummaryCard
+          label="Duration"
+          value={formatDuration(
+            trip.refined_duration_seconds ?? trip.base_duration_seconds,
+          )}
+          hint={
+            trip.delta
+              ? `${formatDelta(trip.delta.duration_seconds, formatDuration)} vs planned`
+              : undefined
+          }
+        />
+        <SummaryCard label="Stops" value={String(trip.number_of_stops)} />
+        <SummaryCard
+          label="Provider"
+          value={trip.refined_provider ?? "—"}
+          hint={`Created ${formatDateTime(trip.created_at)}`}
+        />
       </div>
 
       <TripRouteMap
