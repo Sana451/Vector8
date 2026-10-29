@@ -43,6 +43,13 @@ import {
   TRIP_STATUS_CLASSES,
   TRIP_STATUS_LABELS,
 } from "@/lib/tripPlans"
+import {
+  formatTripDetour,
+  formatTripGallons,
+  formatTripMoney,
+  isTankFullAfterRefuel,
+  parseDecimal,
+} from "@/lib/tripStopFormat"
 import { handleError } from "@/utils"
 
 const UNASSIGNED = "unassigned"
@@ -324,53 +331,74 @@ function TripDetail() {
             <TableRow>
               <TableHead className="w-12">#</TableHead>
               <TableHead>Stop</TableHead>
-              <TableHead className="text-right">Fuel added</TableHead>
-              <TableHead className="text-right">Price / gal</TableHead>
-              <TableHead className="text-right">Cost</TableHead>
+              <TableHead className="text-right">Fuel on arrival</TableHead>
+              <TableHead className="text-right">Fuel to add</TableHead>
+              <TableHead className="text-right">Fuel after refuel</TableHead>
+              <TableHead className="text-right">Price per gallon</TableHead>
+              <TableHead className="text-right">Cost at this stop</TableHead>
               <TableHead className="text-right">Detour</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {(trip.stops ?? []).map((stop) => (
-              <TableRow
-                key={`${stop.sequence}-${stop.label}`}
-                className="cursor-pointer"
-                onClick={() =>
-                  setFocusStop({
-                    coordinate: stop.coordinate as [number, number],
-                    key: Date.now(),
-                  })
-                }
-              >
-                <TableCell className="tabular-nums">{stop.sequence}</TableCell>
-                <TableCell>
-                  <span className="font-medium">{stop.label}</span>
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    {stop.kind}
-                  </span>
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {stop.fuel_added_gallons
-                    ? `${Number(stop.fuel_added_gallons).toFixed(1)} gal`
-                    : "—"}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {stop.fuel_price_per_gallon
-                    ? `$${Number(stop.fuel_price_per_gallon).toFixed(2)}`
-                    : "—"}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {stop.fuel_cost
-                    ? `$${Number(stop.fuel_cost).toFixed(2)}`
-                    : "—"}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {stop.detour_distance_meters
-                    ? formatMiles(Number(stop.detour_distance_meters))
-                    : "—"}
-                </TableCell>
-              </TableRow>
-            ))}
+            {(trip.stops ?? []).map((stop) => {
+              const fuelAdded = parseDecimal(stop.fuel_added_gallons)
+              const isFull = isTankFullAfterRefuel(
+                stop.fuel_after_gallons,
+                trip.usable_tank_gallons,
+              )
+              return (
+                <TableRow
+                  key={`${stop.sequence}-${stop.label}`}
+                  className="cursor-pointer"
+                  onClick={() =>
+                    setFocusStop({
+                      coordinate: stop.coordinate as [number, number],
+                      key: Date.now(),
+                    })
+                  }
+                >
+                  <TableCell className="tabular-nums">
+                    {stop.sequence}
+                  </TableCell>
+                  <TableCell>
+                    <span className="font-medium">{stop.label}</span>
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      {stop.kind}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatTripGallons(stop.fuel_before_gallons)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {fuelAdded === null ? (
+                      "—"
+                    ) : (
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                        +{fuelAdded.toFixed(1)} gal
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatTripGallons(stop.fuel_after_gallons)}
+                    {isFull ? (
+                      <span className="ml-1 text-muted-foreground">(full)</span>
+                    ) : null}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatTripMoney(stop.fuel_price_per_gallon)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatTripMoney(stop.fuel_cost)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatTripDetour(
+                      stop.detour_distance_meters,
+                      stop.detour_time_seconds,
+                    )}
+                  </TableCell>
+                </TableRow>
+              )
+            })}
           </TableBody>
         </Table>
       </div>

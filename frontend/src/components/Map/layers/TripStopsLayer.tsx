@@ -18,6 +18,11 @@ import { useCallback, useEffect, useMemo } from "react"
 import type { TripPlanStopSnapshot } from "@/client"
 import { syncMapImages } from "@/lib/mapImages"
 import { colorPalette, markerIcons } from "@/lib/mapMarkerIcons"
+import {
+  formatTripDetour,
+  isTankFullAfterRefuel,
+  parseDecimal,
+} from "@/lib/tripStopFormat"
 import { type LayerWithVisibility, useGeoJsonLayer } from "./useGeoJsonLayer"
 
 const SOURCE_ID = "trip-stops"
@@ -33,6 +38,7 @@ const FUEL_IMAGE_ID = "trip-stop-fuel-drop"
 interface TripStopsLayerProps {
   mapInstance: MapLibreMap | null
   stops: TripPlanStopSnapshot[]
+  usableTankGallons?: string | number | null
 }
 
 function markerLabel(stop: TripPlanStopSnapshot): string {
@@ -60,12 +66,6 @@ function formatGallons(value: unknown): string {
   if (typeof value !== "string" || value === "") return "—"
   const gallons = Number(value)
   return Number.isNaN(gallons) ? value : `${gallons.toFixed(1)} gal`
-}
-
-function formatMiles(meters: unknown): string {
-  if (typeof meters !== "string" || meters === "") return "—"
-  const value = Number(meters)
-  return Number.isNaN(value) ? "—" : `${(value / 1609.344).toFixed(1)} mi`
 }
 
 function formatStationPrice(value: unknown, currency: unknown): string {
@@ -122,15 +122,35 @@ function buildPopupHtml(properties: Record<string, unknown>): string {
       ? (JSON.parse(properties.station) as Record<string, unknown>)
       : null
   const stationRows = station ? buildStationRows(station) : ""
+  const fuelAdded = parseDecimal(properties.fuelAdded as string)
+  const fuelAddedText =
+    fuelAdded === null
+      ? "—"
+      : `<span style="color: #059669; font-weight: 600;">+${fuelAdded.toFixed(1)} gal</span>`
+  const fuelAfterText = formatGallons(properties.fuelAfter)
+  const isFull =
+    properties.isFull === true
+      ? ` <span style="color: #64748b;">(full)</span>`
+      : ""
   const trip = [
-    ["Fuel added", formatGallons(properties.fuelAdded)],
-    ["Price / gal", formatMoney(properties.fuelPrice)],
-    ["Cost", formatMoney(properties.fuelCost)],
-    ["Detour", formatMiles(properties.detourMeters)],
+    ["Fuel on arrival", formatGallons(properties.fuelBefore)],
+    ["Fuel to add", fuelAddedText],
+    ["Fuel after refuel", `${fuelAfterText}${isFull}`],
+    ["Price per gallon", formatMoney(properties.fuelPrice)],
+    ["Cost at this stop", formatMoney(properties.fuelCost)],
+    [
+      "Detour",
+      formatTripDetour(
+        properties.detourMeters as string,
+        typeof properties.detourSeconds === "number"
+          ? properties.detourSeconds
+          : null,
+      ),
+    ],
   ]
     .map(
       ([title, value]) =>
-        `<div><strong>${title}:</strong> ${escapeHtml(value)}</div>`,
+        `<div><strong>${title}:</strong> ${value.startsWith("<") ? value : escapeHtml(value)}</div>`,
     )
     .join("")
   const rows = `${stationRows}<div style="margin-top: 8px; border-top: 1px dashed #a7f3d0; padding-top: 8px;">${trip}</div>`
@@ -164,6 +184,7 @@ function buildPopupHtml(properties: Record<string, unknown>): string {
 
 function buildFeatures(
   stops: TripPlanStopSnapshot[],
+  usableTankGallons: string | number | null | undefined,
 ): FeatureCollection | null {
   if (stops.length === 0) {
     return null
@@ -176,10 +197,14 @@ function buildFeatures(
       kind: stop.kind,
       label: stop.label,
       markerLabel: markerLabel(stop),
+      fuelBefore: stop.fuel_before_gallons ?? "",
       fuelAdded: stop.fuel_added_gallons ?? "",
+      fuelAfter: stop.fuel_after_gallons ?? "",
+      isFull: isTankFullAfterRefuel(stop.fuel_after_gallons, usableTankGallons),
       fuelPrice: stop.fuel_price_per_gallon ?? "",
       fuelCost: stop.fuel_cost ?? "",
       detourMeters: stop.detour_distance_meters ?? "",
+      detourSeconds: stop.detour_time_seconds ?? null,
       station: stop.station ? JSON.stringify(stop.station) : "",
     },
     geometry: { type: "Point", coordinates: stop.coordinate },
@@ -197,8 +222,15 @@ function buildFeatures(
  * @param mapInstance - MapLibre Map instance from the TomTom SDK
  * @param stops - Frozen stop snapshots in travel order
  */
-export function TripStopsLayer({ mapInstance, stops }: TripStopsLayerProps) {
-  const data = useMemo(() => buildFeatures(stops), [stops])
+export function TripStopsLayer({
+  mapInstance,
+  stops,
+  usableTankGallons,
+}: TripStopsLayerProps) {
+  const data = useMemo(
+    () => buildFeatures(stops, usableTankGallons),
+    [stops, usableTankGallons],
+  )
 
   const buildLayers = useCallback(
     (sourceId: string): LayerWithVisibility[] => [

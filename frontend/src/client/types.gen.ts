@@ -2809,6 +2809,10 @@ export type TripPlanDetailPublic = {
     base_geometry?: GeoJSONLineString | null;
     refined_geometry?: GeoJSONLineString | null;
     delta?: TripPlanDeltaPublic | null;
+    /**
+     * Usable Tank Gallons
+     */
+    usable_tank_gallons?: string | null;
 };
 
 /**
@@ -3106,9 +3110,17 @@ export type TripPlanStopSnapshot = {
      */
     route_offset_meters?: string | null;
     /**
+     * Fuel Before Gallons
+     */
+    fuel_before_gallons?: string | null;
+    /**
      * Fuel Added Gallons
      */
     fuel_added_gallons?: string | null;
+    /**
+     * Fuel After Gallons
+     */
+    fuel_after_gallons?: string | null;
     /**
      * Fuel Price Per Gallon
      */

@@ -474,6 +474,7 @@ class TripPlanService:
 
         base_geometry = self._geometry(base_route)
         refined_geometry = self._geometry(refined_route)
+        vehicle = self.vehicle_repository.get(trip_plan.vehicle_id)
         return TripPlanDetailPublic(
             **self.to_public(trip_plan).model_dump(),
             stops=self._attach_stations(
@@ -482,6 +483,9 @@ class TripPlanService:
             base_geometry=base_geometry,
             refined_geometry=refined_geometry,
             delta=delta,
+            usable_tank_gallons=(
+                vehicle.usable_tank_capacity_gallons if vehicle is not None else None
+            ),
         )
 
     @staticmethod
@@ -543,7 +547,9 @@ class TripPlanService:
                 station_id=stop.station_id,
                 coordinate=(float(stop.longitude), float(stop.latitude)),
                 route_offset_meters=stop.route_offset_meters,
+                fuel_before_gallons=stop.fuel_before_gallons,
                 fuel_added_gallons=stop.fuel_added_gallons,
+                fuel_after_gallons=stop.fuel_after_gallons,
                 fuel_price_per_gallon=stop.fuel_price_per_gallon,
                 fuel_cost=stop.fuel_cost,
                 detour_distance_meters=stop.detour_distance_meters,
