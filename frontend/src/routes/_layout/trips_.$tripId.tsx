@@ -245,7 +245,13 @@ function TripDetail() {
           Back to trips
         </Link>
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight">{trip.name}</h1>
+          {trip.vehicle_name || trip.vehicle_unit_number ? (
+            <h1 className="text-2xl font-normal tracking-tight">
+              {[trip.vehicle_unit_number, trip.vehicle_name]
+                .filter(Boolean)
+                .join(" · ")}
+            </h1>
+          ) : null}
           <Badge
             variant="secondary"
             className={TRIP_STATUS_CLASSES[trip.status]}
@@ -258,6 +264,11 @@ function TripDetail() {
             Route refinement failed: {trip.refine_error}
           </p>
         ) : null}
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <SummaryCard label="From" value={trip.origin_label ?? "—"} />
+        <SummaryCard label="To" value={trip.destination_label ?? "—"} />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

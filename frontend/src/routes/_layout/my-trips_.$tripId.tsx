@@ -111,6 +111,13 @@ function DriverTripDetail() {
             <h1 className="text-2xl font-semibold tracking-tight">
               {trip.name}
             </h1>
+            {trip.vehicle_name || trip.vehicle_unit_number ? (
+              <span className="text-sm text-muted-foreground">
+                {[trip.vehicle_unit_number, trip.vehicle_name]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
+            ) : null}
             <Badge
               variant="secondary"
               className={TRIP_STATUS_CLASSES[trip.status]}
