@@ -6,13 +6,26 @@
  */
 
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, Link, redirect } from "@tanstack/react-router"
-import { ArrowLeft } from "lucide-react"
+import {
+  createFileRoute,
+  Link,
+  redirect,
+  useNavigate,
+} from "@tanstack/react-router"
+import { ArrowLeft, EllipsisVertical } from "lucide-react"
 import type { ReactNode } from "react"
+import { useState } from "react"
 
 import { UsersService, type VehiclePublic, VehiclesService } from "@/client"
+import DeleteVehicle from "@/components/Fleet/DeleteVehicle"
+import EditVehicle from "@/components/Fleet/EditVehicle"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 export const Route = createFileRoute("/_layout/fleet_/$vehicleId")({
   component: VehicleDetail,
@@ -63,8 +76,10 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 function VehicleDetail() {
   const { vehicleId } = Route.useParams()
+  const navigate = useNavigate()
+  const [menuOpen, setMenuOpen] = useState(false)
   const { data: vehicle } = useSuspenseQuery({
-    queryKey: ["vehicle", vehicleId],
+    queryKey: ["vehicles", vehicleId],
     queryFn: async () =>
       (await VehiclesService.getVehicle({ path: { vehicle_id: vehicleId } }))
         .data,
@@ -81,20 +96,40 @@ function VehicleDetail() {
             Back to fleet
           </Link>
         </Button>
-        <div className="vector8-page-header flex flex-col gap-2">
-          <p className="vector8-kicker">Vehicle</p>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
-            <Badge
-              variant={statusVariant[vehicle.status]}
-              className="capitalize"
-            >
-              {vehicle.status}
-            </Badge>
+        <div className="vector8-page-header flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="flex flex-col gap-2">
+            <p className="vector8-kicker">Vehicle</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
+              <Badge
+                variant={statusVariant[vehicle.status]}
+                className="capitalize"
+              >
+                {vehicle.status}
+              </Badge>
+            </div>
+            <p className="font-mono text-xs text-muted-foreground">
+              ID: {vehicle.id}
+            </p>
           </div>
-          <p className="font-mono text-xs text-muted-foreground">
-            ID: {vehicle.id}
-          </p>
+          <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                <EllipsisVertical />
+                Actions
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <EditVehicle
+                vehicle={vehicle}
+                onSuccess={() => setMenuOpen(false)}
+              />
+              <DeleteVehicle
+                id={vehicle.id}
+                onSuccess={() => navigate({ to: "/fleet" })}
+              />
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
