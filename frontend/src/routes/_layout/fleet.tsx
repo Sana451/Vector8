@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, redirect } from "@tanstack/react-router"
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
 import { Truck } from "lucide-react"
 import { Suspense } from "react"
 
@@ -38,6 +38,7 @@ export const Route = createFileRoute("/_layout/fleet")({
 })
 
 function FleetTableContent() {
+  const navigate = useNavigate()
   const { data: vehicles } = useSuspenseQuery(getVehiclesQueryOptions())
   const vehicleList = vehicles?.data ?? []
 
@@ -55,7 +56,18 @@ function FleetTableContent() {
     )
   }
 
-  return <DataTable columns={columns} data={vehicleList} />
+  return (
+    <DataTable
+      columns={columns}
+      data={vehicleList}
+      onRowClick={(vehicle) =>
+        navigate({
+          to: "/fleet/$vehicleId",
+          params: { vehicleId: vehicle.id },
+        })
+      }
+    />
+  )
 }
 
 function FleetTable() {
