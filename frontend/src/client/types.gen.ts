@@ -2813,6 +2813,14 @@ export type TripPlanDetailPublic = {
      * Usable Tank Gallons
      */
     usable_tank_gallons?: string | null;
+    /**
+     * Initial Fuel Gallons
+     */
+    initial_fuel_gallons?: string | null;
+    /**
+     * Remaining Fuel Gallons
+     */
+    remaining_fuel_gallons?: string | null;
 };
 
 /**

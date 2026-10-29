@@ -14,6 +14,11 @@ import { useState } from "react"
 import { readTripPlan, updateTripPlanStatus } from "@/api/tripPlans"
 import { type TripPlanStatus, UsersService } from "@/client"
 import { TripActions } from "@/components/TripPlans/TripActions"
+import {
+  formatStopDistance,
+  getStopDistances,
+  TripEndpoints,
+} from "@/components/TripPlans/TripEndpoints"
 import { TripRouteMap } from "@/components/TripPlans/TripRouteMap"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -224,15 +229,25 @@ function DriverTripDetail() {
               <TableHead className="text-right">Fuel after refuel</TableHead>
               <TableHead className="text-right">Price per gallon</TableHead>
               <TableHead className="text-right">Detour</TableHead>
+              <TableHead className="text-right">
+                Distance to next stop
+              </TableHead>
+              <TableHead className="text-right">
+                Distance to destination
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {(trip.stops ?? []).map((stop) => {
+            {(trip.stops ?? []).map((stop, index, allStops) => {
               const fuelAdded = parseDecimal(stop.fuel_added_gallons)
               const isFull = isTankFullAfterRefuel(
                 stop.fuel_after_gallons,
                 trip.usable_tank_gallons,
               )
+              const distances = getStopDistances(
+                allStops,
+                trip.refined_distance_meters ?? trip.base_distance_meters,
+              )[index]
               return (
                 <TableRow
                   key={`${stop.sequence}-${stop.label}`}
@@ -280,12 +295,20 @@ function DriverTripDetail() {
                       stop.detour_time_seconds,
                     )}
                   </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatStopDistance(distances?.toNext ?? null)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatStopDistance(distances?.toDestination ?? null)}
+                  </TableCell>
                 </TableRow>
               )
             })}
           </TableBody>
         </Table>
       </div>
+
+      <TripEndpoints trip={trip} />
     </div>
   )
 }

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import secrets
 import uuid
+from decimal import Decimal
 
 from sqlmodel import Session, col, select
 
@@ -123,6 +124,8 @@ class TripPlanService:
             base_duration_seconds=base_route.duration_seconds,
             origin_label=self._route_label(base_route, "origin_label"),
             destination_label=self._route_label(base_route, "destination_label"),
+            initial_fuel_gallons=run.initial_fuel_gallons,
+            remaining_fuel_gallons=run.remaining_fuel_gallons,
         )
 
         return await self.refine(
@@ -313,6 +316,11 @@ class TripPlanService:
         return builder(name=trip_plan.name, stops=stops, coordinates=coordinates)
 
     @staticmethod
+    def _route_total_meters(trip_plan: TripPlan) -> int:
+        """Total length of the route the stops are placed on."""
+        return trip_plan.refined_distance_meters or trip_plan.base_distance_meters
+
+    @staticmethod
     def _with_endpoints(
         trip_plan: TripPlan, geometry: GeoJSONLineString | None
     ) -> list[TripPlanStopSnapshot]:
@@ -339,12 +347,18 @@ class TripPlanService:
             kind="start",
             label=trip_plan.origin_label or "Start",
             coordinate=(first[0], first[1]),
+            route_offset_meters=Decimal(0),
+            fuel_before_gallons=trip_plan.initial_fuel_gallons,
+            fuel_after_gallons=trip_plan.initial_fuel_gallons,
         )
         destination = TripPlanStopSnapshot(
             sequence=last_sequence + 1,
             kind="destination",
             label=trip_plan.destination_label or "Destination",
             coordinate=(last[0], last[1]),
+            route_offset_meters=Decimal(TripPlanService._route_total_meters(trip_plan)),
+            fuel_before_gallons=trip_plan.remaining_fuel_gallons,
+            fuel_after_gallons=trip_plan.remaining_fuel_gallons,
         )
         return [start, *stops, destination]
 

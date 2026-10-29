@@ -10,9 +10,18 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import JSON, BigInteger, DateTime, ForeignKey, Integer, String
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+)
 from sqlmodel import Column, Field, SQLModel
 
 from app.core.datetime import get_datetime_utc
@@ -78,6 +87,12 @@ class TripPlan(SQLModel, table=True):
     )
     destination_label: str | None = Field(
         default=None, sa_column=Column(String(length=512), nullable=True)
+    )
+    initial_fuel_gallons: Decimal | None = Field(
+        default=None, sa_column=Column(Numeric(10, 4), nullable=True)
+    )
+    remaining_fuel_gallons: Decimal | None = Field(
+        default=None, sa_column=Column(Numeric(10, 4), nullable=True)
     )
     status: TripPlanStatus = Field(
         default=TripPlanStatus.DRAFT,

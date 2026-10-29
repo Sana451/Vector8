@@ -135,6 +135,8 @@ class TripPlanDetailPublic(TripPlanPublic):
     refined_geometry: GeoJSONLineString | None = None
     delta: TripPlanDeltaPublic | None = None
     usable_tank_gallons: Decimal | None = None
+    initial_fuel_gallons: Decimal | None = None
+    remaining_fuel_gallons: Decimal | None = None
 
 
 class TripPlansPublic(BaseModel):

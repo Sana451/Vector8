@@ -25,6 +25,7 @@ from app.providers.http import ProviderHTTPClient
 from app.routing.exceptions import (
     RoutingAuthenticationError,
     RoutingBadRequestError,
+    RoutingNoRouteFoundError,
     RoutingProviderError,
     RoutingRateLimitError,
     RoutingTimeoutError,
@@ -279,6 +280,15 @@ class HereRoutingProvider:
         for payload in payloads:
             routes = payload["routes"]
             if not routes:
+                notice_codes = {
+                    notice.get("code") for notice in payload.get("notices", [])
+                }
+                if "noRouteFound" in notice_codes:
+                    raise RoutingNoRouteFoundError(
+                        "No route found for these vehicle dimensions",
+                        provider=PROVIDER_NAME,
+                        provider_code="noRouteFound",
+                    )
                 raise RoutingProviderError(
                     "HERE returned no route",
                     provider=PROVIDER_NAME,
