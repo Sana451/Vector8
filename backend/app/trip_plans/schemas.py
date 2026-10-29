@@ -46,7 +46,9 @@ class TripPlanStopSnapshot(BaseModel):
     station_id: uuid.UUID | None = None
     coordinate: Coordinate = Field(description="[longitude, latitude] in WGS84")
     route_offset_meters: Decimal | None = None
+    fuel_before_gallons: Decimal | None = None
     fuel_added_gallons: Decimal | None = None
+    fuel_after_gallons: Decimal | None = None
     fuel_price_per_gallon: Decimal | None = None
     fuel_cost: Decimal | None = None
     detour_distance_meters: Decimal | None = None
@@ -106,6 +108,8 @@ class TripPlanPublic(BaseModel):
     assigned_driver_id: uuid.UUID | None = None
     assigned_at: datetime | None = None
     vehicle_id: uuid.UUID
+    vehicle_name: str | None = None
+    vehicle_unit_number: str | None = None
     base_route_id: uuid.UUID
     optimization_run_id: uuid.UUID
     refined_route_id: uuid.UUID | None = None
@@ -130,6 +134,9 @@ class TripPlanDetailPublic(TripPlanPublic):
     base_geometry: GeoJSONLineString | None = None
     refined_geometry: GeoJSONLineString | None = None
     delta: TripPlanDeltaPublic | None = None
+    usable_tank_gallons: Decimal | None = None
+    initial_fuel_gallons: Decimal | None = None
+    remaining_fuel_gallons: Decimal | None = None
 
 
 class TripPlansPublic(BaseModel):

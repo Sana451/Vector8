@@ -643,8 +643,8 @@ export class MapService {
      * Aggregated map overview with per-layer errors.
      *
      * Raises:
-     * HTTPException: 502 when the mandatory route layer fails,
-     * 500 on unexpected errors.
+     * HTTPException: 422 when no route exists for the vehicle dimensions,
+     * 502 when the mandatory route layer fails, 500 on unexpected errors.
      */
     public static routeOverview<ThrowOnError extends boolean = true>(options: Options<mapRouteOverviewData, ThrowOnError>) {
         return (options.client ?? client).post<mapRouteOverviewResponses, mapRouteOverviewErrors, ThrowOnError>({

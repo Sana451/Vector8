@@ -9,7 +9,8 @@
  */
 
 import { useMutation } from "@tanstack/react-query"
-import { Loader2, Route as RouteIcon } from "lucide-react"
+import { Link } from "@tanstack/react-router"
+import { ExternalLink, Loader2, Route as RouteIcon } from "lucide-react"
 import { createTripPlan, refineTripPlan } from "@/api/tripPlans"
 import type { TripPlanDetailPublic } from "@/client"
 import useCustomToast from "@/hooks/useCustomToast"
@@ -91,6 +92,19 @@ export function RefineRouteControl({
         )}
         {tripPlan ? "Recalculate refined route" : "Refine route via stops"}
       </button>
+
+      {tripPlan && (
+        <Link
+          to="/trips/$tripId"
+          params={{ tripId: tripPlan.id }}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          Open saved route
+        </Link>
+      )}
 
       {tripPlan?.refine_error && (
         <p className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1.5 text-xs text-destructive">

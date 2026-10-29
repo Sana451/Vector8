@@ -19,7 +19,7 @@ import type { Coordinate } from "@/lib/routing"
 interface TripRouteMapProps {
   trip: Pick<
     TripPlanDetailPublic,
-    "stops" | "refined_geometry" | "base_geometry"
+    "stops" | "refined_geometry" | "base_geometry" | "usable_tank_gallons"
   >
   className?: string
   /** Pans (without changing zoom) to a stop when `key` changes. */
@@ -114,7 +114,11 @@ export function TripRouteMap({
         mapInstance={mapInstance}
         coordinates={coordinates ?? null}
       />
-      <TripStopsLayer mapInstance={mapInstance} stops={trip.stops ?? []} />
+      <TripStopsLayer
+        mapInstance={mapInstance}
+        stops={trip.stops ?? []}
+        usableTankGallons={trip.usable_tank_gallons}
+      />
       <button
         type="button"
         onClick={toggleFullscreen}

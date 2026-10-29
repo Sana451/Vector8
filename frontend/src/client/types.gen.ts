@@ -2735,6 +2735,14 @@ export type TripPlanDetailPublic = {
      */
     vehicle_id: string;
     /**
+     * Vehicle Name
+     */
+    vehicle_name?: string | null;
+    /**
+     * Vehicle Unit Number
+     */
+    vehicle_unit_number?: string | null;
+    /**
      * Base Route Id
      */
     base_route_id: string;
@@ -2801,6 +2809,18 @@ export type TripPlanDetailPublic = {
     base_geometry?: GeoJSONLineString | null;
     refined_geometry?: GeoJSONLineString | null;
     delta?: TripPlanDeltaPublic | null;
+    /**
+     * Usable Tank Gallons
+     */
+    usable_tank_gallons?: string | null;
+    /**
+     * Initial Fuel Gallons
+     */
+    initial_fuel_gallons?: string | null;
+    /**
+     * Remaining Fuel Gallons
+     */
+    remaining_fuel_gallons?: string | null;
 };
 
 /**
@@ -2841,6 +2861,14 @@ export type TripPlanPublic = {
      * Vehicle Id
      */
     vehicle_id: string;
+    /**
+     * Vehicle Name
+     */
+    vehicle_name?: string | null;
+    /**
+     * Vehicle Unit Number
+     */
+    vehicle_unit_number?: string | null;
     /**
      * Base Route Id
      */
@@ -3090,9 +3118,17 @@ export type TripPlanStopSnapshot = {
      */
     route_offset_meters?: string | null;
     /**
+     * Fuel Before Gallons
+     */
+    fuel_before_gallons?: string | null;
+    /**
      * Fuel Added Gallons
      */
     fuel_added_gallons?: string | null;
+    /**
+     * Fuel After Gallons
+     */
+    fuel_after_gallons?: string | null;
     /**
      * Fuel Price Per Gallon
      */

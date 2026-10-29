@@ -29,7 +29,9 @@ class OptimizationStopRow:
     longitude: Decimal
     latitude: Decimal
     route_offset_meters: Decimal
+    fuel_before_gallons: Decimal
     fuel_added_gallons: Decimal
+    fuel_after_gallons: Decimal
     fuel_price_per_gallon: Decimal
     fuel_cost: Decimal
     detour_distance_meters: Decimal
@@ -59,7 +61,9 @@ class OptimizationRunQueryRepository:
                 sa_func.ST_X(location).label("longitude"),
                 sa_func.ST_Y(location).label("latitude"),
                 FuelOptimizationStop.route_offset_meters,
+                FuelOptimizationStop.fuel_before_gallons,
                 FuelOptimizationStop.fuel_added_gallons,
+                FuelOptimizationStop.fuel_after_gallons,
                 FuelOptimizationStop.fuel_price_per_gallon,
                 FuelOptimizationStop.fuel_cost,
                 FuelOptimizationStop.detour_distance_meters,
@@ -77,11 +81,13 @@ class OptimizationRunQueryRepository:
                 longitude=Decimal(str(row[3])),
                 latitude=Decimal(str(row[4])),
                 route_offset_meters=row[5],
-                fuel_added_gallons=row[6],
-                fuel_price_per_gallon=row[7],
-                fuel_cost=row[8],
-                detour_distance_meters=row[9],
-                detour_time_seconds=row[10],
+                fuel_before_gallons=row[6],
+                fuel_added_gallons=row[7],
+                fuel_after_gallons=row[8],
+                fuel_price_per_gallon=row[9],
+                fuel_cost=row[10],
+                detour_distance_meters=row[11],
+                detour_time_seconds=row[12],
             )
             for row in self.session.exec(statement).all()
         ]

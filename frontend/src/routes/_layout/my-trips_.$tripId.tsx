@@ -14,6 +14,11 @@ import { useState } from "react"
 import { readTripPlan, updateTripPlanStatus } from "@/api/tripPlans"
 import { type TripPlanStatus, UsersService } from "@/client"
 import { TripActions } from "@/components/TripPlans/TripActions"
+import {
+  formatStopDistance,
+  getStopDistances,
+  TripEndpoints,
+} from "@/components/TripPlans/TripEndpoints"
 import { TripRouteMap } from "@/components/TripPlans/TripRouteMap"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -28,11 +33,20 @@ import {
 } from "@/components/ui/table"
 import useCustomToast from "@/hooks/useCustomToast"
 import {
+  formatDateTime,
+  formatDelta,
   formatDuration,
   formatMiles,
   TRIP_STATUS_CLASSES,
   TRIP_STATUS_LABELS,
 } from "@/lib/tripPlans"
+import {
+  formatTripDetour,
+  formatTripGallons,
+  formatTripMoney,
+  isTankFullAfterRefuel,
+  parseDecimal,
+} from "@/lib/tripStopFormat"
 import { handleError } from "@/utils"
 
 export const Route = createFileRoute("/_layout/my-trips_/$tripId")({
@@ -57,6 +71,24 @@ function nextStatus(status: TripPlanStatus): TripPlanStatus | null {
     return "completed"
   }
   return null
+}
+
+function SummaryCard({
+  label,
+  value,
+  hint,
+}: {
+  label: string
+  value: string
+  hint?: string
+}) {
+  return (
+    <div className="vector8-surface p-4">
+      <p className="vector8-kicker">{label}</p>
+      <p className="text-xl font-semibold tabular-nums">{value}</p>
+      {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+    </div>
+  )
 }
 
 function DriverTripDetail() {
@@ -108,9 +140,13 @@ function DriverTripDetail() {
         </Link>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {trip.name}
-            </h1>
+            {trip.vehicle_name || trip.vehicle_unit_number ? (
+              <h1 className="text-2xl font-normal tracking-tight">
+                {[trip.vehicle_unit_number, trip.vehicle_name]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </h1>
+            ) : null}
             <Badge
               variant="secondary"
               className={TRIP_STATUS_CLASSES[trip.status]}
@@ -130,23 +166,48 @@ function DriverTripDetail() {
             </Button>
           ) : null}
         </div>
-        <p className="text-sm text-muted-foreground tabular-nums">
-          {formatMiles(
-            trip.refined_distance_meters ?? trip.base_distance_meters,
-          )}
-          {" · "}
-          {formatDuration(
-            trip.refined_duration_seconds ?? trip.base_duration_seconds,
-          )}
-          {" · "}
-          {trip.number_of_stops} stops
-        </p>
         {trip.refine_error ? (
           <p className="text-sm text-destructive">
             This route could not be verified by the provider:{" "}
             {trip.refine_error}
           </p>
         ) : null}
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <SummaryCard label="From" value={trip.origin_label ?? "—"} />
+        <SummaryCard label="To" value={trip.destination_label ?? "—"} />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <SummaryCard
+          label="Distance"
+          value={formatMiles(
+            trip.refined_distance_meters ?? trip.base_distance_meters,
+          )}
+          hint={
+            trip.delta
+              ? `${formatDelta(trip.delta.distance_meters, formatMiles)} vs planned`
+              : undefined
+          }
+        />
+        <SummaryCard
+          label="Duration"
+          value={formatDuration(
+            trip.refined_duration_seconds ?? trip.base_duration_seconds,
+          )}
+          hint={
+            trip.delta
+              ? `${formatDelta(trip.delta.duration_seconds, formatDuration)} vs planned`
+              : undefined
+          }
+        />
+        <SummaryCard label="Stops" value={String(trip.number_of_stops)} />
+        <SummaryCard
+          label="Provider"
+          value={trip.refined_provider ?? "—"}
+          hint={`Created ${formatDateTime(trip.created_at)}`}
+        />
       </div>
 
       <TripRouteMap
@@ -163,50 +224,91 @@ function DriverTripDetail() {
             <TableRow>
               <TableHead className="w-12">#</TableHead>
               <TableHead>Stop</TableHead>
-              <TableHead className="text-right">Fuel added</TableHead>
-              <TableHead className="text-right">Price / gal</TableHead>
+              <TableHead className="text-right">Fuel on arrival</TableHead>
+              <TableHead className="text-right">Fuel to add</TableHead>
+              <TableHead className="text-right">Fuel after refuel</TableHead>
+              <TableHead className="text-right">Price per gallon</TableHead>
               <TableHead className="text-right">Detour</TableHead>
+              <TableHead className="text-right">
+                Distance to next stop
+              </TableHead>
+              <TableHead className="text-right">
+                Distance to destination
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {(trip.stops ?? []).map((stop) => (
-              <TableRow
-                key={`${stop.sequence}-${stop.label}`}
-                className="cursor-pointer"
-                onClick={() =>
-                  setFocusStop({
-                    coordinate: stop.coordinate as [number, number],
-                    key: Date.now(),
-                  })
-                }
-              >
-                <TableCell className="tabular-nums">{stop.sequence}</TableCell>
-                <TableCell>
-                  <span className="font-medium">{stop.label}</span>
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    {stop.kind}
-                  </span>
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {stop.fuel_added_gallons
-                    ? `${Number(stop.fuel_added_gallons).toFixed(1)} gal`
-                    : "—"}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {stop.fuel_price_per_gallon
-                    ? `$${Number(stop.fuel_price_per_gallon).toFixed(2)}`
-                    : "—"}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {stop.detour_distance_meters
-                    ? formatMiles(Number(stop.detour_distance_meters))
-                    : "—"}
-                </TableCell>
-              </TableRow>
-            ))}
+            {(trip.stops ?? []).map((stop, index, allStops) => {
+              const fuelAdded = parseDecimal(stop.fuel_added_gallons)
+              const isFull = isTankFullAfterRefuel(
+                stop.fuel_after_gallons,
+                trip.usable_tank_gallons,
+              )
+              const distances = getStopDistances(
+                allStops,
+                trip.refined_distance_meters ?? trip.base_distance_meters,
+              )[index]
+              return (
+                <TableRow
+                  key={`${stop.sequence}-${stop.label}`}
+                  className="cursor-pointer"
+                  onClick={() =>
+                    setFocusStop({
+                      coordinate: stop.coordinate as [number, number],
+                      key: Date.now(),
+                    })
+                  }
+                >
+                  <TableCell className="tabular-nums">
+                    {stop.sequence}
+                  </TableCell>
+                  <TableCell>
+                    <span className="font-medium">{stop.label}</span>
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      {stop.kind}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatTripGallons(stop.fuel_before_gallons)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {fuelAdded === null ? (
+                      "—"
+                    ) : (
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                        +{fuelAdded.toFixed(1)} gal
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatTripGallons(stop.fuel_after_gallons)}
+                    {isFull ? (
+                      <span className="ml-1 text-muted-foreground">(full)</span>
+                    ) : null}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatTripMoney(stop.fuel_price_per_gallon)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatTripDetour(
+                      stop.detour_distance_meters,
+                      stop.detour_time_seconds,
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatStopDistance(distances?.toNext ?? null)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatStopDistance(distances?.toDestination ?? null)}
+                  </TableCell>
+                </TableRow>
+              )
+            })}
           </TableBody>
         </Table>
       </div>
+
+      <TripEndpoints trip={trip} />
     </div>
   )
 }

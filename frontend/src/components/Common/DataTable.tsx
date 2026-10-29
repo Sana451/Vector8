@@ -32,11 +32,24 @@ import {
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
+  onRowClick?: (row: TData) => void
+}
+
+// Portaled menus and dialogs bubble clicks through React ancestors too,
+// so the target check covers them as well.
+const INTERACTIVE_SELECTOR =
+  'button, a, input, select, textarea, [role="menu"], [role="menuitem"], [role="dialog"], [role="alertdialog"]'
+
+function isInteractiveTarget(target: EventTarget) {
+  return (
+    target instanceof Element && target.closest(INTERACTIVE_SELECTOR) !== null
+  )
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
+  onRowClick,
 }: DataTableProps<TData, TValue>) {
   const table = useReactTable({
     data,
@@ -69,7 +82,18 @@ export function DataTable<TData, TValue>({
         <TableBody>
           {table.getRowModel().rows.length ? (
             table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
+              <TableRow
+                key={row.id}
+                className={onRowClick ? "cursor-pointer" : undefined}
+                onClick={
+                  onRowClick
+                    ? (event) => {
+                        if (isInteractiveTarget(event.target)) return
+                        onRowClick(row.original)
+                      }
+                    : undefined
+                }
+              >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

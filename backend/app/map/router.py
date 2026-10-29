@@ -16,6 +16,7 @@ from app.map.service import VehicleNotFoundError
 from app.map.services import FuelService
 from app.providers.exceptions import ProviderError
 from app.providers.schemas import FuelStationData
+from app.routing.exceptions import RoutingNoRouteFoundError
 
 logger = get_logger(__name__)
 
@@ -83,8 +84,8 @@ async def route_overview(
         Aggregated map overview with per-layer errors.
 
     Raises:
-        HTTPException: 502 when the mandatory route layer fails,
-            500 on unexpected errors.
+        HTTPException: 422 when no route exists for the vehicle dimensions,
+            502 when the mandatory route layer fails, 500 on unexpected errors.
     """
     try:
         return await map_service.get_overview(
@@ -93,6 +94,15 @@ async def route_overview(
         )
     except VehicleNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+    except RoutingNoRouteFoundError as e:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": e.message,
+                "provider": e.provider,
+                "provider_code": e.provider_code,
+            },
+        ) from e
     except ProviderError as e:
         raise HTTPException(
             status_code=502,

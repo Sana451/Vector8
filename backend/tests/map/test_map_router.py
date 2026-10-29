@@ -175,7 +175,7 @@ class TestRouteOverviewEndpoint:
         assert "rest_areas" not in failed_layers
         assert data["traffic"] is None
 
-    def test_routing_failure_returns_502(
+    def test_no_route_found_returns_422(
         self,
         client: TestClient,
         overview_payload: dict,
@@ -198,7 +198,7 @@ class TestRouteOverviewEndpoint:
             params={"force_refresh": "true"},
         )
 
-        assert response.status_code == 502
+        assert response.status_code == 422
         detail = response.json()["detail"]
         assert detail["message"] == "No route found"
         assert detail["provider"] == "test"

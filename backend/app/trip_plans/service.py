@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import secrets
 import uuid
+from decimal import Decimal
 
 from sqlmodel import Session, col, select
 
@@ -123,6 +124,8 @@ class TripPlanService:
             base_duration_seconds=base_route.duration_seconds,
             origin_label=self._route_label(base_route, "origin_label"),
             destination_label=self._route_label(base_route, "destination_label"),
+            initial_fuel_gallons=run.initial_fuel_gallons,
+            remaining_fuel_gallons=run.remaining_fuel_gallons,
         )
 
         return await self.refine(
@@ -313,6 +316,11 @@ class TripPlanService:
         return builder(name=trip_plan.name, stops=stops, coordinates=coordinates)
 
     @staticmethod
+    def _route_total_meters(trip_plan: TripPlan) -> int:
+        """Total length of the route the stops are placed on."""
+        return trip_plan.refined_distance_meters or trip_plan.base_distance_meters
+
+    @staticmethod
     def _with_endpoints(
         trip_plan: TripPlan, geometry: GeoJSONLineString | None
     ) -> list[TripPlanStopSnapshot]:
@@ -339,12 +347,18 @@ class TripPlanService:
             kind="start",
             label=trip_plan.origin_label or "Start",
             coordinate=(first[0], first[1]),
+            route_offset_meters=Decimal(0),
+            fuel_before_gallons=trip_plan.initial_fuel_gallons,
+            fuel_after_gallons=trip_plan.initial_fuel_gallons,
         )
         destination = TripPlanStopSnapshot(
             sequence=last_sequence + 1,
             kind="destination",
             label=trip_plan.destination_label or "Destination",
             coordinate=(last[0], last[1]),
+            route_offset_meters=Decimal(TripPlanService._route_total_meters(trip_plan)),
+            fuel_before_gallons=trip_plan.remaining_fuel_gallons,
+            fuel_after_gallons=trip_plan.remaining_fuel_gallons,
         )
         return [start, *stops, destination]
 
@@ -440,11 +454,14 @@ class TripPlanService:
         # plain string column keeps a ``str`` in a field annotated as an enum.
         # Excluding it from the dump avoids a serialization warning.
         data = trip_plan.model_dump(exclude={"stops_snapshot", "share_token", "status"})
+        vehicle = self.vehicle_repository.get(trip_plan.vehicle_id)
         return TripPlanPublic(
             **data,
             status=TripPlanStatus(trip_plan.status),
             number_of_stops=len(trip_plan.stops_snapshot),
             is_shared=trip_plan.share_token is not None,
+            vehicle_name=vehicle.name if vehicle is not None else None,
+            vehicle_unit_number=vehicle.unit_number if vehicle is not None else None,
         )
 
     def to_detail(self, trip_plan: TripPlan) -> TripPlanDetailPublic:
@@ -471,6 +488,7 @@ class TripPlanService:
 
         base_geometry = self._geometry(base_route)
         refined_geometry = self._geometry(refined_route)
+        vehicle = self.vehicle_repository.get(trip_plan.vehicle_id)
         return TripPlanDetailPublic(
             **self.to_public(trip_plan).model_dump(),
             stops=self._attach_stations(
@@ -479,6 +497,9 @@ class TripPlanService:
             base_geometry=base_geometry,
             refined_geometry=refined_geometry,
             delta=delta,
+            usable_tank_gallons=(
+                vehicle.usable_tank_capacity_gallons if vehicle is not None else None
+            ),
         )
 
     @staticmethod
@@ -540,7 +561,9 @@ class TripPlanService:
                 station_id=stop.station_id,
                 coordinate=(float(stop.longitude), float(stop.latitude)),
                 route_offset_meters=stop.route_offset_meters,
+                fuel_before_gallons=stop.fuel_before_gallons,
                 fuel_added_gallons=stop.fuel_added_gallons,
+                fuel_after_gallons=stop.fuel_after_gallons,
                 fuel_price_per_gallon=stop.fuel_price_per_gallon,
                 fuel_cost=stop.fuel_cost,
                 detour_distance_meters=stop.detour_distance_meters,
