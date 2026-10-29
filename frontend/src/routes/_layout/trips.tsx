@@ -6,7 +6,7 @@
  */
 
 import { useQuery } from "@tanstack/react-query"
-import { createFileRoute, Link, redirect } from "@tanstack/react-router"
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
 import { Route as RouteIcon } from "lucide-react"
 
 import { listTripPlans } from "@/api/tripPlans"
@@ -43,6 +43,7 @@ export const Route = createFileRoute("/_layout/trips")({
 })
 
 function TripsTable() {
+  const navigate = useNavigate()
   const { data, isLoading } = useQuery({
     queryKey: ["tripPlans"],
     queryFn: () => listTripPlans(),
@@ -80,7 +81,8 @@ function TripsTable() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Trip</TableHead>
+            <TableHead>Unit #</TableHead>
+            <TableHead>Name</TableHead>
             <TableHead>From</TableHead>
             <TableHead>To</TableHead>
             <TableHead>Status</TableHead>
@@ -92,16 +94,17 @@ function TripsTable() {
         </TableHeader>
         <TableBody>
           {trips.map((trip) => (
-            <TableRow key={trip.id}>
-              <TableCell>
-                <Link
-                  to="/trips/$tripId"
-                  params={{ tripId: trip.id }}
-                  className="font-medium underline-offset-4 hover:underline"
-                >
-                  {trip.name}
-                </Link>
+            <TableRow
+              key={trip.id}
+              className="cursor-pointer"
+              onClick={() =>
+                navigate({ to: "/trips/$tripId", params: { tripId: trip.id } })
+              }
+            >
+              <TableCell className="font-medium">
+                {trip.vehicle_unit_number ?? "—"}
               </TableCell>
+              <TableCell>{trip.vehicle_name ?? "—"}</TableCell>
               <TableCell
                 className="max-w-[220px] truncate"
                 title={trip.origin_label ?? undefined}

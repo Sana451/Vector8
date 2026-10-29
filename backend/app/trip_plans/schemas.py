@@ -106,6 +106,8 @@ class TripPlanPublic(BaseModel):
     assigned_driver_id: uuid.UUID | None = None
     assigned_at: datetime | None = None
     vehicle_id: uuid.UUID
+    vehicle_name: str | None = None
+    vehicle_unit_number: str | None = None
     base_route_id: uuid.UUID
     optimization_run_id: uuid.UUID
     refined_route_id: uuid.UUID | None = None

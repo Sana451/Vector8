@@ -2735,6 +2735,14 @@ export type TripPlanDetailPublic = {
      */
     vehicle_id: string;
     /**
+     * Vehicle Name
+     */
+    vehicle_name?: string | null;
+    /**
+     * Vehicle Unit Number
+     */
+    vehicle_unit_number?: string | null;
+    /**
      * Base Route Id
      */
     base_route_id: string;
@@ -2841,6 +2849,14 @@ export type TripPlanPublic = {
      * Vehicle Id
      */
     vehicle_id: string;
+    /**
+     * Vehicle Name
+     */
+    vehicle_name?: string | null;
+    /**
+     * Vehicle Unit Number
+     */
+    vehicle_unit_number?: string | null;
     /**
      * Base Route Id
      */

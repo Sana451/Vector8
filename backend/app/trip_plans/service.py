@@ -440,11 +440,14 @@ class TripPlanService:
         # plain string column keeps a ``str`` in a field annotated as an enum.
         # Excluding it from the dump avoids a serialization warning.
         data = trip_plan.model_dump(exclude={"stops_snapshot", "share_token", "status"})
+        vehicle = self.vehicle_repository.get(trip_plan.vehicle_id)
         return TripPlanPublic(
             **data,
             status=TripPlanStatus(trip_plan.status),
             number_of_stops=len(trip_plan.stops_snapshot),
             is_shared=trip_plan.share_token is not None,
+            vehicle_name=vehicle.name if vehicle is not None else None,
+            vehicle_unit_number=vehicle.unit_number if vehicle is not None else None,
         )
 
     def to_detail(self, trip_plan: TripPlan) -> TripPlanDetailPublic:
