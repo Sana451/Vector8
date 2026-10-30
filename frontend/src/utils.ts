@@ -9,6 +9,9 @@ function extractErrorMessage(err: Error): string {
     if (typeof errDetail === "string") {
       return errDetail
     }
+    if (typeof errDetail?.message === "string") {
+      return errDetail.message
+    }
     return err.message
   }
   return "Something went wrong."

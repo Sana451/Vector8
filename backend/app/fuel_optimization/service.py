@@ -795,7 +795,7 @@ class OptimizeFuelUseCase:
                     sequence=len(points),
                     kind="refuel" if stop else "station",
                     status="reached",
-                    label=visit.name or f"Station {visit.station_id}",
+                    label=visit.name or "Unnamed station",
                     station_id=visit.station_id,
                     route_offset_meters=visit.route_offset_meters,
                     coordinate=(visit.longitude, visit.latitude),
