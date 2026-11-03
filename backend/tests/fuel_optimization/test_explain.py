@@ -132,6 +132,28 @@ def test_context_without_focus_lists_whole_itinerary() -> None:
     assert "focused_point" not in context
 
 
+def test_context_labels_points_with_display_names() -> None:
+    context = build_explanation_context(_result())
+
+    names = [p["display_name"] for p in context["itinerary"]]
+    assert names == ["Stop 1", "Destination (not a fuel stop)"]
+
+
+def test_focus_on_destination_is_not_called_a_stop() -> None:
+    result = _result()
+    destination = result.itinerary[-1]
+    messages = build_messages(
+        result,
+        stop_sequence=destination.sequence,
+        question=None,
+        history=[],
+        language="ru",
+    )
+
+    assert "Destination (not a fuel stop)" in messages[0]["content"]
+    assert "kind=destination" in messages[0]["content"]
+
+
 def test_messages_end_with_question_after_history() -> None:
     messages = build_messages(
         _result(),

@@ -14,6 +14,7 @@ from app.llm import LLMProvider, LLMProviderError
 MAX_ALTERNATIVES_PER_STOP = 8
 # Keeps the request under the provider's per-request token limit (HTTP 413).
 MAX_CONTEXT_CHARS = 6000
+MAX_LLM_ATTEMPTS = 2
 LANGUAGE_NAMES = {"en": "English", "ru": "Russian"}
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,11 @@ answer, say so.
 structured; avoid jargon.
 - Explain terms like "effective price" (sticker price plus the cost of the \
 detour and the stop) when you use them.
+- Itinerary "sequence" values are internal and start at 0. Refer to points by \
+"display_name" (Start, Stop 1..N, Destination). The destination is NOT a fuel \
+stop; never call it a stop.
+- Use only the names, numbers and points present in the JSON context. Never
+  invent station names, mileages or prices; if something is missing, say so.
 - Write plain text: short paragraphs and simple "-" bullets, no Markdown \
 headings, tables or bold.
 - Prices are USD per gallon, fuel is in gallons, distances in meters in the \
@@ -97,6 +103,15 @@ def _alternative_context(alt: FuelOptimizationAlternativePublic) -> dict[str, An
     }
 
 
+def _display_name(point: FuelOptimizationItineraryPointPublic) -> str:
+    """Name shown to the user on the map: S, 1..N, D."""
+    if point.kind == "start":
+        return "Start"
+    if point.kind == "destination":
+        return "Destination (not a fuel stop)"
+    return f"Stop {point.sequence}"
+
+
 def _point_context(
     point: FuelOptimizationItineraryPointPublic,
     max_alternatives: int = MAX_ALTERNATIVES_PER_STOP,
@@ -104,6 +119,7 @@ def _point_context(
 ) -> dict[str, Any]:
     data: dict[str, Any] = {
         "sequence": point.sequence,
+        "display_name": _display_name(point),
         "kind": point.kind,
         "status": point.status,
         "label": point.label,
@@ -221,7 +237,12 @@ def build_explanation_context(
     if focused is not None:
         context["focused_point"] = _point_context(focused, max_alternatives)
         overview = [
-            {"sequence": p.sequence, "kind": p.kind, "label": p.label}
+            {
+                "sequence": p.sequence,
+                "display_name": _display_name(p),
+                "kind": p.kind,
+                "label": p.label,
+            }
             for p in result.itinerary
         ]
         if max_points is not None and len(overview) > max_points:
@@ -271,9 +292,15 @@ def build_messages(
     has_focus = '"focused_point"' in context_json
     focus_hint = ""
     if has_focus:
+        focused = next(
+            (p for p in result.itinerary if p.sequence == stop_sequence), None
+        )
+        name = _display_name(focused) if focused is not None else ""
+        kind = focused.kind if focused is not None else "stop"
         focus_hint = (
-            f" The user is looking at itinerary point #{stop_sequence}"
-            " (see focused_point)."
+            f" The user is looking at {name} (kind={kind}); see focused_point."
+            " If kind is start or destination, it is NOT a fuel stop: explain"
+            " the fuel state and arrival/departure there instead of stop choices."
         )
     system = SYSTEM_PROMPT.format(
         rejected_colors=", ".join(
@@ -345,11 +372,17 @@ class FuelOptimizationExplainer:
                 history=history,
                 language=language,
             )
-            try:
-                return await self._provider.complete(messages), "ai"
-            except LLMProviderError as exc:
-                cause = exc.__cause__
-                logger.warning(
-                    "LLM explanation failed, using fallback: %s (%s)", exc, cause
-                )
+            for attempt in range(1, MAX_LLM_ATTEMPTS + 1):
+                try:
+                    return await self._provider.complete(messages), "ai"
+                except LLMProviderError as exc:
+                    cause = exc.__cause__
+                    logger.warning(
+                        "LLM explanation attempt %d/%d failed: %s (%s)",
+                        attempt,
+                        MAX_LLM_ATTEMPTS,
+                        exc,
+                        cause,
+                    )
+            logger.warning("LLM explanation failed, using fallback")
         return build_fallback_answer(result, stop_sequence), "fallback"

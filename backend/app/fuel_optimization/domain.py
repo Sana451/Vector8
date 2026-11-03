@@ -1522,7 +1522,7 @@ class GreedyFuelOptimizationStrategy:
                 FuelOptimizationFailureTarget(
                     kind="station",
                     station_id=station.station_id,
-                    name=station.name or f"Station {station.station_id}",
+                    name=station.name or "Unnamed station",
                     route_offset_meters=_q4(station.route_offset_meters),
                     latitude=station.latitude,
                     longitude=station.longitude,
