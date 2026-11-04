@@ -11,7 +11,7 @@ All reads apply lazy TTL invalidation - expired rows are simply not returned.
 from datetime import timedelta
 
 from sqlalchemy import func
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from app.core.datetime import get_datetime_utc
 from app.core.logging import get_logger
@@ -315,26 +315,28 @@ class FuelStationRepository(_SpatialLayerRepository):
             external_ids = list(stations_by_id.keys())
 
             # Fetch existing stations with matching external IDs
+            # Chunked so the IN list stays within database parameter limits.
+            chunk_size = 1000
             existing_map: dict[str, FuelStation] = {}
-            for external_id in external_ids:
+            for start in range(0, len(external_ids), chunk_size):
+                chunk = external_ids[start : start + chunk_size]
                 statement = select(FuelStation).where(
-                    (FuelStation.provider == provider)
-                    & (FuelStation.external_id == external_id)
+                    (col(FuelStation.provider) == provider)
+                    & (col(FuelStation.external_id).in_(chunk))
                 )
-                existing = self.session.exec(statement).first()
-                if existing is not None:
-                    existing_map[external_id] = existing
+                for existing in self.session.exec(statement).all():
+                    existing_map.setdefault(existing.external_id, existing)
 
             # Process all stations
             for external_id, row in stations_by_id.items():
-                existing = existing_map.get(external_id)
+                found = existing_map.get(external_id)
 
-                if existing is not None:
+                if found is not None:
                     for key, value in row.items():
-                        setattr(existing, key, value)
-                    existing.created_at = now
-                    existing.expires_at = expires_at
-                    self.session.add(existing)
+                        setattr(found, key, value)
+                    found.created_at = now
+                    found.expires_at = expires_at
+                    self.session.add(found)
                 else:
                     self.session.add(
                         FuelStation(

@@ -1,5 +1,7 @@
 """Schemas for admin fuel imports."""
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -27,3 +29,19 @@ class PumpPriceImportMobileResponse(PumpPriceImportResponse):
     """Summary of a synchronous PumpPrice import from mobile app run."""
 
     source_provider: str = "pumpprice-mobile"
+
+
+class ImportTaskEnqueuedResponse(BaseModel):
+    """Result of enqueuing a background import task."""
+
+    task_id: str
+    task_name: str
+
+
+class ImportTaskStatusResponse(BaseModel):
+    """State of a background import task."""
+
+    task_id: str
+    state: str
+    result: dict[str, Any] | None = None
+    error: str | None = None

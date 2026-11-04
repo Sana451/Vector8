@@ -1886,6 +1886,48 @@ export type HTTPValidationError = {
 };
 
 /**
+ * ImportTaskEnqueuedResponse
+ *
+ * Result of enqueuing a background import task.
+ */
+export type ImportTaskEnqueuedResponse = {
+    /**
+     * Task Id
+     */
+    task_id: string;
+    /**
+     * Task Name
+     */
+    task_name: string;
+};
+
+/**
+ * ImportTaskStatusResponse
+ *
+ * State of a background import task.
+ */
+export type ImportTaskStatusResponse = {
+    /**
+     * Task Id
+     */
+    task_id: string;
+    /**
+     * State
+     */
+    state: string;
+    /**
+     * Result
+     */
+    result?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Error
+     */
+    error?: string | null;
+};
+
+/**
  * ItemCreate
  */
 export type ItemCreate = {
@@ -4855,6 +4897,52 @@ export type fuelImportPumppriceMobileResponses = {
 };
 
 export type fuelImportPumppriceMobileResponse = fuelImportPumppriceMobileResponses[keyof fuelImportPumppriceMobileResponses];
+
+export type fuelEnqueueImportPumppriceMobileData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/fuel/import/pumpprice/mobile/async';
+};
+
+export type fuelEnqueueImportPumppriceMobileResponses = {
+    /**
+     * Successful Response
+     */
+    202: ImportTaskEnqueuedResponse;
+};
+
+export type fuelEnqueueImportPumppriceMobileResponse = fuelEnqueueImportPumppriceMobileResponses[keyof fuelEnqueueImportPumppriceMobileResponses];
+
+export type fuelGetImportPumppriceMobileTaskData = {
+    body?: never;
+    path: {
+        /**
+         * Task Id
+         */
+        task_id: string;
+    };
+    query?: never;
+    url: '/api/v1/fuel/import/pumpprice/mobile/tasks/{task_id}';
+};
+
+export type fuelGetImportPumppriceMobileTaskErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type fuelGetImportPumppriceMobileTaskError = fuelGetImportPumppriceMobileTaskErrors[keyof fuelGetImportPumppriceMobileTaskErrors];
+
+export type fuelGetImportPumppriceMobileTaskResponses = {
+    /**
+     * Successful Response
+     */
+    200: ImportTaskStatusResponse;
+};
+
+export type fuelGetImportPumppriceMobileTaskResponse = fuelGetImportPumppriceMobileTaskResponses[keyof fuelGetImportPumppriceMobileTaskResponses];
 
 export type fuelOptimizationCalculateFuelOptimizationData = {
     body: FuelOptimizationCalculateRequest;

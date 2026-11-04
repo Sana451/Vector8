@@ -32,6 +32,35 @@ Start the FastAPI development server:
 uv run fastapi dev
 ```
 
+### Background Tasks (Celery)
+
+Background tasks (for example the scheduled PumpPrice import) need Redis and separate Celery processes. They are not started by the commands above; without them `POST /fuel/import/pumpprice/mobile/async` returns an error because the broker is unavailable.
+
+Start Redis:
+
+```bash
+docker compose up -d redis
+```
+
+Then, from the `backend` directory, run each process in its own terminal:
+
+```bash
+# Executes tasks
+uv run celery -A app.tasks.celery_app worker -l info
+
+# Schedules periodic tasks (only needed with PUMPPRICE_MOBILE_SYNC_ENABLED=true)
+uv run celery -A app.tasks.celery_app beat -l info
+
+# Optional: monitoring UI at http://localhost:5555
+uv run celery -A app.tasks.celery_app flower --port=5555
+```
+
+Run exactly one `beat` process. The defaults `CELERY_BROKER_URL=redis://localhost:6379/0` and `CELERY_RESULT_BACKEND=redis://localhost:6379/1` work locally; the Redis port is published by `compose.override.yml`.
+
+To enable the schedule, set `PUMPPRICE_MOBILE_SYNC_ENABLED=true` in `.env`, together with `PUMPPRICE_MOBILE_EMAIL` and `PUMPPRICE_MOBILE_PASSWORD`. The run time is set by `PUMPPRICE_MOBILE_SYNC_CRON_MINUTE` and `PUMPPRICE_MOBILE_SYNC_CRON_HOUR` (default: every hour at minute 0, UTC). To trigger a run immediately, use the `/fuel/import/pumpprice/mobile/async` endpoint and poll `/fuel/import/pumpprice/mobile/tasks/{task_id}`.
+
+With the full Docker Compose stack (`docker compose watch`), `redis`, `worker`, `beat` and `flower` start automatically. Flower is available at <http://localhost:5555>.
+
 In another terminal, from the project root, install the frontend dependencies and start the Vite development server:
 
 ```bash
