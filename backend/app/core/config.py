@@ -101,6 +101,21 @@ class Settings(BaseSettings):
     PUMPPRICE_MOBILE_EMAIL: str | None = None
     PUMPPRICE_MOBILE_PASSWORD: str | None = None
 
+    # Background tasks (Celery). Broker/result backend: Redis.
+    CELERY_BROKER_URL: str = "redis://localhost:6379/0"
+    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/1"
+    CELERY_TIMEZONE: str = "UTC"
+    CELERY_TASK_TIME_LIMIT_SECONDS: int = 1800
+    CELERY_RESULT_EXPIRES_SECONDS: int = 86400
+    # Run tasks inline (no broker). Useful for tests.
+    CELERY_TASK_ALWAYS_EAGER: bool = False
+
+    # Scheduled PumpPrice mobile import (celery beat)
+    PUMPPRICE_MOBILE_SYNC_ENABLED: bool = False
+    # Crontab fields in CELERY_TIMEZONE, default: every hour at minute 0
+    PUMPPRICE_MOBILE_SYNC_CRON_MINUTE: str = "0"
+    PUMPPRICE_MOBILE_SYNC_CRON_HOUR: str = "*"
+
     # Internal truck restriction API
     TRUCK_RESTRICTION_API_BASE_URL: str | None = None
     TRUCK_RESTRICTION_API_KEY: str | None = None

@@ -63,6 +63,8 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       EMAILS_FROM_EMAIL: ${EMAILS_FROM_EMAIL}
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?Variable not set}@db:5432/app
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
       SENTRY_DSN: ${SENTRY_DSN:-}
       ROUTING_PROVIDER: ${ROUTING_PROVIDER:-tomtom}
       REST_AREAS_PROVIDER: ${REST_AREAS_PROVIDER:-here}
@@ -84,7 +86,7 @@ services:
       timeout: 5s
       retries: 5
 
-    build:
+    build: &backend-build
       context: .
       dockerfile: backend/Dockerfile
     labels:
@@ -98,5 +100,71 @@ services:
       - traefik.http.routers.backend-http.rule=Host(`${DOMAIN:-localhost}`)
       - traefik.http.routers.backend-http.entrypoints=http
 
+  redis:
+    image: redis:8-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - app-redis-data:/data
+
+  worker:
+    image: backend:latest
+    build: *backend-build
+    command: ["celery", "-A", "app.tasks.celery_app", "worker", "-l", "info", "--concurrency", "${CELERY_WORKER_CONCURRENCY:-2}"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment: &task-env
+      PROJECT_NAME: ${PROJECT_NAME:?Variable not set}
+      SECRET_KEY: ${SECRET_KEY:?Variable not set}
+      FIRST_SUPERUSER: ${FIRST_SUPERUSER:?Variable not set}
+      FIRST_SUPERUSER_PASSWORD: ${FIRST_SUPERUSER_PASSWORD:?Variable not set}
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?Variable not set}@db:5432/app
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      ROUTING_PROVIDER: ${ROUTING_PROVIDER:-tomtom}
+      TOMTOM_API_KEY: ${TOMTOM_API_KEY:-}
+      PUMPPRICE_MOBILE_EMAIL: ${PUMPPRICE_MOBILE_EMAIL:-}
+      PUMPPRICE_MOBILE_PASSWORD: ${PUMPPRICE_MOBILE_PASSWORD:-}
+      FUEL_CACHE_TTL_SECONDS: ${FUEL_CACHE_TTL_SECONDS:-86400}
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      CELERY_TIMEZONE: ${CELERY_TIMEZONE:-UTC}
+      PUMPPRICE_MOBILE_SYNC_ENABLED: ${PUMPPRICE_MOBILE_SYNC_ENABLED:-false}
+      PUMPPRICE_MOBILE_SYNC_CRON_MINUTE: ${PUMPPRICE_MOBILE_SYNC_CRON_MINUTE:-0}
+      PUMPPRICE_MOBILE_SYNC_CRON_HOUR: ${PUMPPRICE_MOBILE_SYNC_CRON_HOUR:-*}
+
+  # Exactly ONE beat instance must run, otherwise tasks are scheduled twice.
+  beat:
+    image: backend:latest
+    build: *backend-build
+    command: ["celery", "-A", "app.tasks.celery_app", "beat", "-l", "info", "--schedule", "/tmp/celerybeat-schedule"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment: *task-env
+
+  flower:
+    image: backend:latest
+    build: *backend-build
+    command: ["celery", "-A", "app.tasks.celery_app", "flower", "--port=5555"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      <<: *task-env
+      FLOWER_BASIC_AUTH: ${FLOWER_BASIC_AUTH:-admin:admin}
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.flower.loadbalancer.server.port=5555
+      - traefik.http.routers.flower-http.rule=Host(`flower.${DOMAIN:-localhost}`)
+      - traefik.http.routers.flower-http.entrypoints=http
+
 volumes:
   app-db-data:
+  app-redis-data:

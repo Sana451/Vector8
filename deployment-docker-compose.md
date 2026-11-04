@@ -127,3 +127,16 @@ Application (frontend and API): `https://fastapi-project.example.com`
 Interactive API docs: `https://fastapi-project.example.com/docs`
 
 Adminer: `https://adminer.fastapi-project.example.com`
+
+Flower: `https://flower.fastapi-project.example.com`
+
+## Background Tasks (Celery)
+
+Compose starts `redis`, `worker`, `beat` and `flower`.
+
+* `worker` executes tasks, `beat` schedules them. Run **exactly one** `beat` instance; scale `worker` freely.
+* Set `FLOWER_BASIC_AUTH=user:password` (required in production).
+* Enable the PumpPrice mobile import with `PUMPPRICE_MOBILE_SYNC_ENABLED=true`. The time is set by `PUMPPRICE_MOBILE_SYNC_CRON_MINUTE` / `PUMPPRICE_MOBILE_SYNC_CRON_HOUR` in `CELERY_TIMEZONE` (default: every hour at minute 0, UTC). It also needs `PUMPPRICE_MOBILE_EMAIL` and `PUMPPRICE_MOBILE_PASSWORD`.
+* Overlapping runs are prevented with a PostgreSQL advisory lock.
+
+To add a task: create it in a module, register the module in `TASK_MODULES` (`backend/app/tasks/celery_app.py`) and add a schedule entry in `backend/app/tasks/schedule.py`.

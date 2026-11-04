@@ -74,6 +74,24 @@ services:
       - "8025:8025"
       - "1025:1025"
 
+  redis:
+    ports:
+      - "6379:6379"
+
+  worker:
+    environment:
+      FASTAPI_ENV: "development"
+
+  beat:
+    environment:
+      FASTAPI_ENV: "development"
+
+  flower:
+    environment:
+      FASTAPI_ENV: "development"
+    ports:
+      - "5555:5555"
+
   playwright:
     build:
       context: .

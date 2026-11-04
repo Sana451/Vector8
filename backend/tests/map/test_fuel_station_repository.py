@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy import event
 from sqlmodel import Session, delete, select
 
 from app.map.models import FuelStation
@@ -70,6 +71,53 @@ def _set_expires_at(db: Session, *, external_id: str, expires_at: datetime) -> N
     row.expires_at = expires_at
     db.add(row)
     db.commit()
+
+
+def test_upsert_many_fetches_existing_rows_in_one_query(
+    repository: FuelStationRepository, db: Session
+) -> None:
+    station_count = 50
+    seed_rows = [
+        _station_row(
+            external_id=f"batch-{index}",
+            longitude=-95.97,
+            latitude=40.0004,
+            diesel_price=3.0,
+        )
+        for index in range(station_count)
+    ]
+    repository.upsert_many(provider="here", stations=seed_rows, ttl_seconds=60)
+
+    updated_rows = [
+        _station_row(
+            external_id=f"batch-{index}",
+            longitude=-95.97,
+            latitude=40.0004,
+            diesel_price=5.0,
+        )
+        for index in range(station_count)
+    ]
+
+    engine = db.get_bind()
+    select_statements: list[str] = []
+
+    def record_select(_conn, _cursor, statement, *_args):
+        if statement.lstrip().upper().startswith("SELECT"):
+            select_statements.append(statement)
+
+    event.listen(engine, "before_cursor_execute", record_select)
+    try:
+        persisted = repository.upsert_many(
+            provider="here", stations=updated_rows, ttl_seconds=60
+        )
+    finally:
+        event.remove(engine, "before_cursor_execute", record_select)
+
+    assert persisted == station_count
+    assert len(select_statements) == 1
+    rows = db.exec(select(FuelStation).where(FuelStation.provider == "here")).all()
+    assert len(rows) == station_count
+    assert {row.diesel_price for row in rows} == {5.0}
 
 
 def test_internal_provider_respects_ttl(

@@ -82,6 +82,18 @@ Application (frontend and API): `https://your-app.fastapicloud.dev`
 
 Interactive API docs: `https://your-app.fastapicloud.dev/docs`
 
+## Background Tasks (Celery)
+
+FastAPI Cloud runs only the web application. The Celery `worker`, `beat` and Flower are not started there, so scheduled tasks (for example the PumpPrice import) do not run in the cloud on their own.
+
+Until you move to Docker Compose:
+
+* Create an external Redis (for example Upstash or Redis Cloud) and set `CELERY_BROKER_URL` and `CELERY_RESULT_BACKEND` as secrets.
+* Run `worker`, `beat` and `flower` from the compose file on a separate host (`docker compose up -d redis worker beat flower`) using the same `DATABASE_URL` and Redis URLs, or keep using the manual `/fuel/import/pumpprice/mobile` endpoint.
+* Enable the schedule with `PUMPPRICE_MOBILE_SYNC_ENABLED=true`.
+
+See the [Docker Compose deployment guide](./deployment-docker-compose.md#background-tasks-celery) for the full setup.
+
 ## Docker Compose
 
 For deployment to your own server, see the [Docker Compose deployment guide](./deployment-docker-compose.md).
