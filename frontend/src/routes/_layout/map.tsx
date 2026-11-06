@@ -819,17 +819,26 @@ function MapPage() {
                 <Select
                   value={selectedShipmentId}
                   onValueChange={(value) => void handleSelectShipment(value)}
+                  disabled={shipments.length === 0}
                 >
                   <SelectTrigger id="map-shipment" className="w-full">
-                    <SelectValue placeholder="Select shipment" />
+                    <SelectValue
+                      placeholder={
+                        shipments.length === 0
+                          ? "No shipments yet"
+                          : "Select shipment"
+                      }
+                    />
                   </SelectTrigger>
-                  <SelectContent>
-                    {shipments.map((shipment) => (
-                      <SelectItem key={shipment.id} value={shipment.id}>
-                        {shipment.reference_number ?? shipment.id.slice(0, 8)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+                  {shipments.length > 0 && (
+                    <SelectContent>
+                      {shipments.map((shipment) => (
+                        <SelectItem key={shipment.id} value={shipment.id}>
+                          {shipment.reference_number ?? shipment.id.slice(0, 8)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  )}
                 </Select>
               </div>
               {/* Pickup Address */}
