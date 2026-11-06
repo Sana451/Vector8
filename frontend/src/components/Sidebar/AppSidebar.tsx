@@ -1,4 +1,5 @@
 import {
+  FileText,
   HelpCircle,
   Home,
   MapIcon,
@@ -31,6 +32,11 @@ const driverItem: Item = {
   path: "/my-trips",
 }
 const dispatcherItem: Item = { icon: RouteIcon, title: "Trips", path: "/trips" }
+const shipmentsItem: Item = {
+  icon: FileText,
+  title: "Shipments",
+  path: "/shipments",
+}
 
 export function AppSidebar() {
   const { user: currentUser } = useAuth()
@@ -40,6 +46,7 @@ export function AppSidebar() {
   const items: Item[] = [
     ...baseItems,
     isDriver ? driverItem : dispatcherItem,
+    ...(isDriver ? [] : [shipmentsItem]),
     ...(currentUser?.is_superuser
       ? [
           { icon: Truck, title: "Fleet", path: "/fleet" },

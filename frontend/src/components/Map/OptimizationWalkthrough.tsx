@@ -52,6 +52,8 @@ interface OptimizationWalkthroughProps {
   /** Trip plan holding the refined route, if one has been built. */
   tripPlan?: TripPlanDetailPublic | null
   onTripPlanChange?: (tripPlan: TripPlanDetailPublic) => void
+  /** Shipment pickup point, shown as an intermediate waypoint (not a refuel stop). */
+  pickupLabel?: string | null
 }
 
 function formatGallons(value: number | undefined): string {
@@ -115,6 +117,7 @@ export function OptimizationWalkthrough({
   explainPortalContainer,
   tripPlan = null,
   onTripPlanChange,
+  pickupLabel = null,
 }: OptimizationWalkthroughProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [explainTarget, setExplainTarget] = useState<"plan" | "step" | null>(
@@ -225,6 +228,12 @@ export function OptimizationWalkthrough({
       {/* Step details */}
       {!isCollapsed && (
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+          {pickupLabel && (
+            <div className="mb-2 flex items-center gap-1.5 rounded-md border border-amber-400/60 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+              <span className="font-semibold">Погрузка:</span>
+              <span className="truncate">{pickupLabel}</span>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold truncate">
               {activeStep.label}

@@ -9,6 +9,7 @@ export interface AddressSelection extends GeocodingSearchResponse {
 
 interface BuildRouteOverviewRequestOptions {
   pickup: MapPointInput
+  waypoint?: MapPointInput
   delivery: MapPointInput
   radiusMeters?: number
   layers?: Array<MapLayer>
@@ -39,6 +40,7 @@ export function createAddressSelection(
 
 export function buildRouteOverviewRequest({
   pickup,
+  waypoint,
   delivery,
   radiusMeters,
   layers,
@@ -47,6 +49,7 @@ export function buildRouteOverviewRequest({
 }: BuildRouteOverviewRequestOptions): MapOverviewRequest {
   return {
     pickup,
+    ...(waypoint ? { waypoint } : {}),
     delivery,
     ...(radiusMeters !== undefined ? { radius_meters: radiusMeters } : {}),
     ...(layers ? { layers } : {}),

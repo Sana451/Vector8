@@ -34,6 +34,7 @@ const FUEL_LABEL_LAYER_ID = "trip-stops-fuel-label"
 // Distance below the drop icon's anchor where the numbered badge is drawn.
 const FUEL_BADGE_OFFSET_PX = 14
 const FUEL_IMAGE_ID = "trip-stop-fuel-drop"
+const MARKER_KINDS = ["start", "destination", "pickup", "dropoff"]
 
 interface TripStopsLayerProps {
   mapInstance: MapLibreMap | null
@@ -44,6 +45,8 @@ interface TripStopsLayerProps {
 function markerLabel(stop: TripPlanStopSnapshot): string {
   if (stop.kind === "start") return "S"
   if (stop.kind === "destination") return "D"
+  if (stop.kind === "pickup") return "P"
+  if (stop.kind === "dropoff") return "U"
   return String(stop.sequence)
 }
 
@@ -238,7 +241,7 @@ export function TripStopsLayer({
         id: CIRCLE_LAYER_ID,
         type: "circle",
         source: sourceId,
-        filter: ["in", ["get", "kind"], ["literal", ["start", "destination"]]],
+        filter: ["in", ["get", "kind"], ["literal", MARKER_KINDS]],
         paint: {
           "circle-radius": 12,
           "circle-color": [
@@ -246,6 +249,10 @@ export function TripStopsLayer({
             ["get", "kind"],
             "start",
             "#16a34a",
+            "pickup",
+            "#2563eb",
+            "dropoff",
+            "#9333ea",
             "#dc2626",
           ],
           "circle-stroke-width": 2,
@@ -256,7 +263,7 @@ export function TripStopsLayer({
         id: LABEL_LAYER_ID,
         type: "symbol",
         source: sourceId,
-        filter: ["in", ["get", "kind"], ["literal", ["start", "destination"]]],
+        filter: ["in", ["get", "kind"], ["literal", MARKER_KINDS]],
         layout: {
           "text-field": ["get", "markerLabel"],
           "text-size": 12,
@@ -268,10 +275,7 @@ export function TripStopsLayer({
         id: FUEL_LAYER_ID,
         type: "symbol",
         source: sourceId,
-        filter: [
-          "!",
-          ["in", ["get", "kind"], ["literal", ["start", "destination"]]],
-        ],
+        filter: ["!", ["in", ["get", "kind"], ["literal", MARKER_KINDS]]],
         layout: {
           "icon-image": FUEL_IMAGE_ID,
           "icon-size": 1,
@@ -284,10 +288,7 @@ export function TripStopsLayer({
         id: FUEL_BADGE_LAYER_ID,
         type: "circle",
         source: sourceId,
-        filter: [
-          "!",
-          ["in", ["get", "kind"], ["literal", ["start", "destination"]]],
-        ],
+        filter: ["!", ["in", ["get", "kind"], ["literal", MARKER_KINDS]]],
         paint: {
           "circle-radius": 10,
           "circle-color": "#16a34a",
@@ -301,10 +302,7 @@ export function TripStopsLayer({
         id: FUEL_LABEL_LAYER_ID,
         type: "symbol",
         source: sourceId,
-        filter: [
-          "!",
-          ["in", ["get", "kind"], ["literal", ["start", "destination"]]],
-        ],
+        filter: ["!", ["in", ["get", "kind"], ["literal", MARKER_KINDS]]],
         layout: {
           "text-field": ["get", "markerLabel"],
           "text-size": 12,

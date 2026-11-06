@@ -9,6 +9,7 @@ from app.fuel_optimization.router import router as fuel_optimization_router
 from app.geocoding.router import router as geocoding_router
 from app.map.router import router as map_router
 from app.routing.router import router as routing_router
+from app.shipments.router import router as shipments_router
 from app.trip_plans.router import router as trip_plans_router
 
 api_router = APIRouter()
@@ -24,6 +25,7 @@ api_router.include_router(routing_router)
 api_router.include_router(map_router)
 api_router.include_router(trip_plans_router)
 api_router.include_router(drivers_router)
+api_router.include_router(shipments_router)
 
 
 if settings.FASTAPI_ENV == "development":

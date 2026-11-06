@@ -11,16 +11,18 @@ import {
 } from "react"
 import { calculateFuelOptimization } from "@/api/fuelOptimization"
 import { getAllFuelStations, getRouteOverview, searchAddress } from "@/api/map"
-import { listVehicles } from "@/api/vehicles"
-import type {
-  FuelOptimizationCalculateResponse_Output as FuelOptimizationCalculateResponse,
-  FuelStationData,
-  GeocodingSearchResponse,
-  TrafficLayerData,
-  TripPlanDetailPublic,
-  TruckRestrictionData,
-  VehicleConstraintsInfo,
-  VehiclePublic,
+import { listLatestVehiclePositions, listVehicles } from "@/api/vehicles"
+import {
+  type FuelOptimizationCalculateResponse_Output as FuelOptimizationCalculateResponse,
+  type FuelStationData,
+  type GeocodingSearchResponse,
+  ShipmentsService,
+  type TrafficLayerData,
+  type TripPlanDetailPublic,
+  type TruckRestrictionData,
+  type VehicleConstraintsInfo,
+  type VehiclePublic,
+  VehiclesService,
 } from "@/client"
 import type { RestAreaFeatureCollection } from "@/client/types.gen"
 import { FloatingOpacityControl } from "@/components/Map/FloatingOpacityControl"
@@ -39,8 +41,10 @@ import {
   RefinedRouteLayer,
   RestAreaLayer,
   RouteLayer,
+  ShipmentPickupLayer,
   TrafficLayer,
   TruckRestrictionLayer,
+  VehiclePositionsLayer,
 } from "@/components/Map/layers"
 import { MeasureTool } from "@/components/Map/MeasureTool"
 import { OptimizationWalkthrough } from "@/components/Map/OptimizationWalkthrough"
@@ -48,6 +52,13 @@ import TomTomMap, { type TomTomMapHandle } from "@/components/Map/TomTomMap"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { VehicleSelector } from "@/components/VehicleSelector"
 import useCustomToast from "@/hooks/useCustomToast"
 import { useFloatingOpacity } from "@/hooks/useFloatingOpacity"
@@ -61,6 +72,7 @@ import { extractOverviewCoordinates } from "@/lib/mapLayers"
 import {
   type AddressSelection,
   buildMapPointFromAddress,
+  buildMapPointFromLocation,
   buildRouteOverviewRequest,
   createAddressSelection,
 } from "@/lib/mapRequest"
@@ -124,6 +136,7 @@ function MapPage() {
       "truck-restrictions",
       "rest-areas",
       "optimization-stops",
+      "vehicle-positions",
     ]),
   )
 
@@ -153,6 +166,11 @@ function MapPage() {
   )
   const [deliveryAddress, setDeliveryAddress] = useState(
     "3660 Gateway Street Springfield OR 97477",
+  )
+  const [selectedShipmentId, setSelectedShipmentId] = useState("")
+  // Shipment pickup is an intermediate optimizer waypoint, not the start.
+  const [shipmentPickup, setShipmentPickup] = useState<AddressSelection | null>(
+    null,
   )
   const [pickupSuggestion, setPickupSuggestion] =
     useState<GeocodingSearchResponse | null>(null)
@@ -212,6 +230,12 @@ function MapPage() {
   const { data: vehicles = [] } = useQuery<VehiclePublic[]>({
     queryKey: ["vehicles", "list"],
     queryFn: listVehicles,
+  })
+
+  // Last known position of every truck, shown as its own layer
+  const { data: vehiclePositions = [] } = useQuery({
+    queryKey: ["vehicles", "positions", "latest"],
+    queryFn: listLatestVehiclePositions,
   })
 
   // Fetch all available fuel stations on component mount
@@ -325,6 +349,9 @@ function MapPage() {
         ),
         vehicleId: selectedVehicleId || undefined,
         applyVehicleConstraints: useVehicleConstraints,
+        waypoint: shipmentPickup?.location
+          ? buildMapPointFromLocation(shipmentPickup.location)
+          : undefined,
       })
 
       return await getRouteOverview(request, forceRefresh)
@@ -584,7 +611,7 @@ function MapPage() {
     }
   }, [])
 
-  const handleSelectVehicle = (vehicleId: string) => {
+  const handleSelectVehicle = async (vehicleId: string) => {
     setSelectedVehicleId(vehicleId)
     const vehicle = vehicles.find((v) => v.id === vehicleId)
     const reserve = getDefaultReserveGallons(
@@ -592,6 +619,27 @@ function MapPage() {
     )
     if (reserve !== null) {
       setReserveGallons(String(reserve))
+    }
+    if (!vehicleId) return
+    // The vehicle's last known position becomes the optimizer start.
+    try {
+      const position = await VehiclesService.getVehiclePosition({
+        path: { vehicle_id: vehicleId },
+      })
+      const label = position.data?.label ?? "Vehicle position"
+      setPickupSelection({
+        query: label,
+        formatted_address: label,
+        location: {
+          type: "Point",
+          coordinates: [position.data.longitude, position.data.latitude],
+        },
+      })
+      setPickupAddress(label)
+      setPickupEdited(true)
+      setPickupSuggestion(null)
+    } catch {
+      // No position recorded: keep the manual start address.
     }
   }
 
@@ -619,6 +667,53 @@ function MapPage() {
     calculatedWith !== null &&
     (calculatedWith.vehicleId !== selectedVehicleId ||
       calculatedWith.enabled !== useVehicleConstraints)
+
+  const { data: shipments = [] } = useQuery({
+    queryKey: ["shipments", "map-selector"],
+    queryFn: async () =>
+      (await ShipmentsService.listShipments()).data?.data ?? [],
+  })
+
+  const handleSelectShipment = async (shipmentId: string) => {
+    setSelectedShipmentId(shipmentId)
+    if (!shipmentId) {
+      setShipmentPickup(null)
+      return
+    }
+    const response = await ShipmentsService.getShipment({
+      path: { shipment_id: shipmentId },
+    })
+    const stops = response.data?.stops ?? []
+    const pickup = stops.find((stop) => stop.kind === "pickup")
+    const dropoff = stops.find((stop) => stop.kind === "dropoff")
+
+    setShipmentPickup(
+      pickup?.location
+        ? createAddressSelection(
+            pickup.geocoded_address ?? pickup.address_raw,
+            {
+              formatted_address: pickup.geocoded_address ?? pickup.address_raw,
+              location: pickup.location,
+            },
+          )
+        : null,
+    )
+    // Only the dropoff fills the finish; the start comes from the vehicle.
+    if (dropoff) {
+      const text = dropoff.geocoded_address ?? dropoff.address_raw
+      setDeliveryAddress(text)
+      setDeliverySuggestion(null)
+      setDeliveryEdited(true)
+      setDeliverySelection(
+        dropoff.location
+          ? createAddressSelection(text, {
+              formatted_address: text,
+              location: dropoff.location,
+            })
+          : null,
+      )
+    }
+  }
 
   const applySuggestion = (
     field: "pickup" | "delivery",
@@ -664,6 +759,27 @@ function MapPage() {
             }
           >
             <div className="flex flex-wrap gap-2 items-end">
+              {/* Shipment: fills pickup and delivery from its stops */}
+              <div className="flex-1 min-w-[220px]">
+                <label htmlFor="map-shipment" className="text-xs font-medium">
+                  Shipment
+                </label>
+                <Select
+                  value={selectedShipmentId}
+                  onValueChange={(value) => void handleSelectShipment(value)}
+                >
+                  <SelectTrigger id="map-shipment" className="w-full">
+                    <SelectValue placeholder="Select shipment" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {shipments.map((shipment) => (
+                      <SelectItem key={shipment.id} value={shipment.id}>
+                        {shipment.reference_number ?? shipment.id.slice(0, 8)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               {/* Pickup Address */}
               <div className="flex-1 min-w-[220px]">
                 <label htmlFor="pickup-address" className="text-xs font-medium">
@@ -1090,6 +1206,17 @@ function MapPage() {
         {visibleLayers.has("rest-areas") && (
           <RestAreaLayer mapInstance={mapInstance} restAreas={restAreas} />
         )}
+        <ShipmentPickupLayer
+          mapInstance={mapInstance}
+          pickup={shipmentPickup}
+        />
+        {visibleLayers.has("vehicle-positions") && (
+          <VehiclePositionsLayer
+            mapInstance={mapInstance}
+            positions={vehiclePositions}
+            vehicles={vehicles}
+          />
+        )}
         {visibleLayers.has("optimization-stops") &&
           optimizationSteps.length > 0 && (
             <OptimizationStopsLayer
@@ -1134,6 +1261,7 @@ function MapPage() {
             explainPortalContainer={mapContainerRef.current}
             tripPlan={tripPlan}
             onTripPlanChange={handleTripPlanChange}
+            pickupLabel={shipmentPickup?.formatted_address ?? null}
             usableTankGallons={
               vehicles.find((v) => v.id === optimizationResult?.vehicle_id)
                 ?.usable_tank_capacity_gallons

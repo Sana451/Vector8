@@ -2,7 +2,7 @@
 
 import uuid
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -37,6 +37,9 @@ def make_trip_plan(**overrides: object) -> SimpleNamespace:
         "refined_route_id": uuid.uuid4(),
         "refine_error": None,
         "status": TripPlanStatus.REFINED,
+        "vehicle_id": None,
+        "stops_snapshot": [],
+        "shipment_id": None,
     }
     return SimpleNamespace(**{**defaults, **overrides})
 
@@ -212,6 +215,62 @@ class TestUpdateStatus:
         )
 
         assert result.status == status
+
+    def test_completion_failure_leaves_status_unchanged(self) -> None:
+        service = make_service()
+        service.session = MagicMock()
+        plan = make_trip_plan(
+            assigned_driver_id=DRIVER_ID,
+            vehicle_id=uuid.uuid4(),
+            stops_snapshot=[{"sequence": 1, "coordinate": [-97.0, 31.0]}],
+            status=TripPlanStatus.IN_PROGRESS,
+        )
+        service.route_repository = MagicMock()
+        service.route_repository.get_by_id.return_value = None
+
+        with patch(
+            "app.trip_plans.service.VehiclePositionRepository.add",
+            side_effect=RuntimeError("boom"),
+        ):
+            with pytest.raises(RuntimeError):
+                service.update_status(
+                    plan,
+                    status=TripPlanStatus.COMPLETED,
+                    user=make_user(UserRole.DRIVER, DRIVER_ID),
+                )
+
+        service.repository.update.assert_not_called()
+        assert plan.status == TripPlanStatus.IN_PROGRESS
+
+    def test_completed_trip_without_trip_reading_is_recorded_again(self) -> None:
+        service = make_service()
+        service.session = MagicMock()
+        service.route_repository = MagicMock()
+        service.route_repository.get_by_id.return_value = None
+        plan = make_trip_plan(
+            assigned_driver_id=DRIVER_ID,
+            vehicle_id=uuid.uuid4(),
+            stops_snapshot=[{"sequence": 1, "coordinate": [-97.0, 31.0]}],
+            status=TripPlanStatus.COMPLETED,
+        )
+
+        with (
+            patch(
+                "app.trip_plans.service.VehiclePositionRepository.has_trip_reading",
+                return_value=False,
+            ),
+            patch(
+                "app.trip_plans.service.VehiclePositionRepository.add"
+            ) as add_position,
+        ):
+            service.update_status(
+                plan,
+                status=TripPlanStatus.COMPLETED,
+                user=make_user(UserRole.DRIVER, DRIVER_ID),
+            )
+
+        add_position.assert_called_once()
+        service.repository.update.assert_called_once()
 
     @pytest.mark.parametrize("status", [TripPlanStatus.CANCELLED, TripPlanStatus.DRAFT])
     def test_driver_cannot_set_dispatcher_statuses(

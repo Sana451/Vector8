@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+from datetime import timedelta
+
 from fastapi.testclient import TestClient
 from sqlmodel import Session, delete
 
+from app.core.datetime import get_datetime_utc
 from app.fleet.models import Vehicle
+from app.fleet.position_repository import VehiclePositionRepository
+from app.fleet.positions import VehiclePosition, VehiclePositionSource
 from app.models import UserRole
 from tests.trip_plans.factories import (
     create_user_with_role,
@@ -129,6 +134,49 @@ class TestVehicleRouter:
         )
         assert delete_response.status_code == 200
         assert delete_response.json()["message"] == "Vehicle deleted successfully"
+
+
+class TestLatestVehiclePositions:
+    def test_returns_best_position_per_vehicle(
+        self,
+        client: TestClient,
+        superuser_token_headers: dict[str, str],
+        db: Session,
+    ) -> None:
+        db.exec(delete(VehiclePosition))
+        db.commit()
+        tracked = create_vehicle(db)
+        untracked = create_vehicle(db)
+        now = get_datetime_utc()
+        repo = VehiclePositionRepository(db)
+        repo.add(
+            vehicle_id=tracked.id,
+            longitude=-97.1,
+            latitude=31.2,
+            source=VehiclePositionSource.MANUAL,
+            label="manual",
+            recorded_at=now,
+        )
+        repo.add(
+            vehicle_id=tracked.id,
+            longitude=-86.4,
+            latitude=42.1,
+            source=VehiclePositionSource.SENSOR,
+            label="sensor",
+            recorded_at=now - timedelta(hours=1),
+        )
+        db.commit()
+
+        response = client.get(
+            "/api/v1/vehicles/positions/latest",
+            headers=superuser_token_headers,
+        )
+
+        assert response.status_code == 200
+        by_vehicle = {item["vehicle_id"]: item for item in response.json()}
+        assert set(by_vehicle) == {str(tracked.id)}
+        assert by_vehicle[str(tracked.id)]["source"] == "sensor"
+        assert str(untracked.id) not in by_vehicle
 
 
 class TestVehicleAccessByRole:

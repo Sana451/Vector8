@@ -10,7 +10,11 @@ from app.api.deps import (
     get_current_active_superuser,
     get_dispatcher_or_superuser,
 )
+from app.core.datetime import get_datetime_utc
 from app.fleet.models import VehicleFuelType, VehicleStatus, VehicleType
+from app.fleet.position_repository import VehiclePositionRepository
+from app.fleet.position_schemas import VehiclePositionCreate, VehiclePositionPublic
+from app.fleet.positions import VehiclePositionSource
 from app.fleet.repository import VehicleRepository
 from app.fleet.schemas import (
     VehicleCreate,
@@ -81,6 +85,27 @@ def list_vehicles(
     )
 
 
+@router.get(
+    "/positions/latest",
+    response_model=list[VehiclePositionPublic],
+    dependencies=read_access,
+)
+def list_latest_vehicle_positions(session: SessionDep) -> list[VehiclePositionPublic]:
+    """Return the best known position of every vehicle that has one."""
+    readings = VehiclePositionRepository(session).latest()
+    return [
+        VehiclePositionPublic(
+            vehicle_id=reading.vehicle_id,
+            longitude=reading.longitude,
+            latitude=reading.latitude,
+            source=reading.source,
+            label=reading.label,
+            recorded_at=reading.recorded_at,
+        )
+        for reading in readings.values()
+    ]
+
+
 @router.get("/{vehicle_id}", response_model=VehiclePublic, dependencies=read_access)
 def get_vehicle(session: SessionDep, vehicle_id: uuid.UUID) -> VehiclePublic:
     repository = VehicleRepository(session)
@@ -124,3 +149,59 @@ def delete_vehicle(session: SessionDep, vehicle_id: uuid.UUID) -> Message:
         raise HTTPException(status_code=404, detail="Vehicle not found")
     repository.delete(vehicle)
     return Message(message="Vehicle deleted successfully")
+
+
+@router.post(
+    "/{vehicle_id}/position",
+    response_model=VehiclePositionPublic,
+    status_code=201,
+    dependencies=read_access,
+)
+def record_vehicle_position(
+    session: SessionDep, vehicle_id: uuid.UUID, position_in: VehiclePositionCreate
+) -> VehiclePositionPublic:
+    """Record where a vehicle is, by hand. Used only as a planning hint."""
+    if VehicleRepository(session).get(vehicle_id) is None:
+        raise HTTPException(status_code=404, detail="Vehicle not found")
+    position = VehiclePositionRepository(session).add(
+        vehicle_id=vehicle_id,
+        longitude=position_in.longitude,
+        latitude=position_in.latitude,
+        source=VehiclePositionSource.MANUAL,
+        label=position_in.label,
+        recorded_at=position_in.recorded_at or get_datetime_utc(),
+    )
+    return VehiclePositionPublic(
+        vehicle_id=vehicle_id,
+        longitude=position_in.longitude,
+        latitude=position_in.latitude,
+        source=VehiclePositionSource(position.source),
+        label=position.label,
+        recorded_at=position.recorded_at,
+    )
+
+
+@router.get(
+    "/{vehicle_id}/position",
+    response_model=VehiclePositionPublic,
+    dependencies=read_access,
+)
+def get_vehicle_position(
+    session: SessionDep, vehicle_id: uuid.UUID
+) -> VehiclePositionPublic:
+    """Return the newest recorded position of a vehicle."""
+    reading = (
+        VehiclePositionRepository(session)
+        .latest(vehicle_ids=[vehicle_id])
+        .get(vehicle_id)
+    )
+    if reading is None:
+        raise HTTPException(status_code=404, detail="No position recorded")
+    return VehiclePositionPublic(
+        vehicle_id=vehicle_id,
+        longitude=reading.longitude,
+        latitude=reading.latitude,
+        source=reading.source,
+        label=reading.label,
+        recorded_at=reading.recorded_at,
+    )

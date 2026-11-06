@@ -94,6 +94,18 @@ export type Body_login_login_access_token = {
 };
 
 /**
+ * Body_shipments-upload_shipment_document
+ */
+export type Body_shipments_upload_shipment_document = {
+    /**
+     * File
+     *
+     * Rate confirmation PDF
+     */
+    file: Blob | File;
+};
+
+/**
  * CalculateRouteRequest
  *
  * Calculate route request.
@@ -274,6 +286,13 @@ export type DeviationPoint = {
      */
     pathIndex: number;
 };
+
+/**
+ * DocumentParseStatus
+ *
+ * Outcome of extracting structured fields from an uploaded document.
+ */
+export type DocumentParseStatus = 'pending' | 'parsed' | 'failed';
 
 /**
  * DriverProfilePublic
@@ -2044,6 +2063,10 @@ export type MapOverviewRequest = {
      */
     pickup?: MapPointInput | null;
     /**
+     * Intermediate stop between pickup and delivery (e.g. a shipment pickup when the vehicle starts elsewhere)
+     */
+    waypoint?: MapPointInput | null;
+    /**
      * Delivery point, either by address or GeoJSON coordinates
      */
     delivery?: MapPointInput | null;
@@ -2152,6 +2175,18 @@ export type NewPassword = {
      */
     new_password: string;
 };
+
+/**
+ * PlanningStatus
+ *
+ * Whether a trip has been planned for the shipment yet.
+ *
+ * Drives the planning queue: the planning screen lists ``UNPLANNED``
+ * shipments. Creating a trip plan moves a shipment to ``PLANNED`` and
+ * deleting that trip plan moves it back. Completing the trip moves it to
+ * ``COMPLETED``.
+ */
+export type PlanningStatus = 'unplanned' | 'planned' | 'completed' | 'archived';
 
 /**
  * PrivateUserCreate
@@ -2587,6 +2622,437 @@ export type Section = {
      */
     sectionType?: string | null;
 };
+
+/**
+ * ShipmentDetailPublic
+ *
+ * A shipment with everything needed by the review screen.
+ */
+export type ShipmentDetailPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    planning_status: PlanningStatus;
+    /**
+     * Broker Name
+     */
+    broker_name?: string | null;
+    /**
+     * Reference Number
+     */
+    reference_number?: string | null;
+    /**
+     * Total Weight Lbs
+     */
+    total_weight_lbs?: string | null;
+    /**
+     * Rate Total
+     */
+    rate_total?: string | null;
+    /**
+     * Rate Currency
+     */
+    rate_currency?: string | null;
+    /**
+     * Equipment Type
+     */
+    equipment_type?: string | null;
+    /**
+     * Extraction Confidence
+     */
+    extraction_confidence?: string | null;
+    /**
+     * Is Manually Edited
+     */
+    is_manually_edited: boolean;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    /**
+     * Broker Contact
+     */
+    broker_contact?: string | null;
+    /**
+     * Notes
+     */
+    notes?: string | null;
+    /**
+     * Extracted Payload
+     */
+    extracted_payload?: {
+        [key: string]: unknown;
+    };
+    /**
+     * Field Confidence
+     */
+    field_confidence?: {
+        [key: string]: unknown;
+    };
+    /**
+     * Stops
+     */
+    stops?: Array<ShipmentStopPublic>;
+    /**
+     * Documents
+     */
+    documents?: Array<ShipmentDocumentPublic>;
+};
+
+/**
+ * ShipmentDocumentPublic
+ *
+ * Document metadata; the bytes are served by a separate endpoint.
+ */
+export type ShipmentDocumentPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Filename
+     */
+    filename: string;
+    /**
+     * Content Type
+     */
+    content_type: string;
+    /**
+     * Size Bytes
+     */
+    size_bytes: number;
+    /**
+     * Content Sha256
+     */
+    content_sha256: string;
+    parse_status: DocumentParseStatus;
+    /**
+     * Parse Error
+     */
+    parse_error?: string | null;
+    /**
+     * Parsed At
+     */
+    parsed_at?: string | null;
+    /**
+     * Uploaded At
+     */
+    uploaded_at: string;
+};
+
+/**
+ * ShipmentPlanRequest
+ */
+export type ShipmentPlanRequest = {
+    /**
+     * Vehicle Id
+     */
+    vehicle_id: string;
+    /**
+     * Initial Fuel Gallons
+     */
+    initial_fuel_gallons: number | string;
+    /**
+     * Origin
+     *
+     * [longitude, latitude]. Defaults to the vehicle's last position.
+     */
+    origin?: [
+        number,
+        number
+    ] | null;
+    /**
+     * Origin Label
+     */
+    origin_label?: string | null;
+    /**
+     * Destination
+     *
+     * [longitude, latitude]. Defaults to the shipment's last stop; when given, every shipment stop becomes an intermediate point.
+     */
+    destination?: [
+        number,
+        number
+    ] | null;
+    /**
+     * Destination Label
+     */
+    destination_label?: string | null;
+    /**
+     * Stop Duration Minutes
+     */
+    stop_duration_minutes?: number | null;
+    /**
+     * Name
+     */
+    name?: string | null;
+};
+
+/**
+ * ShipmentPublic
+ *
+ * A shipment in list responses, without stops or document bytes.
+ */
+export type ShipmentPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    planning_status: PlanningStatus;
+    /**
+     * Broker Name
+     */
+    broker_name?: string | null;
+    /**
+     * Reference Number
+     */
+    reference_number?: string | null;
+    /**
+     * Total Weight Lbs
+     */
+    total_weight_lbs?: string | null;
+    /**
+     * Rate Total
+     */
+    rate_total?: string | null;
+    /**
+     * Rate Currency
+     */
+    rate_currency?: string | null;
+    /**
+     * Equipment Type
+     */
+    equipment_type?: string | null;
+    /**
+     * Extraction Confidence
+     */
+    extraction_confidence?: string | null;
+    /**
+     * Is Manually Edited
+     */
+    is_manually_edited: boolean;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+};
+
+/**
+ * ShipmentStopPublic
+ *
+ * A pickup or dropoff as returned to clients.
+ */
+export type ShipmentStopPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Sequence
+     */
+    sequence: number;
+    kind: StopKind;
+    /**
+     * Company Name
+     */
+    company_name?: string | null;
+    /**
+     * Address Raw
+     */
+    address_raw: string;
+    location?: GeoJSONPoint | null;
+    /**
+     * Geocoded Address
+     */
+    geocoded_address?: string | null;
+    /**
+     * Geocode Error
+     */
+    geocode_error?: string | null;
+    /**
+     * Scheduled At Start
+     */
+    scheduled_at_start?: string | null;
+    /**
+     * Scheduled At End
+     */
+    scheduled_at_end?: string | null;
+    /**
+     * Reference Number
+     */
+    reference_number?: string | null;
+    /**
+     * Contact Name
+     */
+    contact_name?: string | null;
+    /**
+     * Contact Phone
+     */
+    contact_phone?: string | null;
+    /**
+     * Notes
+     */
+    notes?: string | null;
+};
+
+/**
+ * ShipmentStopWrite
+ *
+ * A stop as submitted by a dispatcher correcting an extraction.
+ *
+ * Coordinates are not accepted from the client: the address is the source of
+ * truth and the server geocodes it, so a corrected address can never drift
+ * away from the point used for routing.
+ */
+export type ShipmentStopWrite = {
+    kind: StopKind;
+    /**
+     * Company Name
+     */
+    company_name?: string | null;
+    /**
+     * Address Raw
+     */
+    address_raw: string;
+    /**
+     * Scheduled At Start
+     */
+    scheduled_at_start?: string | null;
+    /**
+     * Scheduled At End
+     */
+    scheduled_at_end?: string | null;
+    /**
+     * Reference Number
+     */
+    reference_number?: string | null;
+    /**
+     * Contact Name
+     */
+    contact_name?: string | null;
+    /**
+     * Contact Phone
+     */
+    contact_phone?: string | null;
+    /**
+     * Notes
+     */
+    notes?: string | null;
+};
+
+/**
+ * ShipmentUpdateRequest
+ *
+ * A dispatcher's corrections to an extracted shipment.
+ *
+ * Omitted fields are left untouched. Passing ``stops`` replaces the whole
+ * list, because reordering and renumbering stops individually would let the
+ * sequence become inconsistent mid-request.
+ */
+export type ShipmentUpdateRequest = {
+    /**
+     * Broker Name
+     */
+    broker_name?: string | null;
+    /**
+     * Broker Contact
+     */
+    broker_contact?: string | null;
+    /**
+     * Reference Number
+     */
+    reference_number?: string | null;
+    /**
+     * Total Weight Lbs
+     */
+    total_weight_lbs?: number | string | null;
+    /**
+     * Rate Total
+     */
+    rate_total?: number | string | null;
+    /**
+     * Rate Currency
+     */
+    rate_currency?: string | null;
+    /**
+     * Equipment Type
+     */
+    equipment_type?: string | null;
+    /**
+     * Notes
+     */
+    notes?: string | null;
+    planning_status?: PlanningStatus | null;
+    /**
+     * Stops
+     */
+    stops?: Array<ShipmentStopWrite> | null;
+};
+
+/**
+ * ShipmentUploadResponse
+ *
+ * The result of uploading and parsing a document.
+ */
+export type ShipmentUploadResponse = {
+    shipment: ShipmentDetailPublic;
+    /**
+     * Issues
+     */
+    issues?: Array<ShipmentValidationIssue>;
+    /**
+     * Is Duplicate
+     */
+    is_duplicate?: boolean;
+};
+
+/**
+ * ShipmentValidationIssue
+ *
+ * A reason a shipment is not ready to be planned.
+ */
+export type ShipmentValidationIssue = {
+    /**
+     * Field
+     */
+    field: string;
+    /**
+     * Message
+     */
+    message: string;
+};
+
+/**
+ * ShipmentsPublic
+ *
+ * A page of shipments.
+ */
+export type ShipmentsPublic = {
+    /**
+     * Data
+     */
+    data: Array<ShipmentPublic>;
+    /**
+     * Count
+     */
+    count: number;
+};
+
+/**
+ * StopKind
+ *
+ * What happens at a shipment stop.
+ */
+export type StopKind = 'pickup' | 'dropoff';
 
 /**
  * Token
@@ -3137,7 +3603,7 @@ export type TripPlanStopSnapshot = {
     /**
      * Kind
      */
-    kind: 'start' | 'station' | 'refuel' | 'destination';
+    kind: 'start' | 'station' | 'refuel' | 'destination' | 'pickup' | 'dropoff';
     /**
      * Label
      */
@@ -3600,6 +4066,64 @@ export type VehicleCreate = {
 export type VehicleFuelType = 'truck_diesel';
 
 /**
+ * VehiclePositionCreate
+ */
+export type VehiclePositionCreate = {
+    /**
+     * Longitude
+     */
+    longitude: number;
+    /**
+     * Latitude
+     */
+    latitude: number;
+    /**
+     * Label
+     */
+    label?: string | null;
+    /**
+     * Recorded At
+     *
+     * When the vehicle was there. Defaults to now.
+     */
+    recorded_at?: string | null;
+};
+
+/**
+ * VehiclePositionPublic
+ */
+export type VehiclePositionPublic = {
+    /**
+     * Vehicle Id
+     */
+    vehicle_id: string;
+    /**
+     * Longitude
+     */
+    longitude: number;
+    /**
+     * Latitude
+     */
+    latitude: number;
+    source: VehiclePositionSource;
+    /**
+     * Label
+     */
+    label?: string | null;
+    /**
+     * Recorded At
+     */
+    recorded_at: string;
+};
+
+/**
+ * VehiclePositionSource
+ *
+ * Where a reading came from, which decides how much to trust it.
+ */
+export type VehiclePositionSource = 'manual' | 'trip' | 'sensor';
+
+/**
  * VehiclePublic
  */
 export type VehiclePublic = {
@@ -3817,6 +4341,53 @@ export type VehicleRoutingProfile = {
  * VehicleStatus
  */
 export type VehicleStatus = 'active' | 'inactive' | 'maintenance';
+
+/**
+ * VehicleSuggestion
+ */
+export type VehicleSuggestion = {
+    /**
+     * Vehicle Id
+     */
+    vehicle_id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Unit Number
+     */
+    unit_number: string;
+    /**
+     * Distance To Pickup Meters
+     *
+     * Straight-line distance to the first stop; null without a position.
+     */
+    distance_to_pickup_meters?: number | null;
+    position_source?: VehiclePositionSource | null;
+    /**
+     * Position Label
+     */
+    position_label?: string | null;
+    /**
+     * Position Recorded At
+     */
+    position_recorded_at?: string | null;
+    /**
+     * Is Position Stale
+     */
+    is_position_stale?: boolean;
+};
+
+/**
+ * VehicleSuggestionsPublic
+ */
+export type VehicleSuggestionsPublic = {
+    /**
+     * Data
+     */
+    data: Array<VehicleSuggestion>;
+};
 
 /**
  * VehicleType
@@ -4767,6 +5338,24 @@ export type vehiclesCreateVehicleResponses = {
 
 export type vehiclesCreateVehicleResponse = vehiclesCreateVehicleResponses[keyof vehiclesCreateVehicleResponses];
 
+export type vehiclesListLatestVehiclePositionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/vehicles/positions/latest';
+};
+
+export type vehiclesListLatestVehiclePositionsResponses = {
+    /**
+     * Response Vehicles-List Latest Vehicle Positions
+     *
+     * Successful Response
+     */
+    200: Array<VehiclePositionPublic>;
+};
+
+export type vehiclesListLatestVehiclePositionsResponse = vehiclesListLatestVehiclePositionsResponses[keyof vehiclesListLatestVehiclePositionsResponses];
+
 export type vehiclesDeleteVehicleData = {
     body?: never;
     path: {
@@ -4856,6 +5445,66 @@ export type vehiclesUpdateVehicleResponses = {
 };
 
 export type vehiclesUpdateVehicleResponse = vehiclesUpdateVehicleResponses[keyof vehiclesUpdateVehicleResponses];
+
+export type vehiclesGetVehiclePositionData = {
+    body?: never;
+    path: {
+        /**
+         * Vehicle Id
+         */
+        vehicle_id: string;
+    };
+    query?: never;
+    url: '/api/v1/vehicles/{vehicle_id}/position';
+};
+
+export type vehiclesGetVehiclePositionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type vehiclesGetVehiclePositionError = vehiclesGetVehiclePositionErrors[keyof vehiclesGetVehiclePositionErrors];
+
+export type vehiclesGetVehiclePositionResponses = {
+    /**
+     * Successful Response
+     */
+    200: VehiclePositionPublic;
+};
+
+export type vehiclesGetVehiclePositionResponse = vehiclesGetVehiclePositionResponses[keyof vehiclesGetVehiclePositionResponses];
+
+export type vehiclesRecordVehiclePositionData = {
+    body: VehiclePositionCreate;
+    path: {
+        /**
+         * Vehicle Id
+         */
+        vehicle_id: string;
+    };
+    query?: never;
+    url: '/api/v1/vehicles/{vehicle_id}/position';
+};
+
+export type vehiclesRecordVehiclePositionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type vehiclesRecordVehiclePositionError = vehiclesRecordVehiclePositionErrors[keyof vehiclesRecordVehiclePositionErrors];
+
+export type vehiclesRecordVehiclePositionResponses = {
+    /**
+     * Successful Response
+     */
+    201: VehiclePositionPublic;
+};
+
+export type vehiclesRecordVehiclePositionResponse = vehiclesRecordVehiclePositionResponses[keyof vehiclesRecordVehiclePositionResponses];
 
 export type fuelImportPumppriceFuelData = {
     body: PumpPriceImportRequest;
@@ -5590,6 +6239,309 @@ export type driversUpdateDriverProfileResponses = {
 };
 
 export type driversUpdateDriverProfileResponse = driversUpdateDriverProfileResponses[keyof driversUpdateDriverProfileResponses];
+
+export type shipmentsUploadShipmentDocumentData = {
+    body: Body_shipments_upload_shipment_document;
+    path?: never;
+    query?: never;
+    url: '/api/v1/shipments/upload';
+};
+
+export type shipmentsUploadShipmentDocumentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type shipmentsUploadShipmentDocumentError = shipmentsUploadShipmentDocumentErrors[keyof shipmentsUploadShipmentDocumentErrors];
+
+export type shipmentsUploadShipmentDocumentResponses = {
+    /**
+     * Successful Response
+     */
+    201: ShipmentUploadResponse;
+};
+
+export type shipmentsUploadShipmentDocumentResponse = shipmentsUploadShipmentDocumentResponses[keyof shipmentsUploadShipmentDocumentResponses];
+
+export type shipmentsListShipmentsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Planning Status
+         */
+        planning_status?: PlanningStatus | null;
+        /**
+         * Skip
+         */
+        skip?: number;
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/v1/shipments/';
+};
+
+export type shipmentsListShipmentsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type shipmentsListShipmentsError = shipmentsListShipmentsErrors[keyof shipmentsListShipmentsErrors];
+
+export type shipmentsListShipmentsResponses = {
+    /**
+     * Successful Response
+     */
+    200: ShipmentsPublic;
+};
+
+export type shipmentsListShipmentsResponse = shipmentsListShipmentsResponses[keyof shipmentsListShipmentsResponses];
+
+export type shipmentsDeleteShipmentData = {
+    body?: never;
+    path: {
+        /**
+         * Shipment Id
+         */
+        shipment_id: string;
+    };
+    query?: never;
+    url: '/api/v1/shipments/{shipment_id}';
+};
+
+export type shipmentsDeleteShipmentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type shipmentsDeleteShipmentError = shipmentsDeleteShipmentErrors[keyof shipmentsDeleteShipmentErrors];
+
+export type shipmentsDeleteShipmentResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type shipmentsDeleteShipmentResponse = shipmentsDeleteShipmentResponses[keyof shipmentsDeleteShipmentResponses];
+
+export type shipmentsGetShipmentData = {
+    body?: never;
+    path: {
+        /**
+         * Shipment Id
+         */
+        shipment_id: string;
+    };
+    query?: never;
+    url: '/api/v1/shipments/{shipment_id}';
+};
+
+export type shipmentsGetShipmentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type shipmentsGetShipmentError = shipmentsGetShipmentErrors[keyof shipmentsGetShipmentErrors];
+
+export type shipmentsGetShipmentResponses = {
+    /**
+     * Successful Response
+     */
+    200: ShipmentDetailPublic;
+};
+
+export type shipmentsGetShipmentResponse = shipmentsGetShipmentResponses[keyof shipmentsGetShipmentResponses];
+
+export type shipmentsUpdateShipmentData = {
+    body: ShipmentUpdateRequest;
+    path: {
+        /**
+         * Shipment Id
+         */
+        shipment_id: string;
+    };
+    query?: never;
+    url: '/api/v1/shipments/{shipment_id}';
+};
+
+export type shipmentsUpdateShipmentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type shipmentsUpdateShipmentError = shipmentsUpdateShipmentErrors[keyof shipmentsUpdateShipmentErrors];
+
+export type shipmentsUpdateShipmentResponses = {
+    /**
+     * Successful Response
+     */
+    200: ShipmentDetailPublic;
+};
+
+export type shipmentsUpdateShipmentResponse = shipmentsUpdateShipmentResponses[keyof shipmentsUpdateShipmentResponses];
+
+export type shipmentsReparseShipmentData = {
+    body?: never;
+    path: {
+        /**
+         * Shipment Id
+         */
+        shipment_id: string;
+    };
+    query?: never;
+    url: '/api/v1/shipments/{shipment_id}/reparse';
+};
+
+export type shipmentsReparseShipmentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type shipmentsReparseShipmentError = shipmentsReparseShipmentErrors[keyof shipmentsReparseShipmentErrors];
+
+export type shipmentsReparseShipmentResponses = {
+    /**
+     * Successful Response
+     */
+    200: ShipmentDetailPublic;
+};
+
+export type shipmentsReparseShipmentResponse = shipmentsReparseShipmentResponses[keyof shipmentsReparseShipmentResponses];
+
+export type shipmentsValidateShipmentData = {
+    body?: never;
+    path: {
+        /**
+         * Shipment Id
+         */
+        shipment_id: string;
+    };
+    query?: never;
+    url: '/api/v1/shipments/{shipment_id}/validation';
+};
+
+export type shipmentsValidateShipmentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type shipmentsValidateShipmentError = shipmentsValidateShipmentErrors[keyof shipmentsValidateShipmentErrors];
+
+export type shipmentsValidateShipmentResponses = {
+    /**
+     * Response Shipments-Validate Shipment
+     *
+     * Successful Response
+     */
+    200: Array<ShipmentValidationIssue>;
+};
+
+export type shipmentsValidateShipmentResponse = shipmentsValidateShipmentResponses[keyof shipmentsValidateShipmentResponses];
+
+export type shipmentsDownloadShipmentDocumentData = {
+    body?: never;
+    path: {
+        /**
+         * Document Id
+         */
+        document_id: string;
+    };
+    query?: never;
+    url: '/api/v1/shipments/documents/{document_id}/file';
+};
+
+export type shipmentsDownloadShipmentDocumentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type shipmentsDownloadShipmentDocumentError = shipmentsDownloadShipmentDocumentErrors[keyof shipmentsDownloadShipmentDocumentErrors];
+
+export type shipmentsDownloadShipmentDocumentResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type shipmentsSuggestVehiclesData = {
+    body?: never;
+    path: {
+        /**
+         * Shipment Id
+         */
+        shipment_id: string;
+    };
+    query?: never;
+    url: '/api/v1/shipments/{shipment_id}/vehicle-suggestions';
+};
+
+export type shipmentsSuggestVehiclesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type shipmentsSuggestVehiclesError = shipmentsSuggestVehiclesErrors[keyof shipmentsSuggestVehiclesErrors];
+
+export type shipmentsSuggestVehiclesResponses = {
+    /**
+     * Successful Response
+     */
+    200: VehicleSuggestionsPublic;
+};
+
+export type shipmentsSuggestVehiclesResponse = shipmentsSuggestVehiclesResponses[keyof shipmentsSuggestVehiclesResponses];
+
+export type shipmentsPlanShipmentData = {
+    body: ShipmentPlanRequest;
+    path: {
+        /**
+         * Shipment Id
+         */
+        shipment_id: string;
+    };
+    query?: never;
+    url: '/api/v1/shipments/{shipment_id}/plan';
+};
+
+export type shipmentsPlanShipmentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type shipmentsPlanShipmentError = shipmentsPlanShipmentErrors[keyof shipmentsPlanShipmentErrors];
+
+export type shipmentsPlanShipmentResponses = {
+    /**
+     * Successful Response
+     */
+    201: TripPlanDetailPublic;
+};
+
+export type shipmentsPlanShipmentResponse = shipmentsPlanShipmentResponses[keyof shipmentsPlanShipmentResponses];
 
 export type privateCreateUserData = {
     body: PrivateUserCreate;
