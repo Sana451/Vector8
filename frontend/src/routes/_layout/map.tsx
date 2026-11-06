@@ -361,12 +361,16 @@ function MapPage() {
   const mutation = useMutation({
     mutationFn: async (forceRefresh: boolean) => {
       const request = buildRouteOverviewRequest({
-        pickup: buildMapPointFromAddress(
-          pickupSelection?.formatted_address ?? pickupAddress.trim(),
-        ),
-        delivery: buildMapPointFromAddress(
-          deliverySelection?.formatted_address ?? deliveryAddress.trim(),
-        ),
+        pickup: pickupSelection?.location
+          ? buildMapPointFromLocation(pickupSelection.location)
+          : buildMapPointFromAddress(
+              pickupSelection?.formatted_address ?? pickupAddress.trim(),
+            ),
+        delivery: deliverySelection?.location
+          ? buildMapPointFromLocation(deliverySelection.location)
+          : buildMapPointFromAddress(
+              deliverySelection?.formatted_address ?? deliveryAddress.trim(),
+            ),
         vehicleId: selectedVehicleId || undefined,
         applyVehicleConstraints: useVehicleConstraints,
         waypoint: shipmentPickup?.location
