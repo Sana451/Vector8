@@ -426,7 +426,10 @@ function MapPage() {
         vehicleId: selectedVehicleId || undefined,
         applyVehicleConstraints: useVehicleConstraints,
         waypoint: shipmentPickup?.location
-          ? buildMapPointFromLocation(shipmentPickup.location)
+          ? buildMapPointFromLocation(
+              shipmentPickup.location,
+              shipmentPickup.formatted_address || shipmentPickupAddress.trim(),
+            )
           : undefined,
       })
 
