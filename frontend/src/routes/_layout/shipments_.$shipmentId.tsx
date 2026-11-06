@@ -18,15 +18,25 @@ import {
   useNavigate,
 } from "@tanstack/react-router"
 import { AlertTriangle, ArrowLeft, RefreshCw, Trash2 } from "lucide-react"
-import { Suspense } from "react"
-
+import { Suspense, useState } from "react"
 import { ShipmentsService, UsersService } from "@/client"
 import DocumentViewer from "@/components/Shipments/DocumentViewer"
 import PlanTripDialog from "@/components/Shipments/PlanTripDialog"
 import ShipmentForm from "@/components/Shipments/ShipmentForm"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { LoadingButton } from "@/components/ui/loading-button"
 import { Skeleton } from "@/components/ui/skeleton"
+import useAuth from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
 import { handleError } from "@/utils"
 
@@ -102,10 +112,17 @@ function ShipmentDetailContent() {
   const { shipmentId } = Route.useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { user } = useAuth()
   const { showSuccessToast, showErrorToast } = useCustomToast()
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const { data: shipment } = useSuspenseQuery(
     getShipmentQueryOptions(shipmentId),
   )
+  const canDelete =
+    !!user &&
+    (user.is_superuser ||
+      user.role === "admin" ||
+      (user.role === "dispatcher" && shipment?.owner_id === user.id))
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["shipments"] })
@@ -134,6 +151,7 @@ function ShipmentDetailContent() {
       ShipmentsService.deleteShipment({ path: { shipment_id: shipmentId } }),
     onSuccess: () => {
       showSuccessToast("Shipment deleted.")
+      setConfirmDelete(false)
       queryClient.invalidateQueries({ queryKey: ["shipments"] })
       navigate({ to: "/shipments" })
     },
@@ -186,14 +204,39 @@ function ShipmentDetailContent() {
             />
             Re-parse
           </Button>
-          <Button
-            variant="destructive"
-            onClick={() => remove.mutate()}
-            disabled={remove.isPending}
-          >
-            <Trash2 className="size-4" />
-            Delete
-          </Button>
+          {canDelete ? (
+            <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+              <Button
+                variant="destructive"
+                onClick={() => setConfirmDelete(true)}
+                disabled={remove.isPending}
+              >
+                <Trash2 className="size-4" />
+                Delete
+              </Button>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Delete shipment?</DialogTitle>
+                  <DialogDescription>
+                    This removes the shipment, its stops and the attached
+                    document. This cannot be undone.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <DialogClose asChild>
+                    <Button variant="outline">Cancel</Button>
+                  </DialogClose>
+                  <LoadingButton
+                    variant="destructive"
+                    loading={remove.isPending}
+                    onClick={() => remove.mutate()}
+                  >
+                    Delete
+                  </LoadingButton>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          ) : null}
         </div>
       </div>
 

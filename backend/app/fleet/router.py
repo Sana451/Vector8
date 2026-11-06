@@ -9,6 +9,7 @@ from app.api.deps import (
     SessionDep,
     get_current_active_superuser,
     get_dispatcher_or_superuser,
+    get_vehicle_editor,
 )
 from app.core.datetime import get_datetime_utc
 from app.fleet.models import VehicleFuelType, VehicleStatus, VehicleType
@@ -26,6 +27,7 @@ from app.models import Message
 
 router = APIRouter(prefix="/vehicles", tags=["vehicles"])
 write_access = [Depends(get_current_active_superuser)]
+edit_access = [Depends(get_vehicle_editor)]
 read_access = [Depends(get_dispatcher_or_superuser)]
 
 
@@ -115,7 +117,7 @@ def get_vehicle(session: SessionDep, vehicle_id: uuid.UUID) -> VehiclePublic:
     return _to_vehicle_public(vehicle)
 
 
-@router.patch("/{vehicle_id}", response_model=VehiclePublic, dependencies=write_access)
+@router.patch("/{vehicle_id}", response_model=VehiclePublic, dependencies=edit_access)
 def update_vehicle(
     *,
     session: SessionDep,

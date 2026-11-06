@@ -47,11 +47,11 @@ export function AppSidebar() {
     ...baseItems,
     isDriver ? driverItem : dispatcherItem,
     ...(isDriver ? [] : [shipmentsItem]),
+    ...(currentUser?.is_superuser || currentUser?.role === "dispatcher"
+      ? [{ icon: Truck, title: "Fleet", path: "/fleet" }]
+      : []),
     ...(currentUser?.is_superuser
-      ? [
-          { icon: Truck, title: "Fleet", path: "/fleet" },
-          { icon: Users, title: "Admin", path: "/admin" },
-        ]
+      ? [{ icon: Users, title: "Admin", path: "/admin" }]
       : []),
   ]
 

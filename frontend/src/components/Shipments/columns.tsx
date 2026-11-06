@@ -1,8 +1,10 @@
 import type { ColumnDef } from "@tanstack/react-table"
-import { AlertTriangle, PencilLine } from "lucide-react"
+import { AlertTriangle, PencilLine, Trash2 } from "lucide-react"
 
 import type { ShipmentPublic } from "@/client"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Tooltip,
   TooltipContent,
@@ -41,7 +43,7 @@ function formatWeight(weight?: string | null) {
   return `${value.toLocaleString()} lbs`
 }
 
-export const columns: ColumnDef<ShipmentPublic>[] = [
+const baseColumns: ColumnDef<ShipmentPublic>[] = [
   {
     accessorKey: "reference_number",
     header: "Load #",
@@ -118,3 +120,56 @@ export const columns: ColumnDef<ShipmentPublic>[] = [
     cell: ({ row }) => new Date(row.original.created_at).toLocaleString(),
   },
 ]
+
+export function getColumns({
+  selectedIds,
+  allSelected,
+  onToggleOne,
+  onToggleAll,
+  onDelete,
+}: {
+  selectedIds: Set<string>
+  allSelected: boolean
+  onToggleOne: (id: string, checked: boolean) => void
+  onToggleAll: (checked: boolean) => void
+  onDelete: (shipment: ShipmentPublic) => void
+}): ColumnDef<ShipmentPublic>[] {
+  return [
+    {
+      id: "select",
+      header: () => (
+        <Checkbox
+          checked={allSelected}
+          onCheckedChange={(value) => onToggleAll(value === true)}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={selectedIds.has(row.original.id)}
+          onCheckedChange={(value) =>
+            onToggleOne(row.original.id, value === true)
+          }
+          aria-label="Select row"
+        />
+      ),
+    },
+    ...baseColumns,
+    {
+      id: "actions",
+      header: () => <span className="sr-only">Actions</span>,
+      cell: ({ row }) => (
+        <div className="flex justify-end">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Delete shipment"
+            onClick={() => onDelete(row.original)}
+          >
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        </div>
+      ),
+    },
+  ]
+}

@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from app.core.config import settings
+from app.models import UserRole
 from app.providers.exceptions import ProviderError
 from app.shipments.domain import PlanningStatus
 from tests.shipments.conftest import (
@@ -18,6 +19,7 @@ from tests.shipments.conftest import (
     create_dispatcher,
     headers_for,
 )
+from tests.trip_plans.factories import create_user_with_role
 
 PREFIX = f"{settings.API_V1_STR}/shipments"
 
@@ -366,3 +368,45 @@ class TestDelete:
 
         assert deleted.status_code == 204
         assert fetched.status_code == 404
+
+    def test_admin_removes_another_dispatchers_shipment(
+        self,
+        client: TestClient,
+        db: Session,
+        sample_pdf: bytes,
+        fake_llm: FakeLLMProvider,
+        fake_geocoder: FakeGeocodingProvider,
+    ) -> None:
+        owner, owner_password = create_dispatcher(db)
+        created = upload(
+            client, headers_for(client, owner, owner_password), sample_pdf
+        ).json()["shipment"]
+        admin, admin_password = create_user_with_role(db, UserRole.ADMIN)
+
+        deleted = client.delete(
+            f"{PREFIX}/{created['id']}",
+            headers=headers_for(client, admin, admin_password),
+        )
+
+        assert deleted.status_code == 204
+
+    def test_dispatcher_cannot_remove_another_dispatchers_shipment(
+        self,
+        client: TestClient,
+        db: Session,
+        sample_pdf: bytes,
+        fake_llm: FakeLLMProvider,
+        fake_geocoder: FakeGeocodingProvider,
+    ) -> None:
+        owner, owner_password = create_dispatcher(db)
+        created = upload(
+            client, headers_for(client, owner, owner_password), sample_pdf
+        ).json()["shipment"]
+        other, other_password = create_dispatcher(db)
+
+        deleted = client.delete(
+            f"{PREFIX}/{created['id']}",
+            headers=headers_for(client, other, other_password),
+        )
+
+        assert deleted.status_code == 403

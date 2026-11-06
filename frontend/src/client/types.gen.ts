@@ -2675,6 +2675,10 @@ export type ShipmentDetailPublic = {
      */
     updated_at: string;
     /**
+     * Owner Id
+     */
+    owner_id: string;
+    /**
      * Broker Contact
      */
     broker_contact?: string | null;

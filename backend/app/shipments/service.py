@@ -12,6 +12,7 @@ from sqlmodel import Session
 
 from app.core.datetime import get_datetime_utc
 from app.geocoding.service import GeocodingService
+from app.models import User, UserRole
 from app.providers.geo import GeoJSONPoint, point_to_wkt
 from app.shipments.domain import DocumentParseStatus, PlanningStatus, StopKind
 from app.shipments.exceptions import (
@@ -193,8 +194,17 @@ class ShipmentService:
         self.repository.refresh(shipment)
         return shipment
 
-    def delete(self, shipment_id: uuid.UUID, *, owner_id: uuid.UUID) -> None:
-        shipment = self._get_owned(shipment_id, owner_id=owner_id)
+    def delete(self, shipment_id: uuid.UUID, *, user: User) -> None:
+        """Admins may delete any shipment; dispatchers only their own."""
+        shipment = self.repository.get(shipment_id)
+        if shipment is None:
+            raise ShipmentNotFoundError("This shipment does not exist.")
+        if not (
+            user.role == UserRole.ADMIN
+            or user.is_superuser
+            or shipment.owner_id == user.id
+        ):
+            raise ShipmentAccessDeniedError("This shipment belongs to another user.")
         self.repository.delete(shipment)
         self.repository.commit()
 

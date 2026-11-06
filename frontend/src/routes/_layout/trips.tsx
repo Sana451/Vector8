@@ -328,12 +328,14 @@ function TripsTable() {
 function Trips() {
   return (
     <div className="flex w-full flex-col gap-6">
-      <div>
-        <p className="vector8-kicker">Dispatch</p>
-        <h1 className="text-2xl font-semibold tracking-tight">Trips</h1>
-        <p className="text-muted-foreground">
-          Saved optimizer runs with provider-verified routes, ready to assign.
-        </p>
+      <div className="vector8-page-header flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="space-y-2">
+          <p className="vector8-kicker">Dispatch</p>
+          <h1 className="text-3xl font-semibold tracking-tight">Trips</h1>
+          <p className="text-muted-foreground">
+            Saved optimizer runs with provider-verified routes, ready to assign.
+          </p>
+        </div>
       </div>
       <TripsTable />
     </div>

@@ -99,6 +99,7 @@ class ShipmentPublic(BaseModel):
 class ShipmentDetailPublic(ShipmentPublic):
     """A shipment with everything needed by the review screen."""
 
+    owner_id: uuid.UUID
     broker_contact: str | None = None
     notes: str | None = None
     extracted_payload: dict[str, Any] = Field(default_factory=dict)

@@ -180,7 +180,7 @@ class TestLatestVehiclePositions:
 
 
 class TestVehicleAccessByRole:
-    def test_dispatcher_can_read_but_not_change_the_fleet(
+    def test_dispatcher_can_read_and_edit_but_not_create_or_delete(
         self, client: TestClient, db: Session
     ) -> None:
         dispatcher, password = create_user_with_role(db, UserRole.DISPATCHER)
@@ -196,7 +196,7 @@ class TestVehicleAccessByRole:
 
         assert listing.status_code == 200
         assert single.status_code == 200
-        assert patched.status_code == 403
+        assert patched.status_code == 200
         assert deleted.status_code == 403
 
     def test_driver_cannot_read_the_fleet(

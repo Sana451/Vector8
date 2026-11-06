@@ -241,7 +241,7 @@ def delete_shipment(
 ) -> Response:
     """Delete a shipment together with its stops and documents."""
     try:
-        service.delete(shipment_id, owner_id=current_user.id)
+        service.delete(shipment_id, user=current_user)
     except ShipmentNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ShipmentAccessDeniedError as exc:
