@@ -42,7 +42,6 @@ import {
   RestAreaLayer,
   RouteLayer,
   RoutePointsLayer,
-  ShipmentPickupLayer,
   TrafficLayer,
   TruckRestrictionLayer,
   VehiclePositionsLayer,
@@ -190,10 +189,16 @@ function MapPage() {
     "3660 Gateway Street Springfield OR 97477",
   )
   const [selectedShipmentId, setSelectedShipmentId] = useState("")
-  // Shipment pickup is an intermediate optimizer waypoint, not the start.
+  // Pickup is the shipment's loading stop, an intermediate optimizer waypoint.
+  const [shipmentPickupAddress, setShipmentPickupAddress] = useState("")
   const [shipmentPickup, setShipmentPickup] = useState<AddressSelection | null>(
     null,
   )
+  const [shipmentPickupSuggestion, setShipmentPickupSuggestion] =
+    useState<GeocodingSearchResponse | null>(null)
+  const [shipmentPickupEdited, setShipmentPickupEdited] = useState(false)
+  const [isShipmentPickupSearching, setIsShipmentPickupSearching] =
+    useState(false)
   const [pickupSuggestion, setPickupSuggestion] =
     useState<GeocodingSearchResponse | null>(null)
   const [deliverySuggestion, setDeliverySuggestion] =
@@ -359,6 +364,45 @@ function MapPage() {
       window.clearTimeout(timer)
     }
   }, [deliveryAddress, deliverySelection, deliveryEdited])
+
+  useEffect(() => {
+    let cancelled = false
+    const query = shipmentPickupAddress.trim()
+    const selectedAddress = shipmentPickup?.formatted_address
+
+    if (
+      !shipmentPickupEdited ||
+      query.length < 3 ||
+      query === selectedAddress
+    ) {
+      setShipmentPickupSuggestion(null)
+      setIsShipmentPickupSearching(false)
+      return
+    }
+
+    setIsShipmentPickupSearching(true)
+    const timer = window.setTimeout(async () => {
+      try {
+        const result = await searchAddress(query)
+        if (!cancelled) {
+          setShipmentPickupSuggestion(result)
+        }
+      } catch {
+        if (!cancelled) {
+          setShipmentPickupSuggestion(null)
+        }
+      } finally {
+        if (!cancelled) {
+          setIsShipmentPickupSearching(false)
+        }
+      }
+    }, 300)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [shipmentPickupAddress, shipmentPickup, shipmentPickupEdited])
 
   const mutation = useMutation({
     mutationFn: async (forceRefresh: boolean) => {
@@ -710,6 +754,8 @@ function MapPage() {
     setSelectedShipmentId(shipmentId)
     if (!shipmentId) {
       setShipmentPickup(null)
+      setShipmentPickupAddress("")
+      setShipmentPickupSuggestion(null)
       return
     }
     const response = await ShipmentsService.getShipment({
@@ -719,17 +765,20 @@ function MapPage() {
     const pickup = stops.find((stop) => stop.kind === "pickup")
     const dropoff = stops.find((stop) => stop.kind === "dropoff")
 
-    setShipmentPickup(
-      pickup?.location
-        ? createAddressSelection(
-            pickup.geocoded_address ?? pickup.address_raw,
-            {
-              formatted_address: pickup.geocoded_address ?? pickup.address_raw,
+    if (pickup) {
+      const text = pickup.geocoded_address ?? pickup.address_raw
+      setShipmentPickupAddress(text)
+      setShipmentPickupSuggestion(null)
+      setShipmentPickupEdited(true)
+      setShipmentPickup(
+        pickup.location
+          ? createAddressSelection(text, {
+              formatted_address: text,
               location: pickup.location,
-            },
-          )
-        : null,
-    )
+            })
+          : null,
+      )
+    }
     // Only the dropoff fills the finish; the start comes from the vehicle.
     if (dropoff) {
       const text = dropoff.geocoded_address ?? dropoff.address_raw
@@ -780,7 +829,7 @@ function MapPage() {
   }, [search, vehicles, handleSelectVehicle, handleSelectShipment])
 
   const applySuggestion = (
-    field: "pickup" | "delivery",
+    field: "pickup" | "shipmentPickup" | "delivery",
     suggestion: GeocodingSearchResponse,
   ) => {
     if (field === "pickup") {
@@ -789,6 +838,15 @@ function MapPage() {
       )
       setPickupAddress(suggestion.formatted_address)
       setPickupSuggestion(null)
+      return
+    }
+
+    if (field === "shipmentPickup") {
+      setShipmentPickup(
+        createAddressSelection(shipmentPickupAddress.trim(), suggestion),
+      )
+      setShipmentPickupAddress(suggestion.formatted_address)
+      setShipmentPickupSuggestion(null)
       return
     }
 
@@ -801,6 +859,10 @@ function MapPage() {
 
   const mapInstance = mapRef.current?.getMapInstance() || null
   const routePickupPoint = useResolvedPoint(pickupAddress, pickupSelection)
+  const routeShipmentPickupPoint = useResolvedPoint(
+    shipmentPickupAddress,
+    shipmentPickup,
+  )
   const routeDeliveryPoint = useResolvedPoint(
     deliveryAddress,
     deliverySelection,
@@ -861,7 +923,7 @@ function MapPage() {
               {/* Pickup Address */}
               <div className="flex-1 min-w-[220px]">
                 <label htmlFor="pickup-address" className="text-xs font-medium">
-                  Pickup
+                  Start
                 </label>
                 <div className="relative">
                   <Input
@@ -895,6 +957,54 @@ function MapPage() {
                         }
                       >
                         {pickupSuggestion.formatted_address}
+                      </button>
+                    )}
+                </div>
+              </div>
+
+              {/* Shipment pickup (loading stop) */}
+              <div className="flex-1 min-w-[220px]">
+                <label
+                  htmlFor="shipment-pickup-address"
+                  className="text-xs font-medium"
+                >
+                  Pickup
+                </label>
+                <div className="relative">
+                  <Input
+                    id="shipment-pickup-address"
+                    placeholder="Loading stop..."
+                    value={shipmentPickupAddress}
+                    onChange={(e) => {
+                      setShipmentPickupEdited(true)
+                      setShipmentPickupAddress(e.target.value)
+                      if (
+                        e.target.value !== shipmentPickup?.formatted_address
+                      ) {
+                        setShipmentPickup(null)
+                      }
+                    }}
+                    className="text-xs h-8"
+                  />
+                  {isShipmentPickupSearching && (
+                    <p className="text-xs text-muted-foreground absolute top-8 left-0 z-10">
+                      Searching…
+                    </p>
+                  )}
+                  {shipmentPickupSuggestion &&
+                    shipmentPickupSuggestion.formatted_address !==
+                      shipmentPickup?.formatted_address && (
+                      <button
+                        type="button"
+                        className="absolute top-8 left-0 w-full rounded-md border px-2 py-1 text-xs hover:bg-muted bg-white dark:bg-slate-950 z-10"
+                        onClick={() =>
+                          applySuggestion(
+                            "shipmentPickup",
+                            shipmentPickupSuggestion,
+                          )
+                        }
+                      >
+                        {shipmentPickupSuggestion.formatted_address}
                       </button>
                     )}
                 </div>
@@ -1293,13 +1403,10 @@ function MapPage() {
         {visibleLayers.has("rest-areas") && (
           <RestAreaLayer mapInstance={mapInstance} restAreas={restAreas} />
         )}
-        <ShipmentPickupLayer
-          mapInstance={mapInstance}
-          pickup={shipmentPickup}
-        />
         <RoutePointsLayer
           mapInstance={mapInstance}
-          pickup={routePickupPoint}
+          start={routePickupPoint}
+          pickup={routeShipmentPickupPoint}
           delivery={routeDeliveryPoint}
         />
         {visibleLayers.has("vehicle-positions") && (

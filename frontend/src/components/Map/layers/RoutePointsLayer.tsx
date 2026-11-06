@@ -18,34 +18,44 @@ const LABEL_LAYER_ID = "route-points-label"
 
 interface RoutePointsLayerProps {
   mapInstance: MapLibreMap | null
+  start: GeoJSONPoint | null
   pickup: GeoJSONPoint | null
   delivery: GeoJSONPoint | null
 }
 
-function toFeature(
-  point: GeoJSONPoint,
-  kind: "start" | "finish",
-): Feature<Point> {
+type PointKind = "start" | "pickup" | "finish"
+
+const POINT_STYLE: Record<PointKind, { label: string; color: string }> = {
+  start: { label: "Start", color: "#22c55e" },
+  pickup: { label: "Pickup", color: "#f59e0b" },
+  finish: { label: "Delivery", color: "#ef4444" },
+}
+
+function toFeature(point: GeoJSONPoint, kind: PointKind): Feature<Point> {
   return {
     type: "Feature",
     geometry: { type: "Point", coordinates: [...point.coordinates] },
     properties: {
       kind,
-      label: kind === "start" ? "Pickup" : "Delivery",
-      color: kind === "start" ? "#22c55e" : "#ef4444",
+      label: POINT_STYLE[kind].label,
+      color: POINT_STYLE[kind].color,
     },
   }
 }
 
 export function RoutePointsLayer({
   mapInstance,
+  start,
   pickup,
   delivery,
 }: RoutePointsLayerProps) {
   const data = useMemo<FeatureCollection<Point> | null>(() => {
     const features: Array<Feature<Point>> = []
+    if (start?.coordinates) {
+      features.push(toFeature(start, "start"))
+    }
     if (pickup?.coordinates) {
-      features.push(toFeature(pickup, "start"))
+      features.push(toFeature(pickup, "pickup"))
     }
     if (delivery?.coordinates) {
       features.push(toFeature(delivery, "finish"))
@@ -54,7 +64,7 @@ export function RoutePointsLayer({
       return null
     }
     return { type: "FeatureCollection", features }
-  }, [pickup, delivery])
+  }, [start, pickup, delivery])
 
   useGeoJsonLayer({
     mapInstance,
