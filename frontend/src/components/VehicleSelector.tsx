@@ -35,6 +35,8 @@ export function VehicleSelector({
   disabled = false,
   containerRef,
 }: VehicleSelectorProps) {
+  const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId)
+
   return (
     <div className="flex-1 min-w-[200px]">
       <label htmlFor="vehicle-select" className="text-xs font-medium">
@@ -50,7 +52,11 @@ export function VehicleSelector({
             placeholder={
               vehicles.length === 0 ? "No vehicles yet" : "Select a vehicle..."
             }
-          />
+          >
+            {selectedVehicle
+              ? `${selectedVehicle.name} (${selectedVehicle.unit_number})`
+              : undefined}
+          </SelectValue>
         </SelectTrigger>
         {vehicles.length > 0 && (
           <SelectContent portalContainer={containerRef?.current}>
