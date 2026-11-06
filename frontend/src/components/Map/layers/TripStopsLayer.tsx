@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo } from "react"
 import type { TripPlanStopSnapshot } from "@/client"
 import { syncMapImages } from "@/lib/mapImages"
 import { colorPalette, markerIcons } from "@/lib/mapMarkerIcons"
+import { tripStopMarkerLabels } from "@/lib/tripPlans"
 import {
   formatTripDetour,
   isTankFullAfterRefuel,
@@ -40,14 +41,6 @@ interface TripStopsLayerProps {
   mapInstance: MapLibreMap | null
   stops: TripPlanStopSnapshot[]
   usableTankGallons?: string | number | null
-}
-
-function markerLabel(stop: TripPlanStopSnapshot): string {
-  if (stop.kind === "start") return "S"
-  if (stop.kind === "destination") return "D"
-  if (stop.kind === "pickup") return "P"
-  if (stop.kind === "dropoff") return "U"
-  return String(stop.sequence)
 }
 
 function escapeHtml(value: string): string {
@@ -193,13 +186,14 @@ function buildFeatures(
     return null
   }
 
-  const features: Feature[] = stops.map((stop) => ({
+  const markerLabels = tripStopMarkerLabels(stops)
+  const features: Feature[] = stops.map((stop, index) => ({
     type: "Feature",
     id: stop.sequence,
     properties: {
       kind: stop.kind,
       label: stop.label,
-      markerLabel: markerLabel(stop),
+      markerLabel: markerLabels[index],
       fuelBefore: stop.fuel_before_gallons ?? "",
       fuelAdded: stop.fuel_added_gallons ?? "",
       fuelAfter: stop.fuel_after_gallons ?? "",

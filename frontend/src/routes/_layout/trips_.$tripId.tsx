@@ -47,6 +47,7 @@ import {
   formatMiles,
   TRIP_STATUS_CLASSES,
   TRIP_STATUS_LABELS,
+  tripStopMarkerLabels,
 } from "@/lib/tripPlans"
 import {
   formatTripDetour,
@@ -380,7 +381,7 @@ function TripDetail() {
                   }
                 >
                   <TableCell className="tabular-nums">
-                    {stop.sequence}
+                    {tripStopMarkerLabels(allStops)[index]}
                   </TableCell>
                   <TableCell>
                     <span className="font-medium">{stop.label}</span>

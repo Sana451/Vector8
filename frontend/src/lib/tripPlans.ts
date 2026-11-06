@@ -2,7 +2,7 @@
  * Shared presentation helpers for trip plans.
  */
 
-import type { TripPlanStatus } from "@/client"
+import type { TripPlanStatus, TripPlanStopSnapshot } from "@/client"
 
 const METERS_PER_MILE = 1609.344
 const SECONDS_PER_HOUR = 3600
@@ -27,6 +27,24 @@ export const TRIP_STATUS_CLASSES: Record<TripPlanStatus, string> = {
   in_progress: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
   completed: "bg-violet-500/15 text-violet-600 dark:text-violet-400",
   cancelled: "bg-muted text-muted-foreground line-through",
+}
+
+/**
+ * Marker labels matching the optimizer: S/D/P/U for named stops, and refuel
+ * stops numbered 1..N without counting Pickup.
+ */
+export function tripStopMarkerLabels(
+  stops: Pick<TripPlanStopSnapshot, "kind">[],
+): string[] {
+  let refuelCount = 0
+  return stops.map((stop) => {
+    if (stop.kind === "start") return "S"
+    if (stop.kind === "destination") return "D"
+    if (stop.kind === "pickup") return "P"
+    if (stop.kind === "dropoff") return "U"
+    refuelCount += 1
+    return String(refuelCount)
+  })
 }
 
 export function formatMiles(meters: number | null | undefined): string {
