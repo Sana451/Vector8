@@ -41,6 +41,7 @@ import {
   RefinedRouteLayer,
   RestAreaLayer,
   RouteLayer,
+  RoutePointsLayer,
   ShipmentPickupLayer,
   TrafficLayer,
   TruckRestrictionLayer,
@@ -49,6 +50,7 @@ import {
 import { MeasureTool } from "@/components/Map/MeasureTool"
 import { OptimizationWalkthrough } from "@/components/Map/OptimizationWalkthrough"
 import TomTomMap, { type TomTomMapHandle } from "@/components/Map/TomTomMap"
+import { useResolvedPoint } from "@/components/Map/useResolvedPoint"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
@@ -792,6 +794,11 @@ function MapPage() {
   }
 
   const mapInstance = mapRef.current?.getMapInstance() || null
+  const routePickupPoint = useResolvedPoint(pickupAddress, pickupSelection)
+  const routeDeliveryPoint = useResolvedPoint(
+    deliveryAddress,
+    deliverySelection,
+  )
 
   return (
     <div className="flex flex-col w-full gap-2 h-[calc(100vh-100px)] overflow-hidden">
@@ -1283,6 +1290,11 @@ function MapPage() {
         <ShipmentPickupLayer
           mapInstance={mapInstance}
           pickup={shipmentPickup}
+        />
+        <RoutePointsLayer
+          mapInstance={mapInstance}
+          pickup={routePickupPoint}
+          delivery={routeDeliveryPoint}
         />
         {visibleLayers.has("vehicle-positions") && (
           <VehiclePositionsLayer
