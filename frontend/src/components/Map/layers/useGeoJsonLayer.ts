@@ -75,9 +75,23 @@ export function useGeoJsonLayer({
   const dataRef = useRef(data)
   const hasData = data !== null
 
+  // Callers pass inline functions and objects that change identity on every
+  // render. Keeping them out of the lifecycle effect's dependencies stops the
+  // source and layers from being torn down and re-added on each parent render,
+  // which made vehicle markers blink on every map interaction.
+  const buildLayersRef = useRef(buildLayers)
+  const shouldBeVisibleRef = useRef(shouldBeVisible)
+  const clusterOptionsRef = useRef(clusterOptions)
+
   useEffect(() => {
     dataRef.current = data
   }, [data])
+
+  useEffect(() => {
+    buildLayersRef.current = buildLayers
+    shouldBeVisibleRef.current = shouldBeVisible
+    clusterOptionsRef.current = clusterOptions
+  }, [buildLayers, shouldBeVisible, clusterOptions])
 
   useEffect(() => {
     if (!mapInstance) {
@@ -85,7 +99,7 @@ export function useGeoJsonLayer({
       return
     }
 
-    const layers = buildLayers(sourceId)
+    const layers = buildLayersRef.current(sourceId)
     console.log(
       `[useGeoJsonLayer] Layers built for ${sourceId}:`,
       layers.map((l) => l.id),
@@ -134,13 +148,14 @@ export function useGeoJsonLayer({
           const sourceConfig: any = { type: "geojson", data: currentData }
 
           // Add clustering configuration if provided
-          if (clusterOptions?.enabled) {
+          const clusterConfig = clusterOptionsRef.current
+          if (clusterConfig?.enabled) {
             sourceConfig.cluster = true
-            sourceConfig.clusterRadius = clusterOptions.radius ?? 50
-            sourceConfig.clusterMaxZoom = clusterOptions.maxZoom ?? 14
+            sourceConfig.clusterRadius = clusterConfig.radius ?? 50
+            sourceConfig.clusterMaxZoom = clusterConfig.maxZoom ?? 14
             console.log(
               `[useGeoJsonLayer] Creating clustered source ${sourceId}`,
-              clusterOptions,
+              clusterConfig,
             )
           }
 
@@ -169,8 +184,8 @@ export function useGeoJsonLayer({
               shouldShow = layerWithVisibility.shouldBeVisible(currentZoom)
             }
             // Then apply global visibility if layer didn't restrict it
-            else if (shouldBeVisible) {
-              shouldShow = shouldBeVisible(currentZoom)
+            else if (shouldBeVisibleRef.current) {
+              shouldShow = shouldBeVisibleRef.current(currentZoom)
             }
 
             const visibility: "visible" | "none" = shouldShow
@@ -220,8 +235,8 @@ export function useGeoJsonLayer({
             shouldShow = layerWithVisibility.shouldBeVisible(currentZoom)
           }
           // Then apply global visibility if layer didn't restrict it
-          else if (shouldBeVisible) {
-            shouldShow = shouldBeVisible(currentZoom)
+          else if (shouldBeVisibleRef.current) {
+            shouldShow = shouldBeVisibleRef.current(currentZoom)
           }
 
           mapInstance.setLayoutProperty(
@@ -241,14 +256,7 @@ export function useGeoJsonLayer({
       mapInstance.off("zoom", handleZoomChange)
       remove()
     }
-  }, [
-    mapInstance,
-    sourceId,
-    hasData,
-    buildLayers,
-    shouldBeVisible,
-    clusterOptions,
-  ])
+  }, [mapInstance, sourceId, hasData])
 
   // Push new data into the existing source without removing layers, so that
   // frequent updates (e.g. dragging a slider) don't flicker or stall the map.
