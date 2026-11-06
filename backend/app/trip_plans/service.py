@@ -138,7 +138,13 @@ class TripPlanService:
             stops_snapshot=[
                 snapshot.model_dump(mode="json")
                 for snapshot in self._merge_snapshots(
-                    self._build_snapshots(stops), shipment_stops or []
+                    self._build_snapshots(stops),
+                    [
+                        *(shipment_stops or []),
+                        *self._base_waypoint_snapshots(
+                            base_route, shipment_stops or []
+                        ),
+                    ],
                 )
             ],
             base_distance_meters=base_route.distance_meters,
@@ -706,6 +712,36 @@ class TripPlanService:
                 entries.append((offset, 1, index, coord))
         entries.sort(key=lambda entry: (entry[0], entry[1], entry[2]))
         return [entry[3] for entry in entries]
+
+    @classmethod
+    def _base_waypoint_snapshots(
+        cls,
+        base_route: RouteCalculation,
+        known: list[TripPlanStopSnapshot],
+    ) -> list[TripPlanStopSnapshot]:
+        """Freeze the base route's waypoints (e.g. a map pickup) as stops.
+
+        Waypoints already covered by ``known`` stops are skipped so the same
+        point is not listed twice.
+        """
+        base_request = CalculateRouteRequest.model_validate(base_route.request_data)
+        points = base_request.route_planning_locations.waypoints
+        if points is None:
+            return []
+        known_coords = {(stop.coordinate[0], stop.coordinate[1]) for stop in known}
+        coords = [(coord[0], coord[1]) for coord in points.coordinates]
+        offsets = cls._leg_offsets(base_route, len(coords))
+        return [
+            TripPlanStopSnapshot(
+                sequence=0,
+                kind="pickup",
+                label="Pickup",
+                coordinate=coord,
+                route_offset_meters=offset,
+            )
+            for offset, coord in zip(offsets, coords, strict=True)
+            if coord not in known_coords
+        ]
 
     @staticmethod
     def _merge_snapshots(

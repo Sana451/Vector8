@@ -144,6 +144,10 @@ class TestCreate:
             (-93.5, 40.0),
             (-95.0, 40.0),
         ]
+        pickups = [
+            stop for stop in response.json()["stops"] if stop["kind"] == "pickup"
+        ]
+        assert [stop["label"] for stop in pickups] == ["Pickup"]
 
     def test_stop_duration_is_sent_in_seconds(
         self, client: TestClient, db: Session, routing: FakeRoutingService

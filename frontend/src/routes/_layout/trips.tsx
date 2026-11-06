@@ -222,8 +222,8 @@ function TripsTable() {
               </TableHead>
               <TableHead>Unit #</TableHead>
               <TableHead>Name</TableHead>
-              <TableHead>From</TableHead>
-              <TableHead>To</TableHead>
+              <TableHead>Start</TableHead>
+              <TableHead>Delivery</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Distance</TableHead>
               <TableHead className="text-right">Duration</TableHead>
