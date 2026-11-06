@@ -2150,6 +2150,12 @@ export type MapPointInput = {
      * GeoJSON Point coordinates
      */
     location?: GeoJSONPoint | null;
+    /**
+     * Label
+     *
+     * Human-readable label for coordinates, e.g. the selected address
+     */
+    label?: string | null;
 };
 
 /**

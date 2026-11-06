@@ -364,12 +364,18 @@ function MapPage() {
     mutationFn: async (forceRefresh: boolean) => {
       const request = buildRouteOverviewRequest({
         pickup: pickupSelection?.location
-          ? buildMapPointFromLocation(pickupSelection.location)
+          ? buildMapPointFromLocation(
+              pickupSelection.location,
+              pickupSelection.formatted_address,
+            )
           : buildMapPointFromAddress(
               pickupSelection?.formatted_address ?? pickupAddress.trim(),
             ),
         delivery: deliverySelection?.location
-          ? buildMapPointFromLocation(deliverySelection.location)
+          ? buildMapPointFromLocation(
+              deliverySelection.location,
+              deliverySelection.formatted_address,
+            )
           : buildMapPointFromAddress(
               deliverySelection?.formatted_address ?? deliveryAddress.trim(),
             ),

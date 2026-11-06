@@ -1,7 +1,9 @@
 import type { GeoJSONPoint, MapLayer, MapOverviewRequest } from "@/client"
 import type { GeocodingSearchResponse } from "@/client/types.gen"
 
-export type MapPointInput = { address: string } | { location: GeoJSONPoint }
+export type MapPointInput =
+  | { address: string }
+  | { location: GeoJSONPoint; label?: string }
 
 export interface AddressSelection extends GeocodingSearchResponse {
   query: string
@@ -23,8 +25,9 @@ export function buildMapPointFromAddress(address: string): MapPointInput {
 
 export function buildMapPointFromLocation(
   location: GeoJSONPoint,
+  label?: string,
 ): MapPointInput {
-  return { location }
+  return label ? { location, label } : { location }
 }
 
 export function createAddressSelection(
