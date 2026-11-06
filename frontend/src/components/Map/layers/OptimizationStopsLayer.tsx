@@ -27,7 +27,8 @@ function stepMarkerLabel(step: OptimizationStep): string {
   if (step.kind === "unreachable_station") return "X"
   if (step.kind === "start") return "S"
   if (step.kind === "destination") return "D"
-  return String(step.index)
+  if (step.kind === "pickup") return "P"
+  return String(step.ordinal ?? step.index)
 }
 
 function buildStopsFeatures(
