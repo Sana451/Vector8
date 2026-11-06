@@ -69,6 +69,10 @@ interface BuildStepsParams {
   initialFuelGallons: number
   /** Shipment pickup waypoint; becomes a non-fuel "pickup" step. */
   pickup?: PickupStepInput | null
+  /** Human-readable address of the route start. */
+  startAddress?: string | null
+  /** Human-readable address of the delivery point (route destination). */
+  deliveryAddress?: string | null
 }
 
 export interface PickupStepInput {
@@ -125,10 +129,22 @@ export function calculateRouteTotalDistanceMeters(
 export function buildOptimizationSteps(
   params: BuildStepsParams,
 ): OptimizationStep[] {
-  const { pickup, routeCoordinates } = params
-  const steps = buildBaseSteps(params)
+  const { pickup, routeCoordinates, startAddress, deliveryAddress } = params
+  const steps = buildBaseSteps(params).map((step) => {
+    if (step.kind === "start") {
+      return { ...step, label: "Start", address: startAddress ?? undefined }
+    }
+    if (step.kind === "destination") {
+      return {
+        ...step,
+        label: "Delivery",
+        address: deliveryAddress ?? undefined,
+      }
+    }
+    return step
+  })
   if (!pickup) {
-    return steps
+    return steps.map((step, index) => ({ ...step, index, ordinal: index }))
   }
 
   const pickupStep: OptimizationStep = {

@@ -24,14 +24,17 @@ export interface FuelOptimizationChatMessage {
 export interface FuelOptimizationExplainRequest {
   optimization: FuelOptimizationCalculateResponse
   stop_sequence?: number | null
-  pickup?: FuelOptimizationPickupStop | null
-  focus_pickup?: boolean
+  anchors?: FuelOptimizationRouteAnchor[]
+  focus_anchor?: FuelOptimizationAnchorRole | null
   question?: string | null
   history?: FuelOptimizationChatMessage[]
   language?: "en" | "ru"
 }
 
-export interface FuelOptimizationPickupStop {
+export type FuelOptimizationAnchorRole = "start" | "pickup" | "destination"
+
+export interface FuelOptimizationRouteAnchor {
+  role: FuelOptimizationAnchorRole
   label: string
   latitude: number
   longitude: number

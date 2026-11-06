@@ -770,15 +770,17 @@ export type FuelOptimizationExplainRequest = {
      */
     stop_sequence?: number | null;
     /**
-     * Shipment pickup stop, included in the explanation context.
-     */
-    pickup?: FuelOptimizationPickupStop | null;
-    /**
-     * Focus Pickup
+     * Anchors
      *
-     * Explain the pickup stop instead of the whole plan.
+     * Start, pickup and destination points, included in the context.
      */
-    focus_pickup?: boolean;
+    anchors?: Array<FuelOptimizationRouteAnchor>;
+    /**
+     * Focus Anchor
+     *
+     * Explain this start, pickup or destination instead of the plan.
+     */
+    focus_anchor?: 'start' | 'pickup' | 'destination' | null;
     /**
      * Question
      */
@@ -1301,11 +1303,15 @@ export type FuelOptimizationLookaheadPublic_Output = {
 };
 
 /**
- * FuelOptimizationPickupStop
+ * FuelOptimizationRouteAnchor
  *
- * Shipment pickup: an intermediate waypoint, not an itinerary point.
+ * Start, shipment pickup or destination: not a fuel stop.
  */
-export type FuelOptimizationPickupStop = {
+export type FuelOptimizationRouteAnchor = {
+    /**
+     * Role
+     */
+    role: 'start' | 'pickup' | 'destination';
     /**
      * Label
      */

@@ -670,6 +670,8 @@ function MapPage() {
             address: shipmentPickup.formatted_address,
           }
         : null,
+      startAddress: pickupSelection?.formatted_address ?? null,
+      deliveryAddress: deliverySelection?.formatted_address ?? null,
     })
   }, [
     optimizationResult,
@@ -677,6 +679,8 @@ function MapPage() {
     fuelStations,
     initialFuelGallons,
     shipmentPickup,
+    pickupSelection,
+    deliverySelection,
   ])
 
   const routeTotalDistanceMeters = useMemo(

@@ -136,7 +136,7 @@ def test_context_labels_points_with_display_names() -> None:
     context = build_explanation_context(_result())
 
     names = [p["display_name"] for p in context["itinerary"]]
-    assert names == ["Stop 1", "Destination (not a fuel stop)"]
+    assert names == ["Stop 1", "Delivery (not a fuel stop)"]
 
 
 def test_focus_on_destination_is_not_called_a_stop() -> None:
@@ -150,7 +150,7 @@ def test_focus_on_destination_is_not_called_a_stop() -> None:
         language="ru",
     )
 
-    assert "Destination (not a fuel stop)" in messages[0]["content"]
+    assert "Delivery (not a fuel stop)" in messages[0]["content"]
     assert "kind=destination" in messages[0]["content"]
 
 

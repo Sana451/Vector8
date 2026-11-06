@@ -12,8 +12,9 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import {
   explainFuelOptimization,
+  type FuelOptimizationAnchorRole,
   type FuelOptimizationChatMessage,
-  type FuelOptimizationPickupStop,
+  type FuelOptimizationRouteAnchor,
 } from "@/api/fuelOptimization"
 import type { FuelOptimizationCalculateResponse_Output as FuelOptimizationCalculateResponse } from "@/client"
 import { ExplainLanguageSelect } from "@/components/Map/ExplainLanguageSelect"
@@ -33,10 +34,10 @@ interface AiExplainDialogProps {
   /** Itinerary sequence of the stop to explain; omit for the whole plan. */
   stopSequence?: number
   stopLabel?: string
-  /** Shipment pickup stop to explain; takes precedence over stopSequence. */
-  pickup?: FuelOptimizationPickupStop | null
-  /** Ask the AI to focus on the pickup stop instead of the whole plan. */
-  focusPickup?: boolean
+  /** Start, pickup and delivery points included in the context. */
+  anchors?: FuelOptimizationRouteAnchor[]
+  /** Ask the AI to focus on one anchor instead of the whole plan. */
+  focusAnchor?: FuelOptimizationAnchorRole | null
   /** Map container to render into, so the panel stays on the map (and in fullscreen). */
   portalContainer?: HTMLElement | null
 }
@@ -53,8 +54,8 @@ export function AiExplainDialog({
   optimization,
   stopSequence,
   stopLabel,
-  pickup = null,
-  focusPickup = false,
+  anchors = [],
+  focusAnchor = null,
   portalContainer,
 }: AiExplainDialogProps) {
   const [messages, setMessages] = useState<ChatEntry[]>([])
@@ -81,8 +82,8 @@ export function AiExplainDialog({
   const languageRef = useRef(language)
   languageRef.current = language
   // Read via ref so a fresh object each render doesn't re-trigger the open effect.
-  const pickupRef = useRef(pickup)
-  pickupRef.current = pickup
+  const anchorsRef = useRef(anchors)
+  anchorsRef.current = anchors
 
   const ask = useCallback(
     async (text: string | undefined, history: ChatEntry[]) => {
@@ -93,8 +94,8 @@ export function AiExplainDialog({
         const response = await explainFuelOptimization({
           optimization,
           stop_sequence: stopSequence ?? null,
-          pickup: pickupRef.current,
-          focus_pickup: focusPickup,
+          anchors: anchorsRef.current,
+          focus_anchor: focusAnchor,
           question: text ?? null,
           history: history.map(({ role, content }) => ({ role, content })),
           language: languageRef.current,
@@ -115,7 +116,7 @@ export function AiExplainDialog({
         if (currentRequest === requestId.current) setIsLoading(false)
       }
     },
-    [optimization, stopSequence, focusPickup],
+    [optimization, stopSequence, focusAnchor],
   )
 
   useEffect(() => {

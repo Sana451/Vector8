@@ -15,7 +15,10 @@ import {
   Sparkles,
 } from "lucide-react"
 import { useRef, useState } from "react"
-import type { FuelOptimizationPickupStop } from "@/api/fuelOptimization"
+import type {
+  FuelOptimizationAnchorRole,
+  FuelOptimizationRouteAnchor,
+} from "@/api/fuelOptimization"
 import type {
   FuelOptimizationCalculateResponse_Output as FuelOptimizationCalculateResponse,
   FuelOptimizationEconomicsPublic_Output as FuelOptimizationEconomicsPublic,
@@ -122,7 +125,7 @@ export function OptimizationWalkthrough({
 }: OptimizationWalkthroughProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [explainTarget, setExplainTarget] = useState<
-    "plan" | "step" | "pickup" | null
+    "plan" | "step" | FuelOptimizationAnchorRole | null
   >(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const { dragHandlers, dragStyle, setOffset } = useDraggable(panelRef)
@@ -172,15 +175,37 @@ export function OptimizationWalkthrough({
       : undefined
   const canGoBack = activeStepIndex > 0
   const canGoNext = activeStepIndex < steps.length - 1
-  const pickupStop: FuelOptimizationPickupStop | null =
-    activeStep.kind === "pickup"
-      ? {
-          label: activeStep.label,
-          latitude: activeStep.coordinate[1],
-          longitude: activeStep.coordinate[0],
-          address: activeStep.address ?? null,
-          route_offset_meters: activeStep.routeOffsetMeters,
-        }
+  const anchorRoleOf = (
+    kind: OptimizationStep["kind"],
+  ): FuelOptimizationAnchorRole | null =>
+    kind === "start"
+      ? "start"
+      : kind === "pickup"
+        ? "pickup"
+        : kind === "destination"
+          ? "destination"
+          : null
+  const anchorRole = anchorRoleOf(activeStep.kind)
+  const anchors: FuelOptimizationRouteAnchor[] = steps.flatMap((step) => {
+    const role = anchorRoleOf(step.kind)
+    return role
+      ? [
+          {
+            role,
+            label: step.label,
+            latitude: step.coordinate[1],
+            longitude: step.coordinate[0],
+            address: step.address ?? null,
+            route_offset_meters: step.routeOffsetMeters,
+          },
+        ]
+      : []
+  })
+  const explainFocusAnchor =
+    explainTarget === "start" ||
+    explainTarget === "pickup" ||
+    explainTarget === "destination"
+      ? explainTarget
       : null
 
   return (
@@ -439,7 +464,7 @@ export function OptimizationWalkthrough({
             </div>
           )}
 
-          {activeStep.kind === "pickup" && (
+          {anchorRole !== null && (
             <div className="mt-2 text-xs space-y-1">
               {activeStep.address && (
                 <div className="flex justify-between gap-3">
@@ -473,11 +498,11 @@ export function OptimizationWalkthrough({
                 <div className="mt-2 flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setExplainTarget("pickup")}
+                    onClick={() => setExplainTarget(anchorRole)}
                     className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
                   >
                     <Sparkles className="h-3.5 w-3.5" />
-                    Explain this pickup with AI
+                    Explain this point with AI
                   </button>
                   <ExplainLanguageSelect />
                 </div>
@@ -615,12 +640,12 @@ export function OptimizationWalkthrough({
             explainTarget === "step" ? activeStep.sequence : undefined
           }
           stopLabel={
-            explainTarget === "step" || explainTarget === "pickup"
+            explainTarget === "step" || explainFocusAnchor !== null
               ? activeStep.label
               : undefined
           }
-          pickup={explainTarget === "pickup" ? pickupStop : undefined}
-          focusPickup={explainTarget === "pickup"}
+          anchors={anchors}
+          focusAnchor={explainFocusAnchor}
           portalContainer={explainPortalContainer}
         />
       )}
