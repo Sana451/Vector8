@@ -2750,59 +2750,11 @@ export type ShipmentDocumentPublic = {
 };
 
 /**
- * ShipmentPlanRequest
- */
-export type ShipmentPlanRequest = {
-    /**
-     * Vehicle Id
-     */
-    vehicle_id: string;
-    /**
-     * Initial Fuel Gallons
-     */
-    initial_fuel_gallons: number | string;
-    /**
-     * Origin
-     *
-     * [longitude, latitude]. Defaults to the vehicle's last position.
-     */
-    origin?: [
-        number,
-        number
-    ] | null;
-    /**
-     * Origin Label
-     */
-    origin_label?: string | null;
-    /**
-     * Destination
-     *
-     * [longitude, latitude]. Defaults to the shipment's last stop; when given, every shipment stop becomes an intermediate point.
-     */
-    destination?: [
-        number,
-        number
-    ] | null;
-    /**
-     * Destination Label
-     */
-    destination_label?: string | null;
-    /**
-     * Stop Duration Minutes
-     */
-    stop_duration_minutes?: number | null;
-    /**
-     * Name
-     */
-    name?: string | null;
-};
-
-/**
- * ShipmentPublic
+ * ShipmentListItemPublic
  *
- * A shipment in list responses, without stops or document bytes.
+ * A list row: the shipment plus its first pickup and last dropoff.
  */
-export type ShipmentPublic = {
+export type ShipmentListItemPublic = {
     /**
      * Id
      */
@@ -2848,6 +2800,56 @@ export type ShipmentPublic = {
      * Updated At
      */
     updated_at: string;
+    first_pickup?: ShipmentStopPublic | null;
+    last_dropoff?: ShipmentStopPublic | null;
+};
+
+/**
+ * ShipmentPlanRequest
+ */
+export type ShipmentPlanRequest = {
+    /**
+     * Vehicle Id
+     */
+    vehicle_id: string;
+    /**
+     * Initial Fuel Gallons
+     */
+    initial_fuel_gallons: number | string;
+    /**
+     * Origin
+     *
+     * [longitude, latitude]. Defaults to the vehicle's last position.
+     */
+    origin?: [
+        number,
+        number
+    ] | null;
+    /**
+     * Origin Label
+     */
+    origin_label?: string | null;
+    /**
+     * Destination
+     *
+     * [longitude, latitude]. Defaults to the shipment's last stop; when given, every shipment stop becomes an intermediate point.
+     */
+    destination?: [
+        number,
+        number
+    ] | null;
+    /**
+     * Destination Label
+     */
+    destination_label?: string | null;
+    /**
+     * Stop Duration Minutes
+     */
+    stop_duration_minutes?: number | null;
+    /**
+     * Name
+     */
+    name?: string | null;
 };
 
 /**
@@ -3044,7 +3046,7 @@ export type ShipmentsPublic = {
     /**
      * Data
      */
-    data: Array<ShipmentPublic>;
+    data: Array<ShipmentListItemPublic>;
     /**
      * Count
      */

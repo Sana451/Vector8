@@ -22,6 +22,7 @@ from app.shipments.exceptions import (
     UnsupportedDocumentTypeError,
 )
 from app.shipments.planning import (
+    PlanningInfeasibleError,
     PlanningVehicleNotFoundError,
     RouteNotFoundError,
     RouteUnavailableError,
@@ -226,6 +227,17 @@ async def plan_shipment(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except RouteUnavailableError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except PlanningInfeasibleError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "fuel_plan_infeasible",
+                "message": str(exc),
+                "optimization_run_id": str(exc.optimization_run_id),
+                "route_id": str(exc.route_id),
+                "reasons": exc.reasons,
+            },
+        ) from exc
     except ShipmentNotPlannableError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except FuelOptimizationError as exc:

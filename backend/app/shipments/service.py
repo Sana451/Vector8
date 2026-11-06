@@ -31,7 +31,7 @@ from app.shipments.repository import ShipmentRepository
 from app.shipments.schemas import (
     ShipmentDetailPublic,
     ShipmentDocumentPublic,
-    ShipmentPublic,
+    ShipmentListItemPublic,
     ShipmentStopPublic,
     ShipmentStopWrite,
     ShipmentUpdateRequest,
@@ -215,11 +215,31 @@ class ShipmentService:
         planning_status: PlanningStatus | None = None,
         skip: int = 0,
         limit: int = 100,
-    ) -> tuple[list[ShipmentPublic], int]:
+    ) -> tuple[list[ShipmentListItemPublic], int]:
         shipments, total = self.repository.list_for_owner(
             owner_id, planning_status=planning_status, skip=skip, limit=limit
         )
-        return [ShipmentPublic.model_validate(item) for item in shipments], total
+        items = []
+        for shipment in shipments:
+            item = ShipmentListItemPublic.model_validate(shipment)
+            stops = sorted(
+                (
+                    _stop_to_public(stop, point)
+                    for stop, point in self.repository.list_stops_with_points(
+                        shipment.id
+                    )
+                ),
+                key=lambda stop: stop.sequence,
+            )
+            item.first_pickup = next(
+                (stop for stop in stops if stop.kind == StopKind.PICKUP), None
+            )
+            item.last_dropoff = next(
+                (stop for stop in reversed(stops) if stop.kind == StopKind.DROPOFF),
+                None,
+            )
+            items.append(item)
+        return items, total
 
     def get_detail(
         self, shipment_id: uuid.UUID, *, owner_id: uuid.UUID

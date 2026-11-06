@@ -24,7 +24,11 @@ from app.fleet.models import VehicleStatus
 from app.fleet.position_repository import PositionReading, VehiclePositionRepository
 from app.fleet.positions import VehiclePositionSource
 from app.fleet.repository import VehicleRepository
-from app.fuel_optimization.schemas import FuelOptimizationCalculateRequest
+from app.fuel_optimization.domain import FuelOptimizationStatus
+from app.fuel_optimization.schemas import (
+    FuelOptimizationCalculateRequest,
+    FuelOptimizationCalculateResponse,
+)
 from app.fuel_optimization.service import OptimizeFuelUseCase
 from app.providers.geo import GeoJSONMultiPoint, GeoJSONPoint
 from app.routing.exceptions import RoutingError, RoutingNoRouteFoundError
@@ -54,6 +58,22 @@ class RouteUnavailableError(ShipmentNotPlannableError):
 
 class RouteNotFoundError(RouteUnavailableError):
     """The provider answered, but no truck route exists between the stops."""
+
+
+class PlanningInfeasibleError(ShipmentNotPlannableError):
+    """The optimizer found no feasible refuel plan; nothing is saved as a trip."""
+
+    def __init__(
+        self,
+        *,
+        optimization_run_id: uuid.UUID,
+        route_id: uuid.UUID,
+        reasons: list[str],
+    ) -> None:
+        super().__init__("Fuel plan is infeasible: " + "; ".join(reasons))
+        self.optimization_run_id = optimization_run_id
+        self.route_id = route_id
+        self.reasons = reasons
 
 
 class VehicleSuggestion(BaseModel):
@@ -256,6 +276,12 @@ class ShipmentPlanningService:
                 initial_fuel_gallons=request.initial_fuel_gallons,
             )
         )
+        if optimization.status == FuelOptimizationStatus.INFEASIBLE:
+            raise PlanningInfeasibleError(
+                optimization_run_id=optimization.optimization_run_id,
+                route_id=route.id,
+                reasons=self._infeasible_reasons(optimization),
+            )
         trip_plan = await self.trip_plan_service.create(
             owner_id=owner_id,
             optimization_run_id=optimization.optimization_run_id,
@@ -269,6 +295,15 @@ class ShipmentPlanningService:
         self.session.add(shipment)
         self.session.commit()
         return trip_plan
+
+    @staticmethod
+    def _infeasible_reasons(
+        optimization: FuelOptimizationCalculateResponse,
+    ) -> list[str]:
+        failure = optimization.failure
+        if failure is None:
+            return [optimization.explanation.outcome]
+        return [failure.message]
 
     @staticmethod
     def _default_name(reference: str | None) -> str:

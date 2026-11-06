@@ -96,6 +96,13 @@ class ShipmentPublic(BaseModel):
     updated_at: datetime
 
 
+class ShipmentListItemPublic(ShipmentPublic):
+    """A list row: the shipment plus its first pickup and last dropoff."""
+
+    first_pickup: ShipmentStopPublic | None = None
+    last_dropoff: ShipmentStopPublic | None = None
+
+
 class ShipmentDetailPublic(ShipmentPublic):
     """A shipment with everything needed by the review screen."""
 
@@ -111,7 +118,7 @@ class ShipmentDetailPublic(ShipmentPublic):
 class ShipmentsPublic(BaseModel):
     """A page of shipments."""
 
-    data: list[ShipmentPublic]
+    data: list[ShipmentListItemPublic]
     count: int
 
 

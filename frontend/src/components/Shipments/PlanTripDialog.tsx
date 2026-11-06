@@ -25,6 +25,12 @@ const METERS_PER_MILE = 1609.344
 const MAX_LONGITUDE = 180
 const MAX_LATITUDE = 90
 
+interface InfeasibleDetail {
+  code: string
+  message: string
+  reasons: string[]
+}
+
 // Lets only digits, one dot and a leading minus through; a comma is read as a dot.
 // Returns null for rejected input so the caller keeps the previous value.
 function sanitizeCoordinateInput(value: string): string | null {
@@ -62,6 +68,7 @@ export default function PlanTripDialog({
 }: PlanTripDialogProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [vehicleId, setVehicleId] = useState("")
+  const [infeasible, setInfeasible] = useState<InfeasibleDetail | null>(null)
 
   const [fuel, setFuel] = useState("")
   const [longitude, setLongitude] = useState("")
@@ -119,8 +126,34 @@ export default function PlanTripDialog({
         navigate({ to: "/trips/$tripId", params: { tripId: trip.id } })
       }
     },
-    onError: (error: Error) => handleError.call(showErrorToast, error),
+    onError: (error: Error) => {
+      const detail = (
+        error as unknown as { response?: { data?: { detail?: unknown } } }
+      ).response?.data?.detail as InfeasibleDetail | undefined
+      if (detail?.code === "fuel_plan_infeasible") {
+        setInfeasible(detail)
+        return
+      }
+      handleError.call(showErrorToast, error)
+    },
   })
+
+  const openOptimizer = () => {
+    if (!infeasible) return
+    navigate({
+      to: "/map",
+      search: {
+        shipmentId,
+        vehicleId,
+        fuel,
+        origin:
+          needsOrigin && lon !== null && lat !== null
+            ? `${lon},${lat}`
+            : undefined,
+        reason: infeasible.reasons.join(" | "),
+      },
+    })
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -138,6 +171,23 @@ export default function PlanTripDialog({
             and ends at the last stop, with fuel stops optimised along the way.
           </DialogDescription>
         </DialogHeader>
+
+        {infeasible ? (
+          <div className="space-y-2 rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm">
+            <p className="font-medium text-destructive">
+              Fuel plan is infeasible
+            </p>
+            <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
+              {infeasible.reasons.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+            <Button size="sm" variant="outline" onClick={openOptimizer}>
+              <RouteIcon className="size-4" />
+              Open optimizer with these values
+            </Button>
+          </div>
+        ) : null}
 
         <div className="max-h-64 space-y-2 overflow-y-auto">
           {isLoading ? (

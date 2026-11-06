@@ -3,7 +3,11 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
 import { FileText } from "lucide-react"
 import { useState } from "react"
 
-import { type ShipmentPublic, ShipmentsService, UsersService } from "@/client"
+import {
+  type ShipmentListItemPublic,
+  ShipmentsService,
+  UsersService,
+} from "@/client"
 import {
   BulkDeleteDialog,
   SelectionBar,
@@ -63,7 +67,8 @@ function Shipments() {
     allSelected: selection.allSelected,
     onToggleOne: selection.toggleOne,
     onToggleAll: selection.toggleAll,
-    onDelete: (shipment: ShipmentPublic) => setPendingIds([shipment.id]),
+    onDelete: (shipment: ShipmentListItemPublic) =>
+      setPendingIds([shipment.id]),
   })
 
   return (

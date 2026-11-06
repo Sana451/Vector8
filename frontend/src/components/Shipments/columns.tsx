@@ -1,7 +1,7 @@
 import type { ColumnDef } from "@tanstack/react-table"
 import { AlertTriangle, PencilLine, Trash2 } from "lucide-react"
 
-import type { ShipmentPublic } from "@/client"
+import type { ShipmentListItemPublic, ShipmentStopPublic } from "@/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/tooltip"
 
 const planningVariant: Record<
-  ShipmentPublic["planning_status"],
+  ShipmentListItemPublic["planning_status"],
   "default" | "secondary" | "outline"
 > = {
   unplanned: "secondary",
@@ -43,7 +43,33 @@ function formatWeight(weight?: string | null) {
   return `${value.toLocaleString()} lbs`
 }
 
-const baseColumns: ColumnDef<ShipmentPublic>[] = [
+function formatWindow(start?: string | null, end?: string | null) {
+  if (!start && !end) return "—"
+  const fmt = (value: string) =>
+    new Date(value).toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  if (start && end) return `${fmt(start)} – ${fmt(end)}`
+  return fmt((start ?? end) as string)
+}
+
+function StopCell({ stop }: { stop?: ShipmentStopPublic | null }) {
+  if (!stop) return <span className="text-muted-foreground">—</span>
+  const address = stop.geocoded_address ?? stop.address_raw ?? "—"
+  return (
+    <div className="flex flex-col">
+      <span className="text-sm">{address}</span>
+      <span className="text-xs text-muted-foreground">
+        {formatWindow(stop.scheduled_at_start, stop.scheduled_at_end)}
+      </span>
+    </div>
+  )
+}
+
+const baseColumns: ColumnDef<ShipmentListItemPublic>[] = [
   {
     accessorKey: "reference_number",
     header: "Load #",
@@ -115,9 +141,14 @@ const baseColumns: ColumnDef<ShipmentPublic>[] = [
     },
   },
   {
-    accessorKey: "created_at",
-    header: "Uploaded",
-    cell: ({ row }) => new Date(row.original.created_at).toLocaleString(),
+    id: "from",
+    header: "From",
+    cell: ({ row }) => <StopCell stop={row.original.first_pickup} />,
+  },
+  {
+    id: "to",
+    header: "To",
+    cell: ({ row }) => <StopCell stop={row.original.last_dropoff} />,
   },
 ]
 
@@ -132,8 +163,8 @@ export function getColumns({
   allSelected: boolean
   onToggleOne: (id: string, checked: boolean) => void
   onToggleAll: (checked: boolean) => void
-  onDelete: (shipment: ShipmentPublic) => void
-}): ColumnDef<ShipmentPublic>[] {
+  onDelete: (shipment: ShipmentListItemPublic) => void
+}): ColumnDef<ShipmentListItemPublic>[] {
   return [
     {
       id: "select",
