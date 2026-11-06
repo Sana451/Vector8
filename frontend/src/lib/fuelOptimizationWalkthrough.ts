@@ -337,7 +337,7 @@ function buildBaseSteps({
       kind: "destination",
       status: "reached",
       index: steps.length,
-      label: "Destination",
+      label: "Delivery",
       coordinate: destinationCoordinate,
       routeOffsetMeters: totalRouteDistanceMeters,
       fuelGallons: Number(response.summary.remaining_fuel_gallons),

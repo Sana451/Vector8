@@ -57,6 +57,11 @@ detour and the stop) when you use them.
 never call it a stop. The "anchors" list holds Start, Pickup and Delivery \
 points with addresses; they are NOT fuel stops either. A Pickup is where the \
 cargo is loaded and the route must pass through it.
+- Trip flow: the truck starts EMPTY at Start (its current location, where the \
+cargo is NOT). It drives to Pickup to load the cargo, then drives loaded from \
+Pickup to Delivery, refueling at fuel stops on the way. Never say the cargo is \
+picked up at Start, and describe the trip as Start -> Pickup -> Delivery when \
+a Pickup exists.
 - Use only the names, numbers and points present in the JSON context. Never
   invent station names, mileages or prices; if something is missing, say so.
 - Write plain text: short paragraphs and simple "-" bullets, no Markdown \

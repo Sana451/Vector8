@@ -110,7 +110,7 @@ export function TripEndpoints({ trip }: Props) {
           }
         />
       </Block>
-      <Block title="Destination">
+      <Block title="Delivery">
         <Row
           label="Remaining fuel on arrival"
           value={formatTripGallons(remainingOnArrival)}
