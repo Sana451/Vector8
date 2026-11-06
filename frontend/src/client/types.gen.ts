@@ -2899,6 +2899,10 @@ export type ShipmentPlanRequest = {
      */
     destination_label?: string | null;
     /**
+     * Same fuel constraints the /map optimizer accepts.
+     */
+    constraints?: FuelOptimizationConstraintsInput | null;
+    /**
      * Stop Duration Minutes
      */
     stop_duration_minutes?: number | null;

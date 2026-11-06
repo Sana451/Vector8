@@ -28,6 +28,7 @@ from app.fuel_optimization.domain import FuelOptimizationStatus
 from app.fuel_optimization.schemas import (
     FuelOptimizationCalculateRequest,
     FuelOptimizationCalculateResponse,
+    FuelOptimizationConstraintsInput,
 )
 from app.fuel_optimization.service import OptimizeFuelUseCase
 from app.providers.geo import GeoJSONMultiPoint, GeoJSONPoint
@@ -110,6 +111,10 @@ class ShipmentPlanRequest(BaseModel):
         ),
     )
     destination_label: str | None = Field(default=None, max_length=255)
+    constraints: FuelOptimizationConstraintsInput | None = Field(
+        default=None,
+        description="Same fuel constraints the /map optimizer accepts.",
+    )
     stop_duration_minutes: int | None = Field(default=None, ge=0, le=1440)
     name: str | None = Field(default=None, max_length=255)
 
@@ -225,7 +230,7 @@ class ShipmentPlanningService:
             (point.coordinates[0], point.coordinates[1]) for _, point in rows
         ]
         labels = {
-            index: stop.company_name or stop.address_raw
+            index: stop.geocoded_address or stop.address_raw
             for index, (stop, _) in enumerate(rows)
         }
         stops = list(zip(kinds, coordinates, strict=True))
@@ -274,6 +279,7 @@ class ShipmentPlanningService:
                 route_id=route.id,
                 vehicle_id=vehicle.id,
                 initial_fuel_gallons=request.initial_fuel_gallons,
+                constraints=request.constraints,
             )
         )
         if optimization.status == FuelOptimizationStatus.INFEASIBLE:

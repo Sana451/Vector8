@@ -242,7 +242,7 @@ function MapPage() {
   const [maxDetourMeters, setMaxDetourMeters] = useState("5000")
   const [initialFuelGallons, setInitialFuelGallons] = useState("42")
   const [reserveGallons, setReserveGallons] = useState("3")
-  const [minRefuelGallons, setMinRefuelGallons] = useState("")
+  const [minRefuelGallons, setMinRefuelGallons] = useState("0")
   const [optimizationResult, setOptimizationResult] =
     useState<FuelOptimizationCalculateResponse | null>(null)
   const [optimizationReserveGallons, setOptimizationReserveGallons] =
@@ -531,9 +531,7 @@ function MapPage() {
         initial_fuel_gallons: parseInt(initialFuelGallons, 10),
         constraints: {
           reserve_gallons: parseFloat(reserveGallons),
-          min_refuel_gallons: minRefuelGallons.trim()
-            ? Number.parseFloat(minRefuelGallons)
-            : null,
+          min_refuel_gallons: Number.parseFloat(minRefuelGallons) || 0,
           max_allowed_detour_meters: parseInt(maxDetourMeters, 10),
         },
         include_debug: false,
@@ -735,7 +733,9 @@ function MapPage() {
       setPickupEdited(true)
       setPickupSuggestion(null)
     } catch {
-      // No position recorded: keep the manual start address.
+      showErrorToast(
+        "У автомобиля нет записанной позиции. Укажите старт вручную.",
+      )
     }
   }
 
@@ -1259,7 +1259,6 @@ function MapPage() {
                     value={minRefuelGallons}
                     onChange={(e) => setMinRefuelGallons(e.target.value)}
                     className="text-xs h-8"
-                    placeholder="Optional"
                   />
                 </div>
 

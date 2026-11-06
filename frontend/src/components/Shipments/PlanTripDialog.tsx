@@ -70,7 +70,9 @@ export default function PlanTripDialog({
   const [vehicleId, setVehicleId] = useState("")
   const [infeasible, setInfeasible] = useState<InfeasibleDetail | null>(null)
 
-  const [fuel, setFuel] = useState("")
+  const [fuel, setFuel] = useState("42")
+  const [reserve, setReserve] = useState("13")
+  const [minRefuel, setMinRefuel] = useState("0")
   const [longitude, setLongitude] = useState("")
   const [latitude, setLatitude] = useState("")
   const queryClient = useQueryClient()
@@ -111,6 +113,10 @@ export default function PlanTripDialog({
           body: {
             vehicle_id: vehicleId,
             initial_fuel_gallons: fuel,
+            constraints: {
+              reserve_gallons: reserve,
+              min_refuel_gallons: minRefuel.trim() || "0",
+            },
             origin:
               needsOrigin && lon !== null && lat !== null ? [lon, lat] : null,
           },
@@ -232,6 +238,28 @@ export default function PlanTripDialog({
             min="0"
             value={fuel}
             onChange={(event) => setFuel(event.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="plan-reserve">Reserve fuel (gallons)</Label>
+          <Input
+            id="plan-reserve"
+            type="number"
+            min="0"
+            value={reserve}
+            onChange={(event) => setReserve(event.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="plan-min-refuel">Min refuel (gallons)</Label>
+          <Input
+            id="plan-min-refuel"
+            type="number"
+            min="0"
+            value={minRefuel}
+            onChange={(event) => setMinRefuel(event.target.value)}
           />
         </div>
 
