@@ -252,6 +252,7 @@ class MapLayerService:
         origin, origin_label = resolved[0]
         destination, destination_label = resolved[-1]
         waypoints = [location for location, _ in resolved[1:-1]]
+        waypoint_labels = [label for _, label in resolved[1:-1]]
 
         return CalculateRouteRequest(
             route_planning_locations=RoutePlanningLocations(
@@ -269,6 +270,7 @@ class MapLayerService:
                     if waypoints
                     else None
                 ),
+                waypoint_labels=waypoint_labels or None,
             )
         )
 

@@ -568,7 +568,7 @@ class TripPlanService:
             duration_seconds=(
                 trip_plan.refined_duration_seconds or trip_plan.base_duration_seconds
             ),
-            number_of_stops=len(trip_plan.stops_snapshot),
+            number_of_stops=self._count_refuel_stops(trip_plan.stops_snapshot),
             created_at=trip_plan.created_at,
             stops=self._attach_stations(self._with_endpoints(trip_plan, geometry)),
             geometry=geometry,
@@ -583,7 +583,7 @@ class TripPlanService:
         return TripPlanPublic(
             **data,
             status=TripPlanStatus(trip_plan.status),
-            number_of_stops=len(trip_plan.stops_snapshot),
+            number_of_stops=self._count_refuel_stops(trip_plan.stops_snapshot),
             is_shared=trip_plan.share_token is not None,
             vehicle_name=vehicle.name if vehicle is not None else None,
             vehicle_unit_number=vehicle.unit_number if vehicle is not None else None,
@@ -713,6 +713,11 @@ class TripPlanService:
         entries.sort(key=lambda entry: (entry[0], entry[1], entry[2]))
         return [entry[3] for entry in entries]
 
+    @staticmethod
+    def _count_refuel_stops(stops_snapshot: list[dict]) -> int:
+        """Count only fuel stops; pickup and endpoints are not stops."""
+        return sum(1 for stop in stops_snapshot if stop.get("kind") == "refuel")
+
     @classmethod
     def _base_waypoint_snapshots(
         cls,
@@ -730,16 +735,17 @@ class TripPlanService:
             return []
         known_coords = {(stop.coordinate[0], stop.coordinate[1]) for stop in known}
         coords = [(coord[0], coord[1]) for coord in points.coordinates]
+        labels = base_request.route_planning_locations.waypoint_labels or []
         offsets = cls._leg_offsets(base_route, len(coords))
         return [
             TripPlanStopSnapshot(
                 sequence=0,
                 kind="pickup",
-                label="Pickup",
+                label=(labels[index] if index < len(labels) else None) or "Pickup",
                 coordinate=coord,
                 route_offset_meters=offset,
             )
-            for offset, coord in zip(offsets, coords, strict=True)
+            for index, (offset, coord) in enumerate(zip(offsets, coords, strict=True))
             if coord not in known_coords
         ]
 

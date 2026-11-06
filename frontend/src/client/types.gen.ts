@@ -2568,6 +2568,12 @@ export type RoutePlanningLocations = {
      */
     waypoints?: GeoJSONMultiPoint | null;
     /**
+     * Waypoint Labels
+     *
+     * Human-readable addresses, aligned with ``waypoints``
+     */
+    waypoint_labels?: Array<string | null> | null;
+    /**
      * Waypoint Stop Duration Seconds
      *
      * Time the vehicle stands still at every intermediate waypoint. When set, waypoints are treated as real stops rather than pass-through points. Providers that cannot express this are expected to ignore it.
