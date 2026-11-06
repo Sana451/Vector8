@@ -191,21 +191,34 @@ class TripPlanService:
             raise BaseRouteNotFoundError(f"Route {trip_plan.base_route_id} not found")
 
         if shipment_snapshots:
-            waypoints = [
-                (snapshot.coordinate[0], snapshot.coordinate[1])
-                for snapshot in sorted(
-                    (
-                        TripPlanStopSnapshot.model_validate(raw)
-                        for raw in trip_plan.stops_snapshot
-                        if raw.get("kind") in ("refuel", "pickup", "dropoff")
-                    ),
-                    key=lambda snapshot: snapshot.sequence,
+            planned = [
+                (
+                    snapshot.route_offset_meters
+                    if snapshot.route_offset_meters is not None
+                    else Decimal(0),
+                    snapshot.sequence,
+                    (snapshot.coordinate[0], snapshot.coordinate[1]),
+                )
+                for snapshot in (
+                    TripPlanStopSnapshot.model_validate(raw)
+                    for raw in trip_plan.stops_snapshot
+                    if raw.get("kind") in ("refuel", "pickup", "dropoff")
                 )
             ]
         else:
-            waypoints = [
-                (float(stop.longitude), float(stop.latitude)) for stop in stops
+            planned = [
+                (
+                    stop.route_offset_meters,
+                    stop.sequence,
+                    (float(stop.longitude), float(stop.latitude)),
+                )
+                for stop in stops
             ]
+
+        waypoints = self._merge_base_waypoints(
+            base_route=base_route,
+            planned=planned,
+        )
 
         request = self._build_request(
             base_route=base_route,
@@ -650,6 +663,49 @@ class TripPlanService:
             traffic=base_request.traffic,
             vehicle=vehicle_profile,
         )
+
+    @staticmethod
+    def _leg_offsets(base_route: RouteCalculation, count: int) -> list[Decimal]:
+        """Distance along the base route where each of its waypoints is reached."""
+        response = CalculateRouteResponse.model_validate(base_route.provider_response)
+        legs = (response.routes[0].legs or []) if response.routes else []
+        if len(legs) != count + 1:
+            return [Decimal(0)] * count
+        offsets: list[Decimal] = []
+        cumulative = Decimal(0)
+        for leg in legs[:-1]:
+            cumulative += Decimal(leg.summary.length_in_meters)
+            offsets.append(cumulative)
+        return offsets
+
+    @classmethod
+    def _merge_base_waypoints(
+        cls,
+        *,
+        base_route: RouteCalculation,
+        planned: list[tuple[Decimal, int, tuple[float, float]]],
+    ) -> list[tuple[float, float]]:
+        """Keep the base route's own waypoints (e.g. the map's shipment pickup).
+
+        Planned stops are (route_offset, sequence, coordinate). Base waypoints not
+        already planned are inserted at their position along the base route.
+        """
+        base_request = CalculateRouteRequest.model_validate(base_route.request_data)
+        base_points = base_request.route_planning_locations.waypoints
+        base_coords = [
+            (coord[0], coord[1])
+            for coord in (base_points.coordinates if base_points else [])
+        ]
+        planned_coords = {coord for _, _, coord in planned}
+        entries: list[tuple[Decimal, int, int, tuple[float, float]]] = [
+            (offset, 0, sequence, coord) for offset, sequence, coord in planned
+        ]
+        offsets = cls._leg_offsets(base_route, len(base_coords))
+        for index, (offset, coord) in enumerate(zip(offsets, base_coords, strict=True)):
+            if coord not in planned_coords:
+                entries.append((offset, 1, index, coord))
+        entries.sort(key=lambda entry: (entry[0], entry[1], entry[2]))
+        return [entry[3] for entry in entries]
 
     @staticmethod
     def _merge_snapshots(
