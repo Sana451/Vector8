@@ -18,6 +18,7 @@ import type { Coordinate } from "@/lib/routing"
 
 export type OptimizationStepKind =
   | "start"
+  | "pickup"
   | "stop"
   | "destination"
   | "unreachable_station"
@@ -34,6 +35,8 @@ export interface OptimizationStep {
   label: string
   coordinate: Coordinate
   routeOffsetMeters: number
+  /** Human-readable address; set for "pickup" steps */
+  address?: string
   stationId?: string
   /** Fields only present for "stop" steps */
   fuelBeforeGallons?: number
@@ -62,6 +65,39 @@ interface BuildStepsParams {
   routeCoordinates: Coordinate[]
   fuelStations: Array<FuelStationData>
   initialFuelGallons: number
+  /** Shipment pickup waypoint; becomes a non-fuel "pickup" step. */
+  pickup?: PickupStepInput | null
+}
+
+export interface PickupStepInput {
+  coordinate: Coordinate
+  label: string
+  address?: string | null
+}
+
+/**
+ * Route distance (meters) from the start to the route vertex nearest to the
+ * given coordinate.
+ */
+export function routeOffsetOfCoordinate(
+  routeCoordinates: Coordinate[],
+  coordinate: Coordinate,
+): number {
+  let best = { distance: Number.POSITIVE_INFINITY, offset: 0 }
+  let traveled = 0
+  for (let i = 0; i < routeCoordinates.length; i++) {
+    const vertex = routeCoordinates[i]
+    const dx = vertex[0] - coordinate[0]
+    const dy = vertex[1] - coordinate[1]
+    const distance = dx * dx + dy * dy
+    if (distance < best.distance) {
+      best = { distance, offset: traveled }
+    }
+    if (i < routeCoordinates.length - 1) {
+      traveled += segmentLengthMeters(vertex, routeCoordinates[i + 1])
+    }
+  }
+  return best.offset
 }
 
 /**
@@ -81,9 +117,42 @@ export function calculateRouteTotalDistanceMeters(
 }
 
 /**
+ * Build the ordered walkthrough steps, including the shipment pickup stop
+ * (placed by its position along the route).
+ */
+export function buildOptimizationSteps(
+  params: BuildStepsParams,
+): OptimizationStep[] {
+  const { pickup, routeCoordinates } = params
+  const steps = buildBaseSteps(params)
+  if (!pickup) {
+    return steps
+  }
+
+  const pickupStep: OptimizationStep = {
+    kind: "pickup",
+    status: "reached",
+    index: 0,
+    label: pickup.label,
+    coordinate: pickup.coordinate,
+    routeOffsetMeters: routeOffsetOfCoordinate(
+      routeCoordinates,
+      pickup.coordinate,
+    ),
+    address: pickup.address ?? undefined,
+  }
+  const insertAt = steps.findIndex(
+    (step) => step.routeOffsetMeters > pickupStep.routeOffsetMeters,
+  )
+  const position = insertAt === -1 ? steps.length : insertAt
+  steps.splice(position, 0, pickupStep)
+  return steps.map((step, index) => ({ ...step, index }))
+}
+
+/**
  * Build the ordered walkthrough steps from the server itinerary.
  */
-export function buildOptimizationSteps({
+function buildBaseSteps({
   response,
   routeCoordinates,
   fuelStations,

@@ -8,6 +8,7 @@ from app.fuel_optimization.schemas import (
     FuelOptimizationAlternativePublic,
     FuelOptimizationCalculateResponse,
     FuelOptimizationItineraryPointPublic,
+    FuelOptimizationPickupStop,
 )
 from app.llm import LLMProvider, LLMProviderError
 
@@ -74,10 +75,12 @@ DEFAULT_QUESTIONS = {
     "en": {
         "route": "Explain this fuel plan in simple terms.",
         "stop": "Explain why the optimizer made this stop.",
+        "pickup": "Explain this pickup stop and how it affects the route.",
     },
     "ru": {
         "route": "Объясни этот план заправок простыми словами.",
         "stop": "Объясни, почему оптимизатор выбрал эту остановку.",
+        "pickup": "Объясни эту точку погрузки и как она влияет на маршрут.",
     },
 }
 
@@ -260,8 +263,21 @@ def build_explanation_context(
     return context
 
 
+def _pickup_context(pickup: FuelOptimizationPickupStop) -> dict[str, Any]:
+    return {
+        "label": pickup.label,
+        "address": pickup.address,
+        "latitude": pickup.latitude,
+        "longitude": pickup.longitude,
+        "route_offset_m": _num(pickup.route_offset_meters),
+    }
+
+
 def _fit_context(
-    result: FuelOptimizationCalculateResponse, stop_sequence: int | None
+    result: FuelOptimizationCalculateResponse,
+    stop_sequence: int | None,
+    pickup: FuelOptimizationPickupStop | None = None,
+    focus_pickup: bool = False,
 ) -> str:
     """Serialize the context, shrinking it until it fits the LLM request limits."""
     levels: list[dict[str, Any]] = [
@@ -274,6 +290,11 @@ def _fit_context(
     text = ""
     for options in levels:
         context = build_explanation_context(result, stop_sequence, **options)
+        if pickup is not None:
+            context["pickup_stop"] = _pickup_context(pickup)
+        if focus_pickup:
+            context.pop("focused_point", None)
+            context.pop("itinerary", None)
         text = json.dumps(context, ensure_ascii=False, separators=(",", ":"))
         if len(text) <= MAX_CONTEXT_CHARS:
             break
@@ -287,11 +308,20 @@ def build_messages(
     question: str | None,
     history: list[dict[str, str]],
     language: Literal["en", "ru"],
+    pickup: FuelOptimizationPickupStop | None = None,
+    focus_pickup: bool = False,
 ) -> list[dict[str, str]]:
-    context_json = _fit_context(result, stop_sequence)
+    context_json = _fit_context(result, stop_sequence, pickup, focus_pickup)
     has_focus = '"focused_point"' in context_json
     focus_hint = ""
-    if has_focus:
+    if focus_pickup and pickup is not None:
+        focus_hint = (
+            f" The user is looking at the pickup stop {pickup.label}"
+            " (see pickup_stop). It is a shipment pickup, NOT a fuel stop:"
+            " explain it as the place where the cargo is loaded and how the"
+            " route passes through it. Do not describe it as a fuel stop."
+        )
+    elif has_focus:
         focused = next(
             (p for p in result.itinerary if p.sequence == stop_sequence), None
         )
@@ -313,7 +343,8 @@ def build_messages(
         context=context_json,
     )
     language_name = LANGUAGE_NAMES.get(language, "English")
-    default_question = DEFAULT_QUESTIONS[language]["stop" if has_focus else "route"]
+    focus_key = "pickup" if focus_pickup else ("stop" if has_focus else "route")
+    default_question = DEFAULT_QUESTIONS[language][focus_key]
     # Restating the language next to the question keeps models from following
     # the language of the (English) context or of earlier messages instead.
     user_content = f"{question or default_question}\n\n(Answer in {language_name}.)"
@@ -325,9 +356,23 @@ def build_messages(
 
 
 def build_fallback_answer(
-    result: FuelOptimizationCalculateResponse, stop_sequence: int | None
+    result: FuelOptimizationCalculateResponse,
+    stop_sequence: int | None,
+    pickup: FuelOptimizationPickupStop | None = None,
+    focus_pickup: bool = False,
 ) -> str:
+    if focus_pickup and pickup is not None:
+        lines = [f"{pickup.label}: shipment pickup stop, not a fuel stop."]
+        if pickup.address:
+            lines.append(f"Address: {pickup.address}.")
+        if pickup.route_offset_meters is not None:
+            lines.append(
+                f"Located {pickup.route_offset_meters / 1609.344:.1f} mi "
+                "along the route from the start."
+            )
+        return "\n".join(lines)
     lines = [result.explanation.summary, result.explanation.outcome]
+
     lines.extend(result.explanation.key_points)
     point = None
     if stop_sequence is not None:
@@ -362,6 +407,8 @@ class FuelOptimizationExplainer:
         question: str | None,
         history: list[dict[str, str]],
         language: Literal["en", "ru"],
+        pickup: FuelOptimizationPickupStop | None = None,
+        focus_pickup: bool = False,
     ) -> tuple[str, Literal["ai", "fallback"]]:
         """Return (answer, source) where source is "ai" or "fallback"."""
         if self._provider is not None:
@@ -371,6 +418,8 @@ class FuelOptimizationExplainer:
                 question=question,
                 history=history,
                 language=language,
+                pickup=pickup,
+                focus_pickup=focus_pickup,
             )
             for attempt in range(1, MAX_LLM_ATTEMPTS + 1):
                 try:
@@ -385,4 +434,7 @@ class FuelOptimizationExplainer:
                         cause,
                     )
             logger.warning("LLM explanation failed, using fallback")
-        return build_fallback_answer(result, stop_sequence), "fallback"
+        return (
+            build_fallback_answer(result, stop_sequence, pickup, focus_pickup),
+            "fallback",
+        )

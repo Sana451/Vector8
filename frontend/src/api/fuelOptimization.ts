@@ -24,9 +24,19 @@ export interface FuelOptimizationChatMessage {
 export interface FuelOptimizationExplainRequest {
   optimization: FuelOptimizationCalculateResponse
   stop_sequence?: number | null
+  pickup?: FuelOptimizationPickupStop | null
+  focus_pickup?: boolean
   question?: string | null
   history?: FuelOptimizationChatMessage[]
   language?: "en" | "ru"
+}
+
+export interface FuelOptimizationPickupStop {
+  label: string
+  latitude: number
+  longitude: number
+  address?: string | null
+  route_offset_meters?: number | null
 }
 
 export interface FuelOptimizationExplainResponse {

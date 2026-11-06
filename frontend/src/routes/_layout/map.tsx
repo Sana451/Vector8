@@ -663,8 +663,21 @@ function MapPage() {
       routeCoordinates,
       fuelStations,
       initialFuelGallons: Number.parseFloat(initialFuelGallons) || 0,
+      pickup: shipmentPickup
+        ? {
+            coordinate: shipmentPickup.location.coordinates as Coordinate,
+            label: "Pickup",
+            address: shipmentPickup.formatted_address,
+          }
+        : null,
     })
-  }, [optimizationResult, routeCoordinates, fuelStations, initialFuelGallons])
+  }, [
+    optimizationResult,
+    routeCoordinates,
+    fuelStations,
+    initialFuelGallons,
+    shipmentPickup,
+  ])
 
   const routeTotalDistanceMeters = useMemo(
     () => calculateRouteTotalDistanceMeters(routeCoordinates),
@@ -1461,7 +1474,6 @@ function MapPage() {
             tripPlan={tripPlan}
             onTripPlanChange={handleTripPlanChange}
             shipmentId={selectedShipmentId}
-            pickupLabel={shipmentPickup?.formatted_address ?? null}
             usableTankGallons={
               vehicles.find((v) => v.id === optimizationResult?.vehicle_id)
                 ?.usable_tank_capacity_gallons

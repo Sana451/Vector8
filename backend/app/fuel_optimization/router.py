@@ -53,6 +53,8 @@ async def explain_fuel_optimization(
     answer, source = await explainer.explain(
         request.optimization,
         stop_sequence=request.stop_sequence,
+        pickup=request.pickup,
+        focus_pickup=request.focus_pickup,
         question=request.question,
         history=[message.model_dump() for message in request.history],
         language=request.language,

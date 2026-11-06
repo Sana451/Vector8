@@ -770,6 +770,16 @@ export type FuelOptimizationExplainRequest = {
      */
     stop_sequence?: number | null;
     /**
+     * Shipment pickup stop, included in the explanation context.
+     */
+    pickup?: FuelOptimizationPickupStop | null;
+    /**
+     * Focus Pickup
+     *
+     * Explain the pickup stop instead of the whole plan.
+     */
+    focus_pickup?: boolean;
+    /**
      * Question
      */
     question?: string | null;
@@ -1288,6 +1298,34 @@ export type FuelOptimizationLookaheadPublic_Output = {
      * Shifted Volume Gallons
      */
     shifted_volume_gallons?: string | null;
+};
+
+/**
+ * FuelOptimizationPickupStop
+ *
+ * Shipment pickup: an intermediate waypoint, not an itinerary point.
+ */
+export type FuelOptimizationPickupStop = {
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Latitude
+     */
+    latitude: number;
+    /**
+     * Longitude
+     */
+    longitude: number;
+    /**
+     * Address
+     */
+    address?: string | null;
+    /**
+     * Route Offset Meters
+     */
+    route_offset_meters?: number | null;
 };
 
 /**

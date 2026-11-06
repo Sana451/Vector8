@@ -15,6 +15,7 @@ import {
   Sparkles,
 } from "lucide-react"
 import { useRef, useState } from "react"
+import type { FuelOptimizationPickupStop } from "@/api/fuelOptimization"
 import type {
   FuelOptimizationCalculateResponse_Output as FuelOptimizationCalculateResponse,
   FuelOptimizationEconomicsPublic_Output as FuelOptimizationEconomicsPublic,
@@ -53,8 +54,6 @@ interface OptimizationWalkthroughProps {
   tripPlan?: TripPlanDetailPublic | null
   onTripPlanChange?: (tripPlan: TripPlanDetailPublic) => void
   shipmentId?: string | null
-  /** Shipment pickup point, shown as an intermediate waypoint (not a refuel stop). */
-  pickupLabel?: string | null
 }
 
 function formatGallons(value: number | undefined): string {
@@ -98,6 +97,7 @@ function stepBadgeLabel(step: OptimizationStep): string {
   if (step.kind === "checkpoint") return "✓"
   if (step.kind === "start") return "S"
   if (step.kind === "destination") return "D"
+  if (step.kind === "pickup") return "P"
   return String(step.index)
 }
 
@@ -119,12 +119,11 @@ export function OptimizationWalkthrough({
   tripPlan = null,
   onTripPlanChange,
   shipmentId,
-  pickupLabel = null,
 }: OptimizationWalkthroughProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
-  const [explainTarget, setExplainTarget] = useState<"plan" | "step" | null>(
-    null,
-  )
+  const [explainTarget, setExplainTarget] = useState<
+    "plan" | "step" | "pickup" | null
+  >(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const { dragHandlers, dragStyle, setOffset } = useDraggable(panelRef)
   const { sizeStyle, startResize } = useResizable(panelRef, {
@@ -173,6 +172,16 @@ export function OptimizationWalkthrough({
       : undefined
   const canGoBack = activeStepIndex > 0
   const canGoNext = activeStepIndex < steps.length - 1
+  const pickupStop: FuelOptimizationPickupStop | null =
+    activeStep.kind === "pickup"
+      ? {
+          label: activeStep.label,
+          latitude: activeStep.coordinate[1],
+          longitude: activeStep.coordinate[0],
+          address: activeStep.address ?? null,
+          route_offset_meters: activeStep.routeOffsetMeters,
+        }
+      : null
 
   return (
     <div
@@ -230,12 +239,6 @@ export function OptimizationWalkthrough({
       {/* Step details */}
       {!isCollapsed && (
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-          {pickupLabel && (
-            <div className="mb-2 flex items-center gap-1.5 rounded-md border border-amber-400/60 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-              <span className="font-semibold">Погрузка:</span>
-              <span className="truncate">{pickupLabel}</span>
-            </div>
-          )}
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold truncate">
               {activeStep.label}
@@ -436,6 +439,52 @@ export function OptimizationWalkthrough({
             </div>
           )}
 
+          {activeStep.kind === "pickup" && (
+            <div className="mt-2 text-xs space-y-1">
+              {activeStep.address && (
+                <div className="flex justify-between gap-3">
+                  <span className="text-muted-foreground">Address</span>
+                  <span className="font-medium text-right">
+                    {activeStep.address}
+                  </span>
+                </div>
+              )}
+              {distanceToNextMeters !== undefined && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    Distance to next stop
+                  </span>
+                  <span className="font-medium">
+                    {formatMetersAsMiles(distanceToNextMeters)}
+                  </span>
+                </div>
+              )}
+              {distanceToDestinationMeters !== undefined && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    Distance to destination
+                  </span>
+                  <span className="font-medium">
+                    {formatMetersAsMiles(distanceToDestinationMeters)}
+                  </span>
+                </div>
+              )}
+              {optimization && (
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setExplainTarget("pickup")}
+                    className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Explain this pickup with AI
+                  </button>
+                  <ExplainLanguageSelect />
+                </div>
+              )}
+            </div>
+          )}
+
           {activeStep.status === "unreachable" && (
             <div className="mt-2 text-xs space-y-1">
               <div className="font-semibold text-red-600 dark:text-red-400">
@@ -565,7 +614,13 @@ export function OptimizationWalkthrough({
           stopSequence={
             explainTarget === "step" ? activeStep.sequence : undefined
           }
-          stopLabel={explainTarget === "step" ? activeStep.label : undefined}
+          stopLabel={
+            explainTarget === "step" || explainTarget === "pickup"
+              ? activeStep.label
+              : undefined
+          }
+          pickup={explainTarget === "pickup" ? pickupStop : undefined}
+          focusPickup={explainTarget === "pickup"}
           portalContainer={explainPortalContainer}
         />
       )}
