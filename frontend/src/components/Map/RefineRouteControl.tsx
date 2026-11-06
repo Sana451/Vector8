@@ -59,7 +59,7 @@ export function RefineRouteControl({
       }
       return createTripPlan({
         optimization_run_id: optimizationRunId,
-        shipment_id: shipmentId ?? null,
+        shipment_id: shipmentId || null,
       })
     },
     onSuccess: (data) => {
