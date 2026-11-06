@@ -98,7 +98,7 @@ function stepBadgeLabel(step: OptimizationStep): string {
   if (step.kind === "start") return "S"
   if (step.kind === "destination") return "D"
   if (step.kind === "pickup") return "P"
-  return String(step.index)
+  return String(step.ordinal ?? step.index)
 }
 
 export function OptimizationWalkthrough({

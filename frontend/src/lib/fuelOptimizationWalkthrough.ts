@@ -30,6 +30,8 @@ export interface OptimizationStep {
   status: OptimizationStepStatus
   /** 0-based index within the steps array */
   index: number
+  /** Stop number shown in the UI, excluding the Pickup step */
+  ordinal?: number
   /** Server itinerary sequence this step came from, when available */
   sequence?: number
   label: string
@@ -146,7 +148,11 @@ export function buildOptimizationSteps(
   )
   const position = insertAt === -1 ? steps.length : insertAt
   steps.splice(position, 0, pickupStep)
-  return steps.map((step, index) => ({ ...step, index }))
+  let pickupsBefore = 0
+  return steps.map((step, index) => {
+    if (step.kind === "pickup") pickupsBefore += 1
+    return { ...step, index, ordinal: index - pickupsBefore }
+  })
 }
 
 /**
