@@ -13,6 +13,7 @@ from app.trip_plans.domain import EXPORT_MEDIA_TYPES, TripPlanExportFormat
 from app.trip_plans.exceptions import (
     BaseRouteNotFoundError,
     DriverNotFoundError,
+    InfeasibleOptimizationError,
     InvalidTripPlanStatusError,
     NoStopsToRefineError,
     OptimizationRunNotFoundError,
@@ -50,6 +51,7 @@ BAD_REQUEST_ERRORS = (
     NoStopsToRefineError,
     UnsupportedProviderError,
     InvalidTripPlanStatusError,
+    InfeasibleOptimizationError,
 )
 
 UNSAFE_FILENAME_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
@@ -75,6 +77,7 @@ async def create_trip_plan(
             name=request.name,
             provider=request.provider,
             stop_duration_minutes=request.stop_duration_minutes,
+            shipment_id=request.shipment_id,
         )
     except NOT_FOUND_ERRORS as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

@@ -20,6 +20,7 @@ from app.core.logging import get_logger
 from app.fleet.position_repository import VehiclePositionRepository
 from app.fleet.positions import VehiclePositionSource
 from app.fleet.repository import VehicleRepository
+from app.fuel_optimization.domain import FuelOptimizationStatus
 from app.map.models import FuelStation
 from app.models import User, UserRole
 from app.providers.exceptions import ProviderNotRegisteredError
@@ -41,6 +42,7 @@ from app.trip_plans.domain import TripPlanExportFormat, TripPlanStatus
 from app.trip_plans.exceptions import (
     BaseRouteNotFoundError,
     DriverNotFoundError,
+    InfeasibleOptimizationError,
     InvalidTripPlanStatusError,
     NoStopsToRefineError,
     OptimizationRunNotFoundError,
@@ -118,6 +120,11 @@ class TripPlanService:
         if base_route is None:
             raise BaseRouteNotFoundError(f"Route {run.route_id} not found")
 
+        if run.status == FuelOptimizationStatus.INFEASIBLE:
+            raise InfeasibleOptimizationError(
+                "Fuel plan is infeasible; adjust the optimizer parameters before saving a trip"
+            )
+
         stops = self.optimization_repository.list_stops(optimization_run_id)
 
         trip_plan = TripPlan(
@@ -142,11 +149,21 @@ class TripPlanService:
             remaining_fuel_gallons=run.remaining_fuel_gallons,
         )
 
-        return await self.refine(
+        refined = await self.refine(
             trip_plan,
             provider=provider,
             stop_duration_minutes=stop_duration_minutes,
         )
+        if shipment_id is not None:
+            shipment = self.session.get(Shipment, shipment_id)
+            if (
+                shipment is not None
+                and shipment.planning_status == PlanningStatus.UNPLANNED
+            ):
+                shipment.planning_status = PlanningStatus.PLANNED
+                self.session.add(shipment)
+                self.session.commit()
+        return refined
 
     async def refine(
         self,

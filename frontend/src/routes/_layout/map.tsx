@@ -85,8 +85,28 @@ import {
 } from "@/lib/vehicleRouting"
 import { handleError } from "@/utils"
 
+interface OptimizerSearch {
+  shipmentId?: string
+  vehicleId?: string
+  fuel?: string
+  // "lon,lat" of a manually entered start for a vehicle without a position.
+  origin?: string
+  // Why the shipment's fuel plan was infeasible, shown as a notice.
+  reason?: string
+}
+
+const optionalString = (value: unknown) =>
+  typeof value === "string" && value !== "" ? value : undefined
+
 export const Route = createFileRoute("/_layout/map")({
   component: MapPage,
+  validateSearch: (search: Record<string, unknown>): OptimizerSearch => ({
+    shipmentId: optionalString(search.shipmentId),
+    vehicleId: optionalString(search.vehicleId),
+    fuel: optionalString(search.fuel),
+    origin: optionalString(search.origin),
+    reason: optionalString(search.reason),
+  }),
 })
 
 interface RouteInfo {
@@ -715,6 +735,38 @@ function MapPage() {
     }
   }
 
+  // Opened from an infeasible shipment plan: restore the values it was planned with.
+  const search = Route.useSearch()
+  const appliedSearchRef = useRef(false)
+  useEffect(() => {
+    if (appliedSearchRef.current) return
+    const hasParams =
+      search.shipmentId || search.vehicleId || search.fuel || search.origin
+    if (!hasParams) return
+    // Vehicle details are needed to set the reserve, so wait for the list.
+    if (search.vehicleId && vehicles.length === 0) return
+    appliedSearchRef.current = true
+
+    if (search.fuel) setInitialFuelGallons(search.fuel)
+    if (search.vehicleId) void handleSelectVehicle(search.vehicleId)
+    if (search.origin) {
+      const [lon, lat] = search.origin.split(",").map(Number)
+      if (Number.isFinite(lon) && Number.isFinite(lat)) {
+        const label = `${lat.toFixed(5)}, ${lon.toFixed(5)}`
+        setPickupSelection({
+          query: label,
+          formatted_address: label,
+          location: { type: "Point", coordinates: [lon, lat] },
+        })
+        setPickupAddress(label)
+        setPickupEdited(true)
+        setPickupSuggestion(null)
+      }
+    }
+    if (search.shipmentId) void handleSelectShipment(search.shipmentId)
+    // biome-ignore lint/correctness/useExhaustiveDependencies: runs once via appliedSearchRef; handlers are re-created each render
+  }, [search, vehicles, handleSelectVehicle, handleSelectShipment])
+
   const applySuggestion = (
     field: "pickup" | "delivery",
     suggestion: GeocodingSearchResponse,
@@ -892,6 +944,15 @@ function MapPage() {
                   {useVehicleConstraints && !selectedVehicle && (
                     <p className="text-xs text-muted-foreground">
                       Select a vehicle to apply its restrictions.
+                    </p>
+                  )}
+                  {search.reason && (
+                    <p
+                      role="alert"
+                      className="rounded border border-destructive/50 bg-destructive/5 px-2 py-1 text-xs text-destructive"
+                    >
+                      Fuel plan was infeasible: {search.reason}. Adjust the
+                      values below and recalculate.
                     </p>
                   )}
                   {constraintsWarning && (
@@ -1261,6 +1322,7 @@ function MapPage() {
             explainPortalContainer={mapContainerRef.current}
             tripPlan={tripPlan}
             onTripPlanChange={handleTripPlanChange}
+            shipmentId={selectedShipmentId}
             pickupLabel={shipmentPickup?.formatted_address ?? null}
             usableTankGallons={
               vehicles.find((v) => v.id === optimizationResult?.vehicle_id)

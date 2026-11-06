@@ -3197,6 +3197,10 @@ export type TripPlanCreateRequest = {
      * Stop Duration Minutes
      */
     stop_duration_minutes?: number | null;
+    /**
+     * Shipment Id
+     */
+    shipment_id?: string | null;
 };
 
 /**

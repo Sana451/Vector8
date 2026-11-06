@@ -37,3 +37,7 @@ class InvalidTripPlanStatusError(TripPlanError):
 
 class DriverNotFoundError(TripPlanError):
     pass
+
+
+class InfeasibleOptimizationError(TripPlanError):
+    pass

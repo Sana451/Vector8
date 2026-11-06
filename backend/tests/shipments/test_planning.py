@@ -14,11 +14,13 @@ from sqlmodel import Session
 from app.core.config import settings
 from app.fleet.positions import VehiclePosition
 from app.fuel_optimization.dependencies import get_optimize_fuel_use_case
+from app.fuel_optimization.domain import FuelOptimizationStatus
 from app.main import app
 from app.routing.dependencies import get_routing_service
 from app.routing.exceptions import RoutingError, RoutingNoRouteFoundError
 from app.routing.schemas import CalculateRouteRequest, CalculateRouteResponse
 from app.shipments.domain import PlanningStatus
+from app.trip_plans.models import TripPlan
 from tests.shipments.conftest import (
     FakeGeocodingProvider,
     FakeLLMProvider,
@@ -70,7 +72,27 @@ class FakeOptimizer:
         create_optimization_stop(
             self.db, run_id=run.id, station_id=create_station(self.db).id
         )
-        return SimpleNamespace(optimization_run_id=run.id)
+        return SimpleNamespace(
+            optimization_run_id=run.id,
+            status=FuelOptimizationStatus.SUCCESS,
+        )
+
+
+class InfeasibleOptimizer:
+    def __init__(self, db: Session, vehicle_id: Any) -> None:
+        self.db = db
+        self.vehicle_id = vehicle_id
+
+    def execute(self, request: Any) -> Any:
+        run = create_optimization_run(
+            self.db, route_id=request.route_id, vehicle_id=self.vehicle_id
+        )
+        return SimpleNamespace(
+            optimization_run_id=run.id,
+            status=FuelOptimizationStatus.INFEASIBLE,
+            failure=SimpleNamespace(message="No reachable station."),
+            explanation=SimpleNamespace(outcome="infeasible"),
+        )
 
 
 @pytest.fixture
@@ -196,6 +218,62 @@ class TestPlan:
 
         shipment = client.get(f"{SHIPMENTS}/{shipment_id}", headers=headers).json()
         assert shipment["planning_status"] == PlanningStatus.PLANNED
+
+    def test_map_trip_with_shipment_marks_it_planned(
+        self,
+        client: TestClient,
+        db: Session,
+        routing: FakeRoutingService,  # noqa: ARG002
+        shipment_setup: tuple[dict[str, str], str, Any],
+    ) -> None:
+        headers, shipment_id, vehicle = shipment_setup
+        base = create_route(db, suffix="map-base")
+        run = create_optimization_run(db, route_id=base.id, vehicle_id=vehicle.id)
+        create_optimization_stop(db, run_id=run.id, station_id=create_station(db).id)
+
+        response = client.post(
+            f"{TRIPS}/",
+            headers=headers,
+            json={
+                "optimization_run_id": str(run.id),
+                "shipment_id": shipment_id,
+            },
+        )
+
+        assert response.status_code == 201, response.text
+        shipment = client.get(f"{SHIPMENTS}/{shipment_id}", headers=headers).json()
+        assert shipment["planning_status"] == PlanningStatus.PLANNED
+
+    def test_infeasible_fuel_plan_saves_no_trip(
+        self,
+        client: TestClient,
+        db: Session,
+        routing: FakeRoutingService,  # noqa: ARG002
+        shipment_setup: tuple[dict[str, str], str, Any],
+    ) -> None:
+        headers, shipment_id, vehicle = shipment_setup
+        app.dependency_overrides[get_optimize_fuel_use_case] = lambda: (
+            InfeasibleOptimizer(db, vehicle.id)
+        )
+        trips_before = db.exec(select(func.count()).select_from(TripPlan)).one()
+
+        response = client.post(
+            f"{SHIPMENTS}/{shipment_id}/plan",
+            headers=headers,
+            json={
+                "vehicle_id": str(vehicle.id),
+                "initial_fuel_gallons": "40",
+                "origin": [-83.5, 42.5],
+            },
+        )
+
+        assert response.status_code == 422, response.text
+        detail = response.json()["detail"]
+        assert detail["code"] == "fuel_plan_infeasible"
+        assert detail["reasons"]
+        assert db.exec(select(func.count()).select_from(TripPlan)).one() == trips_before
+        shipment = client.get(f"{SHIPMENTS}/{shipment_id}", headers=headers).json()
+        assert shipment["planning_status"] != PlanningStatus.PLANNED
 
     def test_deleting_the_trip_reopens_the_shipment(
         self,

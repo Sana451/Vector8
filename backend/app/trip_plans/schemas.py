@@ -63,6 +63,7 @@ class TripPlanCreateRequest(BaseModel):
     stop_duration_minutes: int | None = Field(
         default=None, ge=0, le=MAX_STOP_DURATION_MINUTES
     )
+    shipment_id: uuid.UUID | None = None
 
 
 class TripPlanRefineRequest(BaseModel):

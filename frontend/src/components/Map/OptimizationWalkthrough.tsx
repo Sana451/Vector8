@@ -52,6 +52,7 @@ interface OptimizationWalkthroughProps {
   /** Trip plan holding the refined route, if one has been built. */
   tripPlan?: TripPlanDetailPublic | null
   onTripPlanChange?: (tripPlan: TripPlanDetailPublic) => void
+  shipmentId?: string | null
   /** Shipment pickup point, shown as an intermediate waypoint (not a refuel stop). */
   pickupLabel?: string | null
 }
@@ -117,6 +118,7 @@ export function OptimizationWalkthrough({
   explainPortalContainer,
   tripPlan = null,
   onTripPlanChange,
+  shipmentId,
   pickupLabel = null,
 }: OptimizationWalkthroughProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
@@ -515,6 +517,7 @@ export function OptimizationWalkthrough({
       {onTripPlanChange && (
         <RefineRouteControl
           optimizationRunId={optimization?.optimization_run_id}
+          shipmentId={shipmentId}
           tripPlan={tripPlan}
           onTripPlanChange={onTripPlanChange}
         />
