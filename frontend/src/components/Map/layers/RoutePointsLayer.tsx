@@ -31,7 +31,7 @@ function toFeature(
     geometry: { type: "Point", coordinates: [...point.coordinates] },
     properties: {
       kind,
-      label: kind === "start" ? "Старт" : "Финиш",
+      label: kind === "start" ? "Pickup" : "Delivery",
       color: kind === "start" ? "#22c55e" : "#ef4444",
     },
   }
