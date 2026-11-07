@@ -3,7 +3,9 @@ import { randomVehicleName, randomVehicleUnitNumber } from "./utils/random"
 
 test("Fleet page is accessible and shows correct title", async ({ page }) => {
   await page.goto("/fleet")
-  await expect(page.getByRole("heading", { name: "Fleet" })).toBeVisible()
+  await expect(
+    page.getByRole("heading", { name: "Fleet", exact: true }),
+  ).toBeVisible()
   await expect(
     page.getByText(
       "Add, review, update and remove vehicles in the Vector8 fleet.",
@@ -54,7 +56,9 @@ test.describe("Fleet management", () => {
     await page.getByRole("button", { name: "Cancel" }).click()
 
     await expect(page).toHaveURL(/\/fleet$/)
-    await expect(page.getByRole("heading", { name: "Fleet" })).toBeVisible()
+    await expect(
+      page.getByRole("heading", { name: "Fleet", exact: true }),
+    ).toBeVisible()
   })
 
   test("Name is required", async ({ page }) => {
