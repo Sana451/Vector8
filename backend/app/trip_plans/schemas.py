@@ -41,7 +41,7 @@ class TripPlanStopSnapshot(BaseModel):
     """
 
     sequence: int
-    kind: Literal["start", "station", "refuel", "destination"]
+    kind: Literal["start", "station", "refuel", "destination", "pickup", "dropoff"]
     label: str
     station_id: uuid.UUID | None = None
     coordinate: Coordinate = Field(description="[longitude, latitude] in WGS84")
@@ -63,6 +63,7 @@ class TripPlanCreateRequest(BaseModel):
     stop_duration_minutes: int | None = Field(
         default=None, ge=0, le=MAX_STOP_DURATION_MINUTES
     )
+    shipment_id: uuid.UUID | None = None
 
 
 class TripPlanRefineRequest(BaseModel):

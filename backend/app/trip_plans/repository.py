@@ -15,6 +15,8 @@ from sqlmodel import Session, col, func, or_, select
 from app.core.datetime import get_datetime_utc
 from app.fuel_optimization.models import FuelOptimizationRun, FuelOptimizationStop
 from app.map.models import FuelStation
+from app.shipments.domain import PlanningStatus
+from app.shipments.models import Shipment
 from app.trip_plans.domain import TripPlanStatus
 from app.trip_plans.models import TripPlan
 
@@ -235,5 +237,22 @@ class TripPlanRepository:
         )
 
     def delete(self, trip_plan: TripPlan) -> None:
+        shipment = (
+            self.session.get(Shipment, trip_plan.shipment_id)
+            if trip_plan.shipment_id is not None
+            else None
+        )
         self.session.delete(trip_plan)
+        if shipment is not None and shipment.planning_status == PlanningStatus.PLANNED:
+            others = self.session.exec(
+                select(func.count())
+                .select_from(TripPlan)
+                .where(
+                    col(TripPlan.shipment_id) == shipment.id,
+                    col(TripPlan.id) != trip_plan.id,
+                )
+            ).one()
+            if not others:
+                shipment.planning_status = PlanningStatus.UNPLANNED
+                self.session.add(shipment)
         self.session.commit()

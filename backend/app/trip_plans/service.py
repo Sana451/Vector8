@@ -17,7 +17,10 @@ from sqlmodel import Session, col, select
 
 from app.core.datetime import get_datetime_utc
 from app.core.logging import get_logger
+from app.fleet.position_repository import VehiclePositionRepository
+from app.fleet.positions import VehiclePositionSource
 from app.fleet.repository import VehicleRepository
+from app.fuel_optimization.domain import FuelOptimizationStatus
 from app.map.models import FuelStation
 from app.models import User, UserRole
 from app.providers.exceptions import ProviderNotRegisteredError
@@ -33,10 +36,13 @@ from app.routing.schemas import (
     VehicleRoutingProfile,
 )
 from app.routing.service import RoutingService
+from app.shipments.domain import PlanningStatus
+from app.shipments.models import Shipment
 from app.trip_plans.domain import TripPlanExportFormat, TripPlanStatus
 from app.trip_plans.exceptions import (
     BaseRouteNotFoundError,
     DriverNotFoundError,
+    InfeasibleOptimizationError,
     InvalidTripPlanStatusError,
     NoStopsToRefineError,
     OptimizationRunNotFoundError,
@@ -95,8 +101,15 @@ class TripPlanService:
         name: str | None = None,
         provider: str | None = None,
         stop_duration_minutes: int | None = None,
+        shipment_id: uuid.UUID | None = None,
+        shipment_stops: list[TripPlanStopSnapshot] | None = None,
     ) -> TripPlan:
-        """Create a trip plan and immediately try to refine its route."""
+        """Create a trip plan and immediately try to refine its route.
+
+        ``shipment_stops`` are the pickup/dropoff points the base route already
+        passes through. They are frozen into the snapshot next to the fuel
+        stops, ordered by their position along the route.
+        """
         run = self.optimization_repository.get_run(optimization_run_id)
         if run is None:
             raise OptimizationRunNotFoundError(
@@ -107,18 +120,32 @@ class TripPlanService:
         if base_route is None:
             raise BaseRouteNotFoundError(f"Route {run.route_id} not found")
 
+        if run.status == FuelOptimizationStatus.INFEASIBLE:
+            raise InfeasibleOptimizationError(
+                "Fuel plan is infeasible; adjust the optimizer parameters before saving a trip"
+            )
+
         stops = self.optimization_repository.list_stops(optimization_run_id)
 
         trip_plan = TripPlan(
             name=name or self._default_name(base_route),
             owner_id=owner_id,
             vehicle_id=run.vehicle_id,
+            shipment_id=shipment_id,
             base_route_id=base_route.id,
             optimization_run_id=run.id,
             status=TripPlanStatus.DRAFT,
             stops_snapshot=[
                 snapshot.model_dump(mode="json")
-                for snapshot in self._build_snapshots(stops)
+                for snapshot in self._merge_snapshots(
+                    self._build_snapshots(stops),
+                    [
+                        *(shipment_stops or []),
+                        *self._base_waypoint_snapshots(
+                            base_route, shipment_stops or []
+                        ),
+                    ],
+                )
             ],
             base_distance_meters=base_route.distance_meters,
             base_duration_seconds=base_route.duration_seconds,
@@ -128,11 +155,21 @@ class TripPlanService:
             remaining_fuel_gallons=run.remaining_fuel_gallons,
         )
 
-        return await self.refine(
+        refined = await self.refine(
             trip_plan,
             provider=provider,
             stop_duration_minutes=stop_duration_minutes,
         )
+        if shipment_id is not None:
+            shipment = self.session.get(Shipment, shipment_id)
+            if (
+                shipment is not None
+                and shipment.planning_status == PlanningStatus.UNPLANNED
+            ):
+                shipment.planning_status = PlanningStatus.PLANNED
+                self.session.add(shipment)
+                self.session.commit()
+        return refined
 
     async def refine(
         self,
@@ -144,16 +181,54 @@ class TripPlanService:
     ) -> TripPlan:
         """Ask the routing provider for a route through every selected stop."""
         stops = self.optimization_repository.list_stops(trip_plan.optimization_run_id)
-        if not stops:
+        shipment_snapshots = [
+            snapshot
+            for snapshot in (
+                TripPlanStopSnapshot.model_validate(raw)
+                for raw in trip_plan.stops_snapshot
+            )
+            if snapshot.kind in ("pickup", "dropoff")
+        ]
+        if not stops and not shipment_snapshots:
             raise NoStopsToRefineError("Optimization run has no stops to route through")
 
         base_route = self.route_repository.get_by_id(trip_plan.base_route_id)
         if base_route is None:
             raise BaseRouteNotFoundError(f"Route {trip_plan.base_route_id} not found")
 
+        if shipment_snapshots:
+            planned = [
+                (
+                    snapshot.route_offset_meters
+                    if snapshot.route_offset_meters is not None
+                    else Decimal(0),
+                    snapshot.sequence,
+                    (snapshot.coordinate[0], snapshot.coordinate[1]),
+                )
+                for snapshot in (
+                    TripPlanStopSnapshot.model_validate(raw)
+                    for raw in trip_plan.stops_snapshot
+                    if raw.get("kind") in ("refuel", "pickup", "dropoff")
+                )
+            ]
+        else:
+            planned = [
+                (
+                    stop.route_offset_meters,
+                    stop.sequence,
+                    (float(stop.longitude), float(stop.latitude)),
+                )
+                for stop in stops
+            ]
+
+        waypoints = self._merge_base_waypoints(
+            base_route=base_route,
+            planned=planned,
+        )
+
         request = self._build_request(
             base_route=base_route,
-            stops=stops,
+            waypoints=waypoints,
             vehicle_id=trip_plan.vehicle_id,
             stop_duration_minutes=stop_duration_minutes,
         )
@@ -292,7 +367,57 @@ class TripPlanService:
             raise InvalidTripPlanStatusError(
                 f"Status {status} cannot be set by role {user.role}"
             )
+        was_completed = trip_plan.status == TripPlanStatus.COMPLETED
+        needs_recording = status == TripPlanStatus.COMPLETED and (
+            not was_completed
+            or not VehiclePositionRepository(self.session).has_trip_reading(
+                trip_plan.id
+            )
+        )
+        if needs_recording:
+            previous_status = trip_plan.status
+            trip_plan.status = status
+            try:
+                self._record_completion(trip_plan)
+            except Exception:
+                trip_plan.status = previous_status
+                raise
         return self.repository.update(trip_plan, status=status)
+
+    def _record_completion(self, trip_plan: TripPlan) -> None:
+        """Make the completed trip the vehicle's last known position.
+
+        The route's end point (the trip's destination) becomes a ``TRIP``
+        reading. The shipment, if any, is marked ``COMPLETED``.
+        """
+        if trip_plan.vehicle_id is not None and trip_plan.stops_snapshot:
+            route_id = trip_plan.refined_route_id or trip_plan.base_route_id
+            geometry = self._geometry(self.route_repository.get_by_id(route_id))
+            if geometry is not None and geometry.coordinates:
+                longitude, latitude = (
+                    geometry.coordinates[-1][0],
+                    geometry.coordinates[-1][1],
+                )
+                label = trip_plan.destination_label
+            else:
+                last = max(trip_plan.stops_snapshot, key=lambda stop: stop["sequence"])
+                longitude, latitude = last["coordinate"]
+                label = last.get("label")
+            VehiclePositionRepository(self.session).add(
+                vehicle_id=trip_plan.vehicle_id,
+                longitude=longitude,
+                latitude=latitude,
+                source=VehiclePositionSource.TRIP,
+                label=label,
+                recorded_at=get_datetime_utc(),
+                trip_plan_id=trip_plan.id,
+                commit=False,
+            )
+        if trip_plan.shipment_id is not None:
+            shipment = self.session.get(Shipment, trip_plan.shipment_id)
+            if shipment is not None:
+                shipment.planning_status = PlanningStatus.COMPLETED
+                self.session.add(shipment)
 
     def export(self, trip_plan: TripPlan, export_format: TripPlanExportFormat) -> str:
         """Render the trip for a navigator or a spreadsheet.
@@ -443,7 +568,7 @@ class TripPlanService:
             duration_seconds=(
                 trip_plan.refined_duration_seconds or trip_plan.base_duration_seconds
             ),
-            number_of_stops=len(trip_plan.stops_snapshot),
+            number_of_stops=self._count_refuel_stops(trip_plan.stops_snapshot),
             created_at=trip_plan.created_at,
             stops=self._attach_stations(self._with_endpoints(trip_plan, geometry)),
             geometry=geometry,
@@ -458,7 +583,7 @@ class TripPlanService:
         return TripPlanPublic(
             **data,
             status=TripPlanStatus(trip_plan.status),
-            number_of_stops=len(trip_plan.stops_snapshot),
+            number_of_stops=self._count_refuel_stops(trip_plan.stops_snapshot),
             is_shared=trip_plan.share_token is not None,
             vehicle_name=vehicle.name if vehicle is not None else None,
             vehicle_unit_number=vehicle.unit_number if vehicle is not None else None,
@@ -513,7 +638,7 @@ class TripPlanService:
         self,
         *,
         base_route: RouteCalculation,
-        stops: list[OptimizationStopRow],
+        waypoints: list[tuple[float, float]],
         vehicle_id: uuid.UUID,
         stop_duration_minutes: int | None,
     ) -> CalculateRouteRequest:
@@ -533,11 +658,7 @@ class TripPlanService:
                 destination=GeoJSONPoint(coordinates=locations.destination.coordinates),
                 origin_label=locations.origin_label,
                 destination_label=locations.destination_label,
-                waypoints=GeoJSONMultiPoint(
-                    coordinates=[
-                        (float(stop.longitude), float(stop.latitude)) for stop in stops
-                    ]
-                ),
+                waypoints=GeoJSONMultiPoint(coordinates=waypoints),
                 waypoint_stop_duration_seconds=(
                     stop_duration_minutes * SECONDS_PER_MINUTE
                     if stop_duration_minutes is not None
@@ -548,6 +669,110 @@ class TripPlanService:
             traffic=base_request.traffic,
             vehicle=vehicle_profile,
         )
+
+    @staticmethod
+    def _leg_offsets(base_route: RouteCalculation, count: int) -> list[Decimal]:
+        """Distance along the base route where each of its waypoints is reached."""
+        response = CalculateRouteResponse.model_validate(base_route.provider_response)
+        legs = (response.routes[0].legs or []) if response.routes else []
+        if len(legs) != count + 1:
+            return [Decimal(0)] * count
+        offsets: list[Decimal] = []
+        cumulative = Decimal(0)
+        for leg in legs[:-1]:
+            cumulative += Decimal(leg.summary.length_in_meters)
+            offsets.append(cumulative)
+        return offsets
+
+    @classmethod
+    def _merge_base_waypoints(
+        cls,
+        *,
+        base_route: RouteCalculation,
+        planned: list[tuple[Decimal, int, tuple[float, float]]],
+    ) -> list[tuple[float, float]]:
+        """Keep the base route's own waypoints (e.g. the map's shipment pickup).
+
+        Planned stops are (route_offset, sequence, coordinate). Base waypoints not
+        already planned are inserted at their position along the base route.
+        """
+        base_request = CalculateRouteRequest.model_validate(base_route.request_data)
+        base_points = base_request.route_planning_locations.waypoints
+        base_coords = [
+            (coord[0], coord[1])
+            for coord in (base_points.coordinates if base_points else [])
+        ]
+        planned_coords = {coord for _, _, coord in planned}
+        entries: list[tuple[Decimal, int, int, tuple[float, float]]] = [
+            (offset, 0, sequence, coord) for offset, sequence, coord in planned
+        ]
+        offsets = cls._leg_offsets(base_route, len(base_coords))
+        for index, (offset, coord) in enumerate(zip(offsets, base_coords, strict=True)):
+            if coord not in planned_coords:
+                entries.append((offset, 1, index, coord))
+        entries.sort(key=lambda entry: (entry[0], entry[1], entry[2]))
+        return [entry[3] for entry in entries]
+
+    @staticmethod
+    def _count_refuel_stops(stops_snapshot: list[dict]) -> int:
+        """Count only fuel stops; pickup and endpoints are not stops."""
+        return sum(1 for stop in stops_snapshot if stop.get("kind") == "refuel")
+
+    @classmethod
+    def _base_waypoint_snapshots(
+        cls,
+        base_route: RouteCalculation,
+        known: list[TripPlanStopSnapshot],
+    ) -> list[TripPlanStopSnapshot]:
+        """Freeze the base route's waypoints (e.g. a map pickup) as stops.
+
+        Waypoints already covered by ``known`` stops are skipped so the same
+        point is not listed twice.
+        """
+        base_request = CalculateRouteRequest.model_validate(base_route.request_data)
+        points = base_request.route_planning_locations.waypoints
+        if points is None:
+            return []
+        known_coords = {(stop.coordinate[0], stop.coordinate[1]) for stop in known}
+        coords = [(coord[0], coord[1]) for coord in points.coordinates]
+        labels = base_request.route_planning_locations.waypoint_labels or []
+        offsets = cls._leg_offsets(base_route, len(coords))
+        return [
+            TripPlanStopSnapshot(
+                sequence=0,
+                kind="pickup",
+                label=(labels[index] if index < len(labels) else None) or "Pickup",
+                coordinate=coord,
+                route_offset_meters=offset,
+            )
+            for index, (offset, coord) in enumerate(zip(offsets, coords, strict=True))
+            if coord not in known_coords
+        ]
+
+    @staticmethod
+    def _merge_snapshots(
+        fuel_stops: list[TripPlanStopSnapshot],
+        shipment_stops: list[TripPlanStopSnapshot],
+    ) -> list[TripPlanStopSnapshot]:
+        """Interleave shipment stops with fuel stops along the route.
+
+        Sequences are renumbered so they stay a single 1..n series.
+        """
+        if not shipment_stops:
+            return fuel_stops
+        merged = sorted(
+            [*fuel_stops, *shipment_stops],
+            key=lambda stop: (
+                stop.route_offset_meters
+                if stop.route_offset_meters is not None
+                else Decimal(0),
+                stop.sequence,
+            ),
+        )
+        return [
+            stop.model_copy(update={"sequence": index})
+            for index, stop in enumerate(merged, start=1)
+        ]
 
     @staticmethod
     def _build_snapshots(

@@ -131,11 +131,15 @@ class Settings(BaseSettings):
     HERE_POI_USE_EXCURSION_DISTANCE_RANKING: bool = False
     HERE_ROUTING_BASE_URL: str = "https://router.hereapi.com"
 
-    # LLM provider for the "Explain with AI" chat (OpenAI-compatible API)
-    LLM_PROVIDER: Literal["groq", "openai"] = "groq"
+    # LLM providers (OpenAI-compatible API). LLM_FALLBACK_PROVIDER is tried when the primary one fails.
+    LLM_PROVIDER: Literal["groq", "openai", "sambanova"] = "groq"
+    LLM_FALLBACK_PROVIDER: Literal["groq", "openai", "sambanova"] | None = "sambanova"
     GROQ_API_KEY: str | None = None
     OPENAI_API_KEY: str | None = None
-    LLM_MODEL: str | None = None
+    SAMBANOVA_API_KEY: str | None = None
+    LLM_GROQ_MODEL: str | None = None
+    LLM_OPENAI_MODEL: str | None = None
+    LLM_SAMBANOVA_MODEL: str | None = None
     LLM_TIMEOUT_SECONDS: int = 60
 
     # Per-domain cache TTLs (lazy invalidation on read)

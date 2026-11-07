@@ -59,7 +59,7 @@ export function DataTable<TData, TValue>({
   })
 
   return (
-    <div className="vector8-surface flex flex-col gap-4 p-4 sm:p-5">
+    <div className="vector8-surface overflow-hidden">
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -115,7 +115,7 @@ export function DataTable<TData, TValue>({
       </Table>
 
       {table.getPageCount() > 1 && (
-        <div className="flex flex-col items-start justify-between gap-4 border-t border-border/80 pt-4 sm:flex-row sm:items-center">
+        <div className="flex flex-col items-start justify-between gap-4 border-t border-border/80 px-4 py-4 sm:flex-row sm:items-center sm:px-5">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="text-sm text-muted-foreground">
               Showing{" "}

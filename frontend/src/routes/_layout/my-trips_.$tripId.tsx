@@ -39,6 +39,7 @@ import {
   formatMiles,
   TRIP_STATUS_CLASSES,
   TRIP_STATUS_LABELS,
+  tripStopMarkerLabels,
 } from "@/lib/tripPlans"
 import {
   formatTripDetour,
@@ -174,9 +175,16 @@ function DriverTripDetail() {
         ) : null}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <SummaryCard label="From" value={trip.origin_label ?? "—"} />
-        <SummaryCard label="To" value={trip.destination_label ?? "—"} />
+      <div className="grid gap-3 sm:grid-cols-3">
+        <SummaryCard label="Start" value={trip.origin_label ?? "—"} />
+        <SummaryCard
+          label="Pickup"
+          value={
+            (trip.stops ?? []).find((stop) => stop.kind === "pickup")?.label ??
+            "—"
+          }
+        />
+        <SummaryCard label="Delivery" value={trip.destination_label ?? "—"} />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -260,7 +268,7 @@ function DriverTripDetail() {
                   }
                 >
                   <TableCell className="tabular-nums">
-                    {stop.sequence}
+                    {tripStopMarkerLabels(allStops)[index]}
                   </TableCell>
                   <TableCell>
                     <span className="font-medium">{stop.label}</span>

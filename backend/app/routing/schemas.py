@@ -208,6 +208,10 @@ class RoutePlanningLocations(BaseModel):
         default=None,
         description="Intermediate waypoints",
     )
+    waypoint_labels: list[str | None] | None = Field(
+        default=None,
+        description="Human-readable addresses, aligned with ``waypoints``",
+    )
     waypoint_stop_duration_seconds: int | None = Field(
         default=None,
         ge=0,

@@ -31,7 +31,7 @@ from app.map.services import (
     TruckRestrictionService,
 )
 from app.providers.exceptions import ProviderError
-from app.providers.geo import GeoJSONLineString
+from app.providers.geo import GeoJSONLineString, GeoJSONMultiPoint
 from app.providers.here.routing import HereRoutingProvider
 from app.providers.schemas import (
     FuelStationData,
@@ -236,23 +236,41 @@ class MapLayerService:
         assert request.pickup is not None
         assert request.delivery is not None
 
-        (pickup, pickup_label), (delivery, delivery_label) = await asyncio.gather(
-            self.geocoding_service.resolve_point(
-                request.pickup,
-                force_refresh=force_refresh,
-            ),
-            self.geocoding_service.resolve_point(
-                request.delivery,
-                force_refresh=force_refresh,
-            ),
+        points = [request.pickup, request.delivery]
+        if request.waypoint is not None:
+            points.insert(1, request.waypoint)
+        resolved = await asyncio.gather(
+            *(
+                self.geocoding_service.resolve_point(
+                    point,
+                    force_refresh=force_refresh,
+                )
+                for point in points
+            )
         )
+
+        origin, origin_label = resolved[0]
+        destination, destination_label = resolved[-1]
+        waypoints = [location for location, _ in resolved[1:-1]]
+        waypoint_labels = [label for _, label in resolved[1:-1]]
 
         return CalculateRouteRequest(
             route_planning_locations=RoutePlanningLocations(
-                origin=pickup,
-                destination=delivery,
-                origin_label=pickup_label,
-                destination_label=delivery_label,
+                origin=origin,
+                destination=destination,
+                origin_label=origin_label,
+                destination_label=destination_label,
+                waypoints=(
+                    GeoJSONMultiPoint(
+                        coordinates=[
+                            (point.coordinates[0], point.coordinates[1])
+                            for point in waypoints
+                        ]
+                    )
+                    if waypoints
+                    else None
+                ),
+                waypoint_labels=waypoint_labels or None,
             )
         )
 

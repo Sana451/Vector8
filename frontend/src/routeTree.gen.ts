@@ -21,11 +21,15 @@ import { Route as LayoutHowItWorksRouteImport } from './routes/_layout/how-it-wo
 import { Route as LayoutMapRouteImport } from './routes/_layout/map'
 import { Route as LayoutMyTripsRouteImport } from './routes/_layout/my-trips'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
+import { Route as LayoutShipmentsRouteImport } from './routes/_layout/shipments'
 import { Route as LayoutTripsRouteImport } from './routes/_layout/trips'
 import { Route as TripTokenRouteImport } from './routes/trip/$token'
 import { Route as LayoutFleetVehicleIdRouteImport } from './routes/_layout/fleet_.$vehicleId'
+import { Route as LayoutFleetNewRouteImport } from './routes/_layout/fleet_.new'
 import { Route as LayoutMyTripsTripIdRouteImport } from './routes/_layout/my-trips_.$tripId'
+import { Route as LayoutShipmentsShipmentIdRouteImport } from './routes/_layout/shipments_.$shipmentId'
 import { Route as LayoutTripsTripIdRouteImport } from './routes/_layout/trips_.$tripId'
+import { Route as LayoutFleetVehicleIdEditRouteImport } from './routes/_layout/fleet_.$vehicleId_.edit'
 
 const LayoutRoute = LayoutRouteImport.update({
   id: '/_layout',
@@ -86,6 +90,11 @@ const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutShipmentsRoute = LayoutShipmentsRouteImport.update({
+  id: '/shipments',
+  path: '/shipments',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutTripsRoute = LayoutTripsRouteImport.update({
   id: '/trips',
   path: '/trips',
@@ -101,16 +110,33 @@ const LayoutFleetVehicleIdRoute = LayoutFleetVehicleIdRouteImport.update({
   path: '/fleet/$vehicleId',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutFleetNewRoute = LayoutFleetNewRouteImport.update({
+  id: '/fleet_/new',
+  path: '/fleet/new',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutMyTripsTripIdRoute = LayoutMyTripsTripIdRouteImport.update({
   id: '/my-trips_/$tripId',
   path: '/my-trips/$tripId',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutShipmentsShipmentIdRoute =
+  LayoutShipmentsShipmentIdRouteImport.update({
+    id: '/shipments_/$shipmentId',
+    path: '/shipments/$shipmentId',
+    getParentRoute: () => LayoutRoute,
+  } as any)
 const LayoutTripsTripIdRoute = LayoutTripsTripIdRouteImport.update({
   id: '/trips_/$tripId',
   path: '/trips/$tripId',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutFleetVehicleIdEditRoute =
+  LayoutFleetVehicleIdEditRouteImport.update({
+    id: '/fleet_/$vehicleId_/edit',
+    path: '/fleet/$vehicleId/edit',
+    getParentRoute: () => LayoutRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof LayoutIndexRoute
@@ -124,11 +150,15 @@ export interface FileRoutesByFullPath {
   '/map': typeof LayoutMapRoute
   '/my-trips': typeof LayoutMyTripsRoute
   '/settings': typeof LayoutSettingsRoute
+  '/shipments': typeof LayoutShipmentsRoute
   '/trips': typeof LayoutTripsRoute
   '/trip/$token': typeof TripTokenRoute
   '/fleet/$vehicleId': typeof LayoutFleetVehicleIdRoute
+  '/fleet/new': typeof LayoutFleetNewRoute
   '/my-trips/$tripId': typeof LayoutMyTripsTripIdRoute
+  '/shipments/$shipmentId': typeof LayoutShipmentsShipmentIdRoute
   '/trips/$tripId': typeof LayoutTripsTripIdRoute
+  '/fleet/$vehicleId/edit': typeof LayoutFleetVehicleIdEditRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -141,12 +171,16 @@ export interface FileRoutesByTo {
   '/map': typeof LayoutMapRoute
   '/my-trips': typeof LayoutMyTripsRoute
   '/settings': typeof LayoutSettingsRoute
+  '/shipments': typeof LayoutShipmentsRoute
   '/trips': typeof LayoutTripsRoute
   '/trip/$token': typeof TripTokenRoute
   '/': typeof LayoutIndexRoute
   '/fleet/$vehicleId': typeof LayoutFleetVehicleIdRoute
+  '/fleet/new': typeof LayoutFleetNewRoute
   '/my-trips/$tripId': typeof LayoutMyTripsTripIdRoute
+  '/shipments/$shipmentId': typeof LayoutShipmentsShipmentIdRoute
   '/trips/$tripId': typeof LayoutTripsTripIdRoute
+  '/fleet/$vehicleId/edit': typeof LayoutFleetVehicleIdEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -161,12 +195,16 @@ export interface FileRoutesById {
   '/_layout/map': typeof LayoutMapRoute
   '/_layout/my-trips': typeof LayoutMyTripsRoute
   '/_layout/settings': typeof LayoutSettingsRoute
+  '/_layout/shipments': typeof LayoutShipmentsRoute
   '/_layout/trips': typeof LayoutTripsRoute
   '/trip/$token': typeof TripTokenRoute
   '/_layout/': typeof LayoutIndexRoute
   '/_layout/fleet_/$vehicleId': typeof LayoutFleetVehicleIdRoute
+  '/_layout/fleet_/new': typeof LayoutFleetNewRoute
   '/_layout/my-trips_/$tripId': typeof LayoutMyTripsTripIdRoute
+  '/_layout/shipments_/$shipmentId': typeof LayoutShipmentsShipmentIdRoute
   '/_layout/trips_/$tripId': typeof LayoutTripsTripIdRoute
+  '/_layout/fleet_/$vehicleId_/edit': typeof LayoutFleetVehicleIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -182,11 +220,15 @@ export interface FileRouteTypes {
     | '/map'
     | '/my-trips'
     | '/settings'
+    | '/shipments'
     | '/trips'
     | '/trip/$token'
     | '/fleet/$vehicleId'
+    | '/fleet/new'
     | '/my-trips/$tripId'
+    | '/shipments/$shipmentId'
     | '/trips/$tripId'
+    | '/fleet/$vehicleId/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -199,12 +241,16 @@ export interface FileRouteTypes {
     | '/map'
     | '/my-trips'
     | '/settings'
+    | '/shipments'
     | '/trips'
     | '/trip/$token'
     | '/'
     | '/fleet/$vehicleId'
+    | '/fleet/new'
     | '/my-trips/$tripId'
+    | '/shipments/$shipmentId'
     | '/trips/$tripId'
+    | '/fleet/$vehicleId/edit'
   id:
     | '__root__'
     | '/_layout'
@@ -218,12 +264,16 @@ export interface FileRouteTypes {
     | '/_layout/map'
     | '/_layout/my-trips'
     | '/_layout/settings'
+    | '/_layout/shipments'
     | '/_layout/trips'
     | '/trip/$token'
     | '/_layout/'
     | '/_layout/fleet_/$vehicleId'
+    | '/_layout/fleet_/new'
     | '/_layout/my-trips_/$tripId'
+    | '/_layout/shipments_/$shipmentId'
     | '/_layout/trips_/$tripId'
+    | '/_layout/fleet_/$vehicleId_/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -321,6 +371,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutSettingsRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/shipments': {
+      id: '/_layout/shipments'
+      path: '/shipments'
+      fullPath: '/shipments'
+      preLoaderRoute: typeof LayoutShipmentsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/trips': {
       id: '/_layout/trips'
       path: '/trips'
@@ -342,6 +399,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutFleetVehicleIdRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/fleet_/new': {
+      id: '/_layout/fleet_/new'
+      path: '/fleet/new'
+      fullPath: '/fleet/new'
+      preLoaderRoute: typeof LayoutFleetNewRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/my-trips_/$tripId': {
       id: '/_layout/my-trips_/$tripId'
       path: '/my-trips/$tripId'
@@ -349,11 +413,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutMyTripsTripIdRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/shipments_/$shipmentId': {
+      id: '/_layout/shipments_/$shipmentId'
+      path: '/shipments/$shipmentId'
+      fullPath: '/shipments/$shipmentId'
+      preLoaderRoute: typeof LayoutShipmentsShipmentIdRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/trips_/$tripId': {
       id: '/_layout/trips_/$tripId'
       path: '/trips/$tripId'
       fullPath: '/trips/$tripId'
       preLoaderRoute: typeof LayoutTripsTripIdRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/fleet_/$vehicleId_/edit': {
+      id: '/_layout/fleet_/$vehicleId_/edit'
+      path: '/fleet/$vehicleId/edit'
+      fullPath: '/fleet/$vehicleId/edit'
+      preLoaderRoute: typeof LayoutFleetVehicleIdEditRouteImport
       parentRoute: typeof LayoutRoute
     }
   }
@@ -366,11 +444,15 @@ interface LayoutRouteChildren {
   LayoutMapRoute: typeof LayoutMapRoute
   LayoutMyTripsRoute: typeof LayoutMyTripsRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
+  LayoutShipmentsRoute: typeof LayoutShipmentsRoute
   LayoutTripsRoute: typeof LayoutTripsRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
   LayoutFleetVehicleIdRoute: typeof LayoutFleetVehicleIdRoute
+  LayoutFleetNewRoute: typeof LayoutFleetNewRoute
   LayoutMyTripsTripIdRoute: typeof LayoutMyTripsTripIdRoute
+  LayoutShipmentsShipmentIdRoute: typeof LayoutShipmentsShipmentIdRoute
   LayoutTripsTripIdRoute: typeof LayoutTripsTripIdRoute
+  LayoutFleetVehicleIdEditRoute: typeof LayoutFleetVehicleIdEditRoute
 }
 
 const LayoutRouteChildren: LayoutRouteChildren = {
@@ -380,11 +462,15 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutMapRoute: LayoutMapRoute,
   LayoutMyTripsRoute: LayoutMyTripsRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
+  LayoutShipmentsRoute: LayoutShipmentsRoute,
   LayoutTripsRoute: LayoutTripsRoute,
   LayoutIndexRoute: LayoutIndexRoute,
   LayoutFleetVehicleIdRoute: LayoutFleetVehicleIdRoute,
+  LayoutFleetNewRoute: LayoutFleetNewRoute,
   LayoutMyTripsTripIdRoute: LayoutMyTripsTripIdRoute,
+  LayoutShipmentsShipmentIdRoute: LayoutShipmentsShipmentIdRoute,
   LayoutTripsTripIdRoute: LayoutTripsTripIdRoute,
+  LayoutFleetVehicleIdEditRoute: LayoutFleetVehicleIdEditRoute,
 }
 
 const LayoutRouteWithChildren =

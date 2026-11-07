@@ -21,6 +21,7 @@ export type LayerType =
   | "detour"
   | "optimization-stops"
   | "optimization-rejected"
+  | "vehicle-positions"
 
 interface LayerConfig {
   id: LayerType
@@ -95,6 +96,14 @@ const LAYER_CONFIGS: LayerConfig[] = [
     label: "Rejected Stations",
     icon: "⛔",
     description: "Stations the optimizer skipped, colored by reason",
+    badge: undefined,
+  },
+  {
+    id: "vehicle-positions",
+    label: "Truck Positions",
+    icon: "🚚",
+    description:
+      "Last known position of each truck (GPS, last trip, or manual)",
     badge: undefined,
   },
 ]

@@ -57,6 +57,15 @@ def get_current_active_superuser(current_user: CurrentUser) -> User:
     return current_user
 
 
+def get_vehicle_editor(current_user: CurrentUser) -> User:
+    """Allow superusers and dispatchers to edit vehicles."""
+    if current_user.is_superuser or current_user.role == UserRole.DISPATCHER:
+        return current_user
+    raise HTTPException(
+        status_code=403, detail="The user doesn't have enough privileges"
+    )
+
+
 def get_dispatcher_or_superuser(current_user: CurrentUser) -> User:
     """Allow dispatchers (and admins) to use the optimizer and read the fleet."""
     if current_user.is_superuser or current_user.role in (

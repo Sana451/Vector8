@@ -323,11 +323,34 @@ class FuelOptimizationChatMessage(BaseModel):
     content: str = Field(min_length=1, max_length=4000)
 
 
+FuelOptimizationAnchorRole = Literal["start", "pickup", "destination"]
+
+
+class FuelOptimizationRouteAnchor(BaseModel):
+    """Start, shipment pickup or destination: not a fuel stop."""
+
+    role: FuelOptimizationAnchorRole
+    label: str = Field(min_length=1, max_length=200)
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    address: str | None = Field(default=None, max_length=500)
+    route_offset_meters: float | None = Field(default=None, ge=0)
+
+
 class FuelOptimizationExplainRequest(BaseModel):
     optimization: FuelOptimizationCalculateResponse
     stop_sequence: int | None = Field(
         default=None,
         description="Itinerary point to focus on; omit to explain the whole plan.",
+    )
+    anchors: list[FuelOptimizationRouteAnchor] = Field(
+        default_factory=list,
+        max_length=3,
+        description="Start, pickup and destination points, included in the context.",
+    )
+    focus_anchor: FuelOptimizationAnchorRole | None = Field(
+        default=None,
+        description="Explain this start, pickup or destination instead of the plan.",
     )
     question: str | None = Field(default=None, min_length=1, max_length=1000)
     history: list[FuelOptimizationChatMessage] = Field(

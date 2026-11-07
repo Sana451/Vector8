@@ -57,6 +57,12 @@ class TripPlan(SQLModel, table=True):
             ForeignKey("vehicles.id", ondelete="CASCADE"), nullable=False, index=True
         )
     )
+    shipment_id: uuid.UUID | None = Field(
+        default=None,
+        sa_column=Column(
+            ForeignKey("shipments.id", ondelete="SET NULL"), nullable=True, index=True
+        ),
+    )
     base_route_id: uuid.UUID = Field(
         sa_column=Column(
             ForeignKey("route_calculations.id", ondelete="CASCADE"),

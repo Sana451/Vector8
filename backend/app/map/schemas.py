@@ -142,6 +142,13 @@ class MapOverviewRequest(BaseModel):
         default=None,
         description="Pickup point, either by address or GeoJSON coordinates",
     )
+    waypoint: MapPointInput | None = Field(
+        default=None,
+        description=(
+            "Intermediate stop between pickup and delivery (e.g. a shipment "
+            "pickup when the vehicle starts elsewhere)"
+        ),
+    )
     delivery: MapPointInput | None = Field(
         default=None,
         description="Delivery point, either by address or GeoJSON coordinates",

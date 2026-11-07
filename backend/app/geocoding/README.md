@@ -85,12 +85,15 @@ Used for address-only payloads.
 class MapPointInput(BaseModel):
     address: str | None = None
     location: GeoJSONPoint | None = None
+    label: str | None = None
 ```
 
 Validation rules:
 
 - valid: `{ "address": "..." }`
 - valid: `{ "location": { "type": "Point", "coordinates": [...] } }`
+- valid: `{ "location": { ... }, "label": "..." }` (label is used as the display name for the point)
+- invalid: `label` without `location`
 - invalid: both fields provided
 - invalid: neither field provided
 

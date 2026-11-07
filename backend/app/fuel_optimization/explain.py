@@ -6,8 +6,10 @@ from typing import Any, Literal
 
 from app.fuel_optimization.schemas import (
     FuelOptimizationAlternativePublic,
+    FuelOptimizationAnchorRole,
     FuelOptimizationCalculateResponse,
     FuelOptimizationItineraryPointPublic,
+    FuelOptimizationRouteAnchor,
 )
 from app.llm import LLMProvider, LLMProviderError
 
@@ -51,8 +53,15 @@ structured; avoid jargon.
 - Explain terms like "effective price" (sticker price plus the cost of the \
 detour and the stop) when you use them.
 - Itinerary "sequence" values are internal and start at 0. Refer to points by \
-"display_name" (Start, Stop 1..N, Destination). The destination is NOT a fuel \
-stop; never call it a stop.
+"display_name" (Start, Stop 1..N, Delivery). Delivery is NOT a fuel stop; \
+never call it a stop. The "anchors" list holds Start, Pickup and Delivery \
+points with addresses; they are NOT fuel stops either. A Pickup is where the \
+cargo is loaded and the route must pass through it.
+- Trip flow: the truck starts EMPTY at Start (its current location, where the \
+cargo is NOT). It drives to Pickup to load the cargo, then drives loaded from \
+Pickup to Delivery, refueling at fuel stops on the way. Never say the cargo is \
+picked up at Start, and describe the trip as Start -> Pickup -> Delivery when \
+a Pickup exists.
 - Use only the names, numbers and points present in the JSON context. Never
   invent station names, mileages or prices; if something is missing, say so.
 - Write plain text: short paragraphs and simple "-" bullets, no Markdown \
@@ -74,12 +83,16 @@ DEFAULT_QUESTIONS = {
     "en": {
         "route": "Explain this fuel plan in simple terms.",
         "stop": "Explain why the optimizer made this stop.",
+        "anchor": "Explain this {name} point and how it affects the route.",
     },
     "ru": {
         "route": "Объясни этот план заправок простыми словами.",
         "stop": "Объясни, почему оптимизатор выбрал эту остановку.",
+        "anchor": "Объясни эту точку ({name}) и как она влияет на маршрут.",
     },
 }
+
+ANCHOR_NAMES = {"start": "Start", "pickup": "Pickup", "destination": "Delivery"}
 
 
 def _num(value: Any) -> Any:
@@ -108,7 +121,7 @@ def _display_name(point: FuelOptimizationItineraryPointPublic) -> str:
     if point.kind == "start":
         return "Start"
     if point.kind == "destination":
-        return "Destination (not a fuel stop)"
+        return "Delivery (not a fuel stop)"
     return f"Stop {point.sequence}"
 
 
@@ -260,8 +273,23 @@ def build_explanation_context(
     return context
 
 
+def _anchor_context(anchor: FuelOptimizationRouteAnchor) -> dict[str, Any]:
+    return {
+        "role": anchor.role,
+        "display_name": ANCHOR_NAMES[anchor.role],
+        "label": anchor.label,
+        "address": anchor.address,
+        "latitude": anchor.latitude,
+        "longitude": anchor.longitude,
+        "route_offset_m": _num(anchor.route_offset_meters),
+    }
+
+
 def _fit_context(
-    result: FuelOptimizationCalculateResponse, stop_sequence: int | None
+    result: FuelOptimizationCalculateResponse,
+    stop_sequence: int | None,
+    anchors: list[FuelOptimizationRouteAnchor] | None = None,
+    focus_anchor: FuelOptimizationAnchorRole | None = None,
 ) -> str:
     """Serialize the context, shrinking it until it fits the LLM request limits."""
     levels: list[dict[str, Any]] = [
@@ -274,6 +302,11 @@ def _fit_context(
     text = ""
     for options in levels:
         context = build_explanation_context(result, stop_sequence, **options)
+        if anchors:
+            context["anchors"] = [_anchor_context(a) for a in anchors]
+        if focus_anchor is not None:
+            context.pop("focused_point", None)
+            context.pop("itinerary", None)
         text = json.dumps(context, ensure_ascii=False, separators=(",", ":"))
         if len(text) <= MAX_CONTEXT_CHARS:
             break
@@ -287,11 +320,24 @@ def build_messages(
     question: str | None,
     history: list[dict[str, str]],
     language: Literal["en", "ru"],
+    anchors: list[FuelOptimizationRouteAnchor] | None = None,
+    focus_anchor: FuelOptimizationAnchorRole | None = None,
 ) -> list[dict[str, str]]:
-    context_json = _fit_context(result, stop_sequence)
+    context_json = _fit_context(result, stop_sequence, anchors, focus_anchor)
     has_focus = '"focused_point"' in context_json
+    focused_anchor = next((a for a in anchors or [] if a.role == focus_anchor), None)
     focus_hint = ""
-    if has_focus:
+    if focused_anchor is not None:
+        name = ANCHOR_NAMES[focused_anchor.role]
+        focus_hint = (
+            f" The user is looking at the {name} point {focused_anchor.label}"
+            " (see anchors). It is NOT a fuel stop: explain its role in the"
+            " trip (for Pickup: where the cargo is loaded and how the route"
+            " passes through it; for Start and Delivery: where the trip begins"
+            " or ends) and how it affects the route. Do not describe it as a"
+            " fuel stop."
+        )
+    elif has_focus:
         focused = next(
             (p for p in result.itinerary if p.sequence == stop_sequence), None
         )
@@ -313,7 +359,13 @@ def build_messages(
         context=context_json,
     )
     language_name = LANGUAGE_NAMES.get(language, "English")
-    default_question = DEFAULT_QUESTIONS[language]["stop" if has_focus else "route"]
+    if focused_anchor is not None:
+        default_question = DEFAULT_QUESTIONS[language]["anchor"].format(
+            name=f"{ANCHOR_NAMES[focused_anchor.role]}: {focused_anchor.label}"
+        )
+    else:
+        focus_key = "stop" if has_focus else "route"
+        default_question = DEFAULT_QUESTIONS[language][focus_key]
     # Restating the language next to the question keeps models from following
     # the language of the (English) context or of earlier messages instead.
     user_content = f"{question or default_question}\n\n(Answer in {language_name}.)"
@@ -325,9 +377,27 @@ def build_messages(
 
 
 def build_fallback_answer(
-    result: FuelOptimizationCalculateResponse, stop_sequence: int | None
+    result: FuelOptimizationCalculateResponse,
+    stop_sequence: int | None,
+    anchors: list[FuelOptimizationRouteAnchor] | None = None,
+    focus_anchor: FuelOptimizationAnchorRole | None = None,
 ) -> str:
+    anchor = next((a for a in anchors or [] if a.role == focus_anchor), None)
+    if anchor is not None:
+        lines = [
+            f"{ANCHOR_NAMES[anchor.role]}: {anchor.label}. "
+            "This point is not a fuel stop."
+        ]
+        if anchor.address:
+            lines.append(f"Address: {anchor.address}.")
+        if anchor.route_offset_meters is not None:
+            lines.append(
+                f"Located {anchor.route_offset_meters / 1609.344:.1f} mi "
+                "along the route from the start."
+            )
+        return "\n".join(lines)
     lines = [result.explanation.summary, result.explanation.outcome]
+
     lines.extend(result.explanation.key_points)
     point = None
     if stop_sequence is not None:
@@ -362,6 +432,8 @@ class FuelOptimizationExplainer:
         question: str | None,
         history: list[dict[str, str]],
         language: Literal["en", "ru"],
+        anchors: list[FuelOptimizationRouteAnchor] | None = None,
+        focus_anchor: FuelOptimizationAnchorRole | None = None,
     ) -> tuple[str, Literal["ai", "fallback"]]:
         """Return (answer, source) where source is "ai" or "fallback"."""
         if self._provider is not None:
@@ -371,6 +443,8 @@ class FuelOptimizationExplainer:
                 question=question,
                 history=history,
                 language=language,
+                anchors=anchors,
+                focus_anchor=focus_anchor,
             )
             for attempt in range(1, MAX_LLM_ATTEMPTS + 1):
                 try:
@@ -385,4 +459,7 @@ class FuelOptimizationExplainer:
                         cause,
                     )
             logger.warning("LLM explanation failed, using fallback")
-        return build_fallback_answer(result, stop_sequence), "fallback"
+        return (
+            build_fallback_answer(result, stop_sequence, anchors, focus_anchor),
+            "fallback",
+        )

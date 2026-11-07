@@ -6,33 +6,21 @@
  */
 
 import { useSuspenseQuery } from "@tanstack/react-query"
-import {
-  createFileRoute,
-  Link,
-  redirect,
-  useNavigate,
-} from "@tanstack/react-router"
-import { ArrowLeft, EllipsisVertical } from "lucide-react"
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
+import { ArrowLeft, Pencil } from "lucide-react"
 import type { ReactNode } from "react"
-import { useState } from "react"
 
 import { UsersService, type VehiclePublic, VehiclesService } from "@/client"
 import DeleteVehicle from "@/components/Fleet/DeleteVehicle"
-import EditVehicle from "@/components/Fleet/EditVehicle"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import useAuth from "@/hooks/useAuth"
 
 export const Route = createFileRoute("/_layout/fleet_/$vehicleId")({
   component: VehicleDetail,
   beforeLoad: async () => {
     const { data: user } = await UsersService.readUserMe()
-    if (!user.is_superuser) {
-      throw redirect({ to: "/" })
+    if (!user.is_superuser && user.role !== "dispatcher") {
     }
   },
   head: () => ({
@@ -77,7 +65,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 function VehicleDetail() {
   const { vehicleId } = Route.useParams()
   const navigate = useNavigate()
-  const [menuOpen, setMenuOpen] = useState(false)
+  const { user } = useAuth()
   const { data: vehicle } = useSuspenseQuery({
     queryKey: ["vehicles", vehicleId],
     queryFn: async () =>
@@ -112,24 +100,22 @@ function VehicleDetail() {
               ID: {vehicle.id}
             </p>
           </div>
-          <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">
-                <EllipsisVertical />
-                Actions
+          <div className="flex items-center gap-2">
+            {user?.is_superuser || user?.role === "dispatcher" ? (
+              <Button variant="outline" asChild>
+                <Link to="/fleet/$vehicleId/edit" params={{ vehicleId }}>
+                  <Pencil className="size-4" />
+                  Edit
+                </Link>
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <EditVehicle
-                vehicle={vehicle}
-                onSuccess={() => setMenuOpen(false)}
-              />
+            ) : null}
+            {user?.is_superuser ? (
               <DeleteVehicle
                 id={vehicle.id}
                 onSuccess={() => navigate({ to: "/fleet" })}
               />
-            </DropdownMenuContent>
-          </DropdownMenu>
+            ) : null}
+          </div>
         </div>
       </div>
 

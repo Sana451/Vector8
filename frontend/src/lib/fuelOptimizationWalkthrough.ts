@@ -18,6 +18,7 @@ import type { Coordinate } from "@/lib/routing"
 
 export type OptimizationStepKind =
   | "start"
+  | "pickup"
   | "stop"
   | "destination"
   | "unreachable_station"
@@ -29,11 +30,15 @@ export interface OptimizationStep {
   status: OptimizationStepStatus
   /** 0-based index within the steps array */
   index: number
+  /** Stop number shown in the UI, excluding the Pickup step */
+  ordinal?: number
   /** Server itinerary sequence this step came from, when available */
   sequence?: number
   label: string
   coordinate: Coordinate
   routeOffsetMeters: number
+  /** Human-readable address; set for "pickup" steps */
+  address?: string
   stationId?: string
   /** Fields only present for "stop" steps */
   fuelBeforeGallons?: number
@@ -62,6 +67,43 @@ interface BuildStepsParams {
   routeCoordinates: Coordinate[]
   fuelStations: Array<FuelStationData>
   initialFuelGallons: number
+  /** Shipment pickup waypoint; becomes a non-fuel "pickup" step. */
+  pickup?: PickupStepInput | null
+  /** Human-readable address of the route start. */
+  startAddress?: string | null
+  /** Human-readable address of the delivery point (route destination). */
+  deliveryAddress?: string | null
+}
+
+export interface PickupStepInput {
+  coordinate: Coordinate
+  label: string
+  address?: string | null
+}
+
+/**
+ * Route distance (meters) from the start to the route vertex nearest to the
+ * given coordinate.
+ */
+export function routeOffsetOfCoordinate(
+  routeCoordinates: Coordinate[],
+  coordinate: Coordinate,
+): number {
+  let best = { distance: Number.POSITIVE_INFINITY, offset: 0 }
+  let traveled = 0
+  for (let i = 0; i < routeCoordinates.length; i++) {
+    const vertex = routeCoordinates[i]
+    const dx = vertex[0] - coordinate[0]
+    const dy = vertex[1] - coordinate[1]
+    const distance = dx * dx + dy * dy
+    if (distance < best.distance) {
+      best = { distance, offset: traveled }
+    }
+    if (i < routeCoordinates.length - 1) {
+      traveled += segmentLengthMeters(vertex, routeCoordinates[i + 1])
+    }
+  }
+  return best.offset
 }
 
 /**
@@ -81,9 +123,58 @@ export function calculateRouteTotalDistanceMeters(
 }
 
 /**
+ * Build the ordered walkthrough steps, including the shipment pickup stop
+ * (placed by its position along the route).
+ */
+export function buildOptimizationSteps(
+  params: BuildStepsParams,
+): OptimizationStep[] {
+  const { pickup, routeCoordinates, startAddress, deliveryAddress } = params
+  const steps = buildBaseSteps(params).map((step) => {
+    if (step.kind === "start") {
+      return { ...step, label: "Start", address: startAddress ?? undefined }
+    }
+    if (step.kind === "destination") {
+      return {
+        ...step,
+        label: "Delivery",
+        address: deliveryAddress ?? undefined,
+      }
+    }
+    return step
+  })
+  if (!pickup) {
+    return steps.map((step, index) => ({ ...step, index, ordinal: index }))
+  }
+
+  const pickupStep: OptimizationStep = {
+    kind: "pickup",
+    status: "reached",
+    index: 0,
+    label: pickup.label,
+    coordinate: pickup.coordinate,
+    routeOffsetMeters: routeOffsetOfCoordinate(
+      routeCoordinates,
+      pickup.coordinate,
+    ),
+    address: pickup.address ?? undefined,
+  }
+  const insertAt = steps.findIndex(
+    (step) => step.routeOffsetMeters > pickupStep.routeOffsetMeters,
+  )
+  const position = insertAt === -1 ? steps.length : insertAt
+  steps.splice(position, 0, pickupStep)
+  let pickupsBefore = 0
+  return steps.map((step, index) => {
+    if (step.kind === "pickup") pickupsBefore += 1
+    return { ...step, index, ordinal: index - pickupsBefore }
+  })
+}
+
+/**
  * Build the ordered walkthrough steps from the server itinerary.
  */
-export function buildOptimizationSteps({
+function buildBaseSteps({
   response,
   routeCoordinates,
   fuelStations,
@@ -246,7 +337,7 @@ export function buildOptimizationSteps({
       kind: "destination",
       status: "reached",
       index: steps.length,
-      label: "Destination",
+      label: "Delivery",
       coordinate: destinationCoordinate,
       routeOffsetMeters: totalRouteDistanceMeters,
       fuelGallons: Number(response.summary.remaining_fuel_gallons),

@@ -22,6 +22,8 @@ const SECONDS_PER_MINUTE = 60
 interface RefineRouteControlProps {
   /** Optimization run to turn into a trip plan. */
   optimizationRunId?: string | null
+  /** Shipment selected on the map; it becomes PLANNED when the trip is saved. */
+  shipmentId?: string | null
   tripPlan: TripPlanDetailPublic | null
   onTripPlanChange: (tripPlan: TripPlanDetailPublic) => void
 }
@@ -41,6 +43,7 @@ function formatDelta(value: number, format: (value: number) => string): string {
 
 export function RefineRouteControl({
   optimizationRunId,
+  shipmentId,
   tripPlan,
   onTripPlanChange,
 }: RefineRouteControlProps) {
@@ -54,7 +57,10 @@ export function RefineRouteControl({
       if (!optimizationRunId) {
         throw new Error("No optimization run to refine")
       }
-      return createTripPlan({ optimization_run_id: optimizationRunId })
+      return createTripPlan({
+        optimization_run_id: optimizationRunId,
+        shipment_id: shipmentId || null,
+      })
     },
     onSuccess: (data) => {
       onTripPlanChange(data)

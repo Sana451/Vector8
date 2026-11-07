@@ -181,3 +181,6 @@ fabric.properties
 
 # Serena plugin
 .serena
+
+# Invoices examples
+backend/invoices_examples/

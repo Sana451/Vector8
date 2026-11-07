@@ -21,6 +21,7 @@ fileConfig(config.config_file_name)
 from app.models import SQLModel  # noqa
 from app.core.config import settings  # noqa
 from app.fleet.models import Vehicle  # noqa
+from app.fleet.positions import VehiclePosition  # noqa
 from app.fuel_optimization.models import FuelOptimizationRun, FuelOptimizationStop  # noqa
 from app.routing.models import RouteCalculation  # noqa
 from app.map.models import (  # noqa
@@ -31,6 +32,11 @@ from app.map.models import (  # noqa
 )
 from app.trip_plans.models import TripPlan  # noqa
 from app.drivers.models import DriverProfile  # noqa
+from app.shipments.models import (  # noqa
+    Shipment,
+    ShipmentDocument,
+    ShipmentStop,
+)
 
 target_metadata = SQLModel.metadata
 

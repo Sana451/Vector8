@@ -63,6 +63,10 @@ Backend docs: [backend/README.md](./backend/README.md).
 
 Frontend docs: [frontend/README.md](./frontend/README.md).
 
+## Shipments
+
+Rate confirmation intake and trip planning: [SHIPMENTS.md](./SHIPMENTS.md).
+
 ## Deployment
 
 FastAPI Cloud deployment: [deployment.md](./deployment.md).

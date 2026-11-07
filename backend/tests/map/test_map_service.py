@@ -316,6 +316,32 @@ class TestMapLayerServiceSuccess:
         assert geocoding.calls[1]["point"].location is not None
 
     @pytest.mark.asyncio
+    async def test_route_overview_passes_waypoint_between_ends(self):
+        """Waypoint (e.g. shipment pickup) is routed between start and finish."""
+        routing = FakeRoutingService(response=ROUTE_RESPONSE)
+        service = build_service(routing=routing)
+
+        await service.get_overview(
+            MapOverviewRequest(
+                pickup=MapPointInput(
+                    location=GeoJSONPoint(coordinates=(-96.67, 33.10))
+                ),
+                waypoint=MapPointInput(
+                    location=GeoJSONPoint(coordinates=(-100.0, 35.0))
+                ),
+                delivery=MapPointInput(
+                    location=GeoJSONPoint(coordinates=(-123.04, 44.08))
+                ),
+            )
+        )
+
+        planning = routing.calls[0]["request"].route_planning_locations
+        assert planning.origin.coordinates == (-96.67, 33.10)
+        assert planning.destination.coordinates == (-123.04, 44.08)
+        assert planning.waypoints is not None
+        assert list(planning.waypoints.coordinates) == [(-100.0, 35.0)]
+
+    @pytest.mark.asyncio
     async def test_force_refresh_propagates_to_all_services(self):
         """force_refresh bypasses geocoding and downstream caches."""
         geocoding = FakeGeocodingService(

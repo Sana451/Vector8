@@ -84,14 +84,14 @@ class GeocodingService:
     ) -> tuple[GeoJSONPoint, str | None]:
         """Return the point together with a human-readable address label.
 
-        The label is ``None`` when the point was given as raw coordinates.
+        For coordinates the label is the optional ``label`` supplied by the client.
         """
         if point.location is not None:
             logger.info(
                 "Point already provided as coordinates",
                 coordinates=point.location.coordinates,
             )
-            return point.location, None
+            return point.location, point.label
 
         result = await self.search(point.address or "", force_refresh=force_refresh)
         logger.info(

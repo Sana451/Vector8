@@ -10,11 +10,18 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from app.core.config import settings
+from app.fuel_optimization.models import FuelOptimizationRun
 from app.main import app
 from app.models import UserRole
+from app.providers.geo import GeoJSONMultiPoint, GeoJSONPoint
 from app.routing.dependencies import get_routing_service
 from app.routing.exceptions import RoutingNoRouteFoundError
-from app.routing.schemas import CalculateRouteRequest, CalculateRouteResponse
+from app.routing.models import RouteCalculation
+from app.routing.schemas import (
+    CalculateRouteRequest,
+    CalculateRouteResponse,
+    RoutePlanningLocations,
+)
 from app.trip_plans.domain import TripPlanStatus
 from tests.trip_plans.factories import (
     ROUTE_RESPONSE,
@@ -104,6 +111,43 @@ class TestCreate:
         waypoints = routing.requests[0].route_planning_locations.waypoints
         assert waypoints is not None
         assert [tuple(point) for point in waypoints.coordinates] == [(-93.5, 40.0)]
+
+    def test_base_route_pickup_waypoint_survives_refine(
+        self, client: TestClient, db: Session, routing: FakeRoutingService
+    ) -> None:
+        dispatcher, password = create_user_with_role(db, UserRole.DISPATCHER)
+        run_id = make_run(db)
+        run = db.get(FuelOptimizationRun, run_id)
+        assert run is not None
+        base_route = db.get(RouteCalculation, run.route_id)
+        assert base_route is not None
+        base_route.request_data = CalculateRouteRequest(
+            route_planning_locations=RoutePlanningLocations(
+                origin=GeoJSONPoint(coordinates=(-97.0, 40.0)),
+                destination=GeoJSONPoint(coordinates=(-90.0, 40.0)),
+                waypoints=GeoJSONMultiPoint(coordinates=[(-95.0, 40.0)]),
+            )
+        ).model_dump(mode="json")
+        db.add(base_route)
+        db.commit()
+
+        response = client.post(
+            f"{PREFIX}/",
+            headers=headers_for(client, dispatcher, password),
+            json={"optimization_run_id": str(run_id)},
+        )
+
+        assert response.status_code == 201
+        waypoints = routing.requests[-1].route_planning_locations.waypoints
+        assert waypoints is not None
+        assert [tuple(point) for point in waypoints.coordinates] == [
+            (-93.5, 40.0),
+            (-95.0, 40.0),
+        ]
+        pickups = [
+            stop for stop in response.json()["stops"] if stop["kind"] == "pickup"
+        ]
+        assert [stop["label"] for stop in pickups] == ["Pickup"]
 
     def test_stop_duration_is_sent_in_seconds(
         self, client: TestClient, db: Session, routing: FakeRoutingService

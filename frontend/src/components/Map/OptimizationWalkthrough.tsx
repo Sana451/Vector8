@@ -16,6 +16,10 @@ import {
 } from "lucide-react"
 import { useRef, useState } from "react"
 import type {
+  FuelOptimizationAnchorRole,
+  FuelOptimizationRouteAnchor,
+} from "@/api/fuelOptimization"
+import type {
   FuelOptimizationCalculateResponse_Output as FuelOptimizationCalculateResponse,
   FuelOptimizationEconomicsPublic_Output as FuelOptimizationEconomicsPublic,
   FuelOptimizationFailurePublic_Output as FuelOptimizationFailurePublic,
@@ -52,6 +56,7 @@ interface OptimizationWalkthroughProps {
   /** Trip plan holding the refined route, if one has been built. */
   tripPlan?: TripPlanDetailPublic | null
   onTripPlanChange?: (tripPlan: TripPlanDetailPublic) => void
+  shipmentId?: string | null
 }
 
 function formatGallons(value: number | undefined): string {
@@ -95,7 +100,8 @@ function stepBadgeLabel(step: OptimizationStep): string {
   if (step.kind === "checkpoint") return "✓"
   if (step.kind === "start") return "S"
   if (step.kind === "destination") return "D"
-  return String(step.index)
+  if (step.kind === "pickup") return "P"
+  return String(step.ordinal ?? step.index)
 }
 
 export function OptimizationWalkthrough({
@@ -115,11 +121,12 @@ export function OptimizationWalkthrough({
   explainPortalContainer,
   tripPlan = null,
   onTripPlanChange,
+  shipmentId,
 }: OptimizationWalkthroughProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
-  const [explainTarget, setExplainTarget] = useState<"plan" | "step" | null>(
-    null,
-  )
+  const [explainTarget, setExplainTarget] = useState<
+    "plan" | "step" | FuelOptimizationAnchorRole | null
+  >(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const { dragHandlers, dragStyle, setOffset } = useDraggable(panelRef)
   const { sizeStyle, startResize } = useResizable(panelRef, {
@@ -168,6 +175,38 @@ export function OptimizationWalkthrough({
       : undefined
   const canGoBack = activeStepIndex > 0
   const canGoNext = activeStepIndex < steps.length - 1
+  const anchorRoleOf = (
+    kind: OptimizationStep["kind"],
+  ): FuelOptimizationAnchorRole | null =>
+    kind === "start"
+      ? "start"
+      : kind === "pickup"
+        ? "pickup"
+        : kind === "destination"
+          ? "destination"
+          : null
+  const anchorRole = anchorRoleOf(activeStep.kind)
+  const anchors: FuelOptimizationRouteAnchor[] = steps.flatMap((step) => {
+    const role = anchorRoleOf(step.kind)
+    return role
+      ? [
+          {
+            role,
+            label: step.label,
+            latitude: step.coordinate[1],
+            longitude: step.coordinate[0],
+            address: step.address ?? null,
+            route_offset_meters: step.routeOffsetMeters,
+          },
+        ]
+      : []
+  })
+  const explainFocusAnchor =
+    explainTarget === "start" ||
+    explainTarget === "pickup" ||
+    explainTarget === "destination"
+      ? explainTarget
+      : null
 
   return (
     <div
@@ -425,6 +464,52 @@ export function OptimizationWalkthrough({
             </div>
           )}
 
+          {anchorRole !== null && (
+            <div className="mt-2 text-xs space-y-1">
+              {activeStep.address && (
+                <div className="flex justify-between gap-3">
+                  <span className="text-muted-foreground">Address</span>
+                  <span className="font-medium text-right">
+                    {activeStep.address}
+                  </span>
+                </div>
+              )}
+              {distanceToNextMeters !== undefined && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    Distance to next stop
+                  </span>
+                  <span className="font-medium">
+                    {formatMetersAsMiles(distanceToNextMeters)}
+                  </span>
+                </div>
+              )}
+              {distanceToDestinationMeters !== undefined && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    Distance to destination
+                  </span>
+                  <span className="font-medium">
+                    {formatMetersAsMiles(distanceToDestinationMeters)}
+                  </span>
+                </div>
+              )}
+              {optimization && (
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setExplainTarget(anchorRole)}
+                    className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Explain this point with AI
+                  </button>
+                  <ExplainLanguageSelect />
+                </div>
+              )}
+            </div>
+          )}
+
           {activeStep.status === "unreachable" && (
             <div className="mt-2 text-xs space-y-1">
               <div className="font-semibold text-red-600 dark:text-red-400">
@@ -506,6 +591,7 @@ export function OptimizationWalkthrough({
       {onTripPlanChange && (
         <RefineRouteControl
           optimizationRunId={optimization?.optimization_run_id}
+          shipmentId={shipmentId}
           tripPlan={tripPlan}
           onTripPlanChange={onTripPlanChange}
         />
@@ -553,7 +639,13 @@ export function OptimizationWalkthrough({
           stopSequence={
             explainTarget === "step" ? activeStep.sequence : undefined
           }
-          stopLabel={explainTarget === "step" ? activeStep.label : undefined}
+          stopLabel={
+            explainTarget === "step" || explainFocusAnchor !== null
+              ? activeStep.label
+              : undefined
+          }
+          anchors={anchors}
+          focusAnchor={explainFocusAnchor}
           portalContainer={explainPortalContainer}
         />
       )}

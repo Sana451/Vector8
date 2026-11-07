@@ -26,10 +26,14 @@ class MapPointInput(BaseModel):
     location: GeoJSONPoint | None = Field(
         default=None, description="GeoJSON Point coordinates"
     )
+    label: str | None = Field(
+        default=None,
+        description="Human-readable label for coordinates, e.g. the selected address",
+    )
 
-    @field_validator("address")
+    @field_validator("address", "label")
     @classmethod
-    def normalize_address(cls, value: str | None) -> str | None:
+    def normalize_text(cls, value: str | None) -> str | None:
         if value is None:
             return None
         value = value.strip()
@@ -39,6 +43,8 @@ class MapPointInput(BaseModel):
     def validate_exclusive_fields(self) -> MapPointInput:
         if (self.address is None) == (self.location is None):
             raise ValueError("Either address or location must be provided.")
+        if self.label is not None and self.location is None:
+            raise ValueError("label is only allowed together with location.")
         return self
 
 

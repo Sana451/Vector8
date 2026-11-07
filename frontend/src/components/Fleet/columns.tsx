@@ -1,12 +1,12 @@
 import type { ColumnDef } from "@tanstack/react-table"
-import { Check, Copy } from "lucide-react"
+import { Check, Copy, Trash2 } from "lucide-react"
 
 import type { VehiclePublic } from "@/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import { cn } from "@/lib/utils"
-import { VehicleActionsMenu } from "./VehicleActionsMenu"
 
 function CopyId({ id }: { id: string }) {
   const [copiedText, copy] = useCopyToClipboard()
@@ -43,7 +43,65 @@ const statusVariant: Record<
   maintenance: "destructive",
 }
 
-export const columns: ColumnDef<VehiclePublic>[] = [
+export function getColumns({
+  selectedIds,
+  allSelected,
+  onToggleOne,
+  onToggleAll,
+  onDelete,
+  canDelete,
+}: {
+  selectedIds: Set<string>
+  allSelected: boolean
+  onToggleOne: (id: string, checked: boolean) => void
+  onToggleAll: (checked: boolean) => void
+  onDelete: (vehicle: VehiclePublic) => void
+  canDelete: boolean
+}): ColumnDef<VehiclePublic>[] {
+  if (!canDelete) {
+    return baseColumns
+  }
+  return [
+    {
+      id: "select",
+      header: () => (
+        <Checkbox
+          checked={allSelected}
+          onCheckedChange={(value) => onToggleAll(value === true)}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={selectedIds.has(row.original.id)}
+          onCheckedChange={(value) =>
+            onToggleOne(row.original.id, value === true)
+          }
+          aria-label="Select row"
+        />
+      ),
+    },
+    ...baseColumns,
+    {
+      id: "actions",
+      header: () => <span className="sr-only">Actions</span>,
+      cell: ({ row }) => (
+        <div className="flex justify-end">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Delete vehicle"
+            onClick={() => onDelete(row.original)}
+          >
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        </div>
+      ),
+    },
+  ]
+}
+
+const baseColumns: ColumnDef<VehiclePublic>[] = [
   {
     accessorKey: "id",
     header: "ID",
@@ -112,14 +170,5 @@ export const columns: ColumnDef<VehiclePublic>[] = [
         </span>
       )
     },
-  },
-  {
-    id: "actions",
-    header: () => <span className="sr-only">Actions</span>,
-    cell: ({ row }) => (
-      <div className="flex justify-end">
-        <VehicleActionsMenu vehicle={row.original} />
-      </div>
-    ),
   },
 ]
